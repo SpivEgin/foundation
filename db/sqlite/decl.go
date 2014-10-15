@@ -38,8 +38,12 @@ type SQLiteCollection struct {
 }
 
 type SQLite struct {
-	connection      *sqlite3.Conn
-	connectionMutex sync.RWMutex
+	uri string
+
+	connectionPool  []*sqlite3.Conn
+	connectionMutex []sync.RWMutex
+
+	transactions    []int
 
 	attributeTypes      map[string]map[string]string
 	attributeTypesMutex sync.RWMutex

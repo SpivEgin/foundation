@@ -98,3 +98,21 @@ func (it *SQLite) RawQuery(query string) (map[string]interface{}, error) {
 
 	return result[0], nil
 }
+
+
+
+func (it *SQLite) GetConnection() (*sqlite3.Conn, error) {
+
+}
+
+func (it *SQLite) GetTransactionConnection(transactionIdx int) (*sqlite3.Conn, error) {
+
+}
+
+func (it *SQLite) BeginTransaction(transactionIdx int) (*sqlite3.Conn, error) {
+
+}
+
+func (it *SQLite) EndTransaction(transactionIdx int) (*sqlite3.Conn, error) {
+
+}

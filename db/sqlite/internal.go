@@ -9,7 +9,7 @@ import (
 	"github.com/ottemo/foundation/utils"
 )
 
-// exec routines
+// executes synchronized SQL with returning last inserted id
 func connectionExecWLastInsertId(SQL string, args ...interface{}) (int64, error) {
 	dbEngine.connectionMutex.Lock()
 	defer dbEngine.connectionMutex.Unlock()
@@ -22,7 +22,7 @@ func connectionExecWLastInsertId(SQL string, args ...interface{}) (int64, error)
 	return 0, err
 }
 
-// exec routines
+// executes synchronized SQL with returning amount of affected rows
 func connectionExecWAffected(SQL string, args ...interface{}) (int, error) {
 	dbEngine.connectionMutex.Lock()
 	defer dbEngine.connectionMutex.Unlock()
@@ -35,7 +35,7 @@ func connectionExecWAffected(SQL string, args ...interface{}) (int, error) {
 	return 0, err
 }
 
-// exec routines
+// executes synchronized SQL
 func connectionExec(SQL string, args ...interface{}) error {
 	dbEngine.connectionMutex.Lock()
 	defer dbEngine.connectionMutex.Unlock()
@@ -43,13 +43,13 @@ func connectionExec(SQL string, args ...interface{}) error {
 	return dbEngine.connection.Exec(SQL, args...)
 }
 
-// query routines
+// executes SQL with setting lock to connection
 func connectionQuery(SQL string) (*sqlite3.Stmt, error) {
 	dbEngine.connectionMutex.Lock()
 	return dbEngine.connection.Query(SQL)
 }
 
-// close sqlite3 statement routine
+// closes SQL query statement with unlocking connection
 func closeStatement(statement *sqlite3.Stmt) {
 	if statement != nil {
 		statement.Close()

@@ -14,11 +14,11 @@ func ConfigGetValue(Path string) interface{} {
 }
 
 // returns value from ini file or "" if not present
-func IniValue(Path string) string {
+func IniGetValue(Path string, orValue string) string {
 	if iniConfig := GetIniConfig(); iniConfig != nil {
-		return iniConfig.GetValue(Path, "")
+		return iniConfig.GetValue(Path, orValue)
 	}
-	return ""
+	return orValue
 }
 
 // logs general purpose message

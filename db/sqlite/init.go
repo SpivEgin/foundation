@@ -1,9 +1,11 @@
 package sqlite
 
 import (
+	"sync"
 	"github.com/mxk/go-sqlite/sqlite3"
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
+	"github.com/ottemo/foundation/utils"
 )
 
 var (
@@ -23,18 +25,20 @@ func init() {
 func (it *SQLite) Startup() error {
 
 	// opening connection
-	var uri string = "ottemo.db"
+	it.uri := env.IniGetValue("db.sqlite3.uri", "ottemo.db")
 
-	if iniConfig := env.GetIniConfig(); iniConfig != nil {
-		if iniValue := iniConfig.GetValue("db.sqlite3.uri", uri); iniValue != "" {
-			uri = iniValue
+	it.poolSize       := utils.InterfaceToInt( env.IniGetValue("db.sqlite3.poolSize", "1") )
+	it.maxConnections := utils.InterfaceToInt( env.IniGetValue("db.sqlite3.maxConnectinos", "1") )
+
+	it.connectionPool  = make([]*sqlite3.Conn, 0, it.poolSize)
+	it.connectionMutex = make([]sync.RWMutex,  0, it.poolSize)
+
+	for i:=0; i<it.poolSize; i++ {
+		if newConnection, err := sqlite3.Open(it.uri); err == nil {
+			it.connectionPool = append(it.connectionPool, newConnection)
+		} else {
+			return env.ErrorDispatch(err)
 		}
-	}
-
-	if newConnection, err := sqlite3.Open(uri); err == nil {
-		it.connection = newConnection
-	} else {
-		return env.ErrorDispatch(err)
 	}
 
 	// making column info table
