@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"sync"
 	"strings"
 
 	sqlite3 "github.com/mxk/go-sqlite/sqlite3"
@@ -9,10 +10,63 @@ import (
 	"github.com/ottemo/foundation/utils"
 )
 
+// locks given connection
+func connectionLock(transactionId string, connection *sqlite3.Conn) *sqlite3.Conn {
+	dbEngine.connectionMutex[connection].Lock()
+	return connection
+}
+
+// locks given connection
+func connectionUnlock(transactionId string, connection *sqlite3.Conn) *sqlite3.Conn {
+	dbEngine.connectionMutex[connection].Unlock()
+	return connection
+}
+
+// returns released DB connection to make SQL Query
+func getConnection(transactionId string) *sqlite3.Conn {
+
+	dbEngine.engineMutex.Lock()
+	defer dbEngine.engineMutex.Unlock()
+
+	if transactionId != "" {
+		if transactionConnection, present := dbEngine.transactions[transactionId]; present {
+			return transactionConnection
+		}
+	}
+
+	bestCandidate := dbEngine.connectionPool[0]
+	lowestQueue := 0
+
+	for connection, connectionMutex := range dbEngine.connectionMutex {
+		connectionQueue := connectionMutex.readerCount
+
+		if lowestQueue == 0 || lowestQueue > connectionQueue {
+			lowestQueue = connectionQueue
+			bestCandidate = connection
+		}
+
+		if connectionQueue == 0 {
+			break
+		}
+	}
+
+	if lowestQueue != 0 && dbEngine.maxConnections < len(dbEngine.connectionPool) {
+		newConnection, err := sqlite3.Open(dbEngine.uri)
+		if err == nil {
+			dbEngine.connectionPool = append(dbEngine.connectionPool, newConnection)
+			dbEngine.connectionMutex[newConnection] = new(sync.RWMutex)
+
+			bestCandidate = newConnection
+		}
+	}
+
+	return bestCandidate
+}
+
 // executes synchronized SQL with returning last inserted id
-func connectionExecWLastInsertId(SQL string, args ...interface{}) (int64, error) {
-	dbEngine.connectionMutex.Lock()
-	defer dbEngine.connectionMutex.Unlock()
+func connectionExecWLastInsertId(transactionId string, SQL string, args ...interface{}) (int64, error) {
+	connection := connectionLock(transactionId, getConnection(transactionId))
+	defer connectionUnlock(transactionId, connection)
 
 	err := dbEngine.connection.Exec(SQL, args...)
 	if err != nil {
@@ -23,38 +77,38 @@ func connectionExecWLastInsertId(SQL string, args ...interface{}) (int64, error)
 }
 
 // executes synchronized SQL with returning amount of affected rows
-func connectionExecWAffected(SQL string, args ...interface{}) (int, error) {
-	dbEngine.connectionMutex.Lock()
-	defer dbEngine.connectionMutex.Unlock()
+func connectionExecWAffected(transactionId string, SQL string, args ...interface{}) (int, error) {
+	connection := connectionLock(transactionId, getConnection(transactionId))
+	defer connectionUnlock(transactionId, connection)
 
-	err := dbEngine.connection.Exec(SQL, args...)
+	err := connection.Exec(SQL, args...)
 	if err != nil {
-		return dbEngine.connection.RowsAffected(), err
+		return connection.RowsAffected(), err
 	}
 
 	return 0, err
 }
 
 // executes synchronized SQL
-func connectionExec(SQL string, args ...interface{}) error {
-	dbEngine.connectionMutex.Lock()
-	defer dbEngine.connectionMutex.Unlock()
+func connectionExec(transactionId string, SQL string, args ...interface{}) error {
+	connection := connectionLock(transactionId, getConnection(transactionId))
+	defer connectionUnlock(transactionId, connection)
 
-	return dbEngine.connection.Exec(SQL, args...)
+	return connection.Exec(SQL, args...)
 }
 
 // executes SQL with setting lock to connection
-func connectionQuery(SQL string) (*sqlite3.Stmt, error) {
-	dbEngine.connectionMutex.Lock()
-	return dbEngine.connection.Query(SQL)
+func connectionQuery(transactionId string, SQL string) (*sqlite3.Stmt, error) {
+	connection := connectionLock(transactionId, getConnection(transactionId))
+	return connection.Query(SQL)
 }
 
 // closes SQL query statement with unlocking connection
-func closeStatement(statement *sqlite3.Stmt) {
+func closeStatement(transactionId string, statement *sqlite3.Stmt) {
 	if statement != nil {
 		statement.Close()
 	}
-	dbEngine.connectionMutex.Unlock()
+	connectionUnlock(transactionId, dbEngine.statements[statement.Conn()])
 }
 
 // formats SQL query error for output to log

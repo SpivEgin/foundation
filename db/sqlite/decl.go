@@ -35,16 +35,34 @@ type SQLiteCollection struct {
 	Order         []string
 
 	Limit string
+
+	TransactionId string
 }
 
 type SQLite struct {
 	uri string
 
-	connectionPool  []*sqlite3.Conn
-	connectionMutex []sync.RWMutex
-
-	transactions    []int
-
+	// cached collection attributes array
 	attributeTypes      map[string]map[string]string
 	attributeTypesMutex sync.RWMutex
+
+	// connection engine have
+	connectionPool  []*sqlite3.Conn
+	connectionMutex map[*sqlite3.Conn]*sync.RWMutex
+
+	// binding statement to connection
+	statements      map[*sqlite3.Stmt]*sqlite3.Conn
+
+	// binding of transaction to connection and "sub-mutex"
+	// transaction holds connection until finish
+	// so queries within transaction need own "sub-mutex"
+	transactions     map[string]*sqlite3.Conn
+	transactionMutex map[string]*sync.RWMutex
+
+	// connection allocate limits
+	maxConnections int
+	poolSize       int
+
+	// to synchronize write access struct variables
+	engineMutex sync.RWMutex
 }

@@ -53,8 +53,8 @@ func (it *SQLiteCollection) Iterate(iteratorFunc func(record map[string]interfac
 		env.Log("sqlite", env.LOG_PREFIX_INFO, SQL)
 	}
 
-	stmt, err := connectionQuery(SQL)
-	defer closeStatement(stmt)
+	stmt, err := connectionQuery(it.TransactionId, SQL)
+	defer closeStatement(it.TransactionId, stmt)
 
 	if err == nil {
 		for ; err == nil; err = stmt.Next() {
@@ -91,8 +91,8 @@ func (it *SQLiteCollection) Distinct(columnName string) ([]interface{}, error) {
 
 	it.ResultColumns = prevResultColumns
 
-	stmt, err := connectionQuery(SQL)
-	defer closeStatement(stmt)
+	stmt, err := connectionQuery(it.TransactionId, SQL)
+	defer closeStatement(it.TransactionId, stmt)
 
 	result := make([]interface{}, 0)
 	if err == nil {
@@ -128,8 +128,8 @@ func (it *SQLiteCollection) Count() (int, error) {
 		env.Log("sqlite", env.LOG_PREFIX_INFO, SQL)
 	}
 
-	stmt, err := connectionQuery(SQL)
-	defer closeStatement(stmt)
+	stmt, err := connectionQuery(it.TransactionId, SQL)
+	defer closeStatement(it.TransactionId, stmt)
 
 	if err == nil {
 		row := make(sqlite3.RowMap)
@@ -205,7 +205,7 @@ func (it *SQLiteCollection) Save(item map[string]interface{}) (string, error) {
 	}
 
 	if !UUID_ID {
-		newIdInt64, err := connectionExecWLastInsertId(SQL, values...)
+		newIdInt64, err := connectionExecWLastInsertId(it.TransactionId, SQL, values...)
 		if err != nil {
 			return "", sqlError(SQL, err)
 		}
@@ -214,7 +214,7 @@ func (it *SQLiteCollection) Save(item map[string]interface{}) (string, error) {
 		newIdString := strconv.FormatInt(newIdInt64, 10)
 		item["_id"] = newIdString
 	} else {
-		err := connectionExec(SQL, values...)
+		err := connectionExec(it.TransactionId, SQL, values...)
 		if err != nil {
 			return "", sqlError(SQL, err)
 		}
@@ -234,7 +234,7 @@ func (it *SQLiteCollection) Delete() (int, error) {
 		env.Log("sqlite", env.LOG_PREFIX_INFO, SQL)
 	}
 
-	affected, err := connectionExecWAffected(SQL)
+	affected, err := connectionExecWAffected(it.TransactionId, SQL)
 
 	return affected, env.ErrorDispatch(err)
 }
@@ -247,7 +247,7 @@ func (it *SQLiteCollection) DeleteById(id string) error {
 		env.Log("sqlite", env.LOG_PREFIX_INFO, SQL)
 	}
 
-	return connectionExec(SQL)
+	return connectionExec(it.TransactionId, SQL)
 }
 
 // setups filter group params for collection
@@ -374,8 +374,8 @@ func (it *SQLiteCollection) ListColumns() map[string]string {
 
 	// updating column into collection
 	SQL := "SELECT column, type FROM " + COLLECTION_NAME_COLUMN_INFO + " WHERE collection = '" + it.Name + "'"
-	stmt, err := connectionQuery(SQL)
-	defer closeStatement(stmt)
+	stmt, err := connectionQuery(it.TransactionId, SQL)
+	defer closeStatement(it.TransactionId, stmt)
 
 	row := make(sqlite3.RowMap)
 	for ; err == nil; err = stmt.Next() {
@@ -461,7 +461,7 @@ func (it *SQLiteCollection) AddColumn(columnName string, columnType string, inde
 		env.Log("sqlite", env.LOG_PREFIX_INFO, SQL)
 	}
 
-	err = connectionExec(SQL)
+	err = connectionExec(it.TransactionId, SQL)
 	if err != nil {
 		return sqlError(SQL, err)
 	}
@@ -482,7 +482,7 @@ func (it *SQLiteCollection) AddColumn(columnName string, columnType string, inde
 		env.Log("sqlite", env.LOG_PREFIX_INFO, SQL)
 	}
 
-	err = connectionExec(SQL)
+	err = connectionExec(it.TransactionId, SQL)
 	if err != nil {
 		return sqlError(SQL, err)
 	}
@@ -510,8 +510,9 @@ func (it *SQLiteCollection) RemoveColumn(columnName string) error {
 
 	SQL := "SELECT sql FROM sqlite_master WHERE tbl_name='" + it.Name + "' AND type='table'"
 
-	stmt, err := connectionQuery(SQL)
-	defer closeStatement(stmt)
+	stmt, err := connectionQuery(it.TransactionId, SQL)
+	defer closeStatement(it.TransactionId, stmt)
+	
 	if err != nil {
 		return sqlError(SQL, err)
 	}
@@ -520,8 +521,6 @@ func (it *SQLiteCollection) RemoveColumn(columnName string) error {
 	if err != nil {
 		return err
 	}
-
-	closeStatement(stmt)
 
 	// parsing create SQL, making same but w/o deleting column
 	//--------------------------------------------------------
@@ -552,29 +551,29 @@ func (it *SQLiteCollection) RemoveColumn(columnName string) error {
 	// making new table without removing column, and filling with values from old table
 	//---------------------------------------------------------------------------------
 	SQL = "CREATE TABLE " + it.Name + "_removecolumn (" + tableColumnsWTypes + ") "
-	if err := connectionExec(SQL); err != nil {
+	if err := connectionExec(it.TransactionId, SQL); err != nil {
 		return sqlError(SQL, err)
 	}
 
 	SQL = "INSERT INTO " + it.Name + "_removecolumn (" + tableColumnsWoTypes + ") SELECT " + tableColumnsWoTypes + " FROM " + it.Name
-	if err := connectionExec(SQL); err != nil {
+	if err := connectionExec(it.TransactionId, SQL); err != nil {
 		return sqlError(SQL, err)
 	}
 
 	// switching newly created table, deleting old table
 	//---------------------------------------------------
 	SQL = "ALTER TABLE " + it.Name + " RENAME TO " + it.Name + "_fordelete"
-	if err := connectionExec(SQL); err != nil {
+	if err := connectionExec(it.TransactionId, SQL); err != nil {
 		return sqlError(SQL, err)
 	}
 
 	SQL = "ALTER TABLE " + it.Name + "_removecolumn RENAME TO " + it.Name
-	if err := connectionExec(SQL); err != nil {
+	if err := connectionExec(it.TransactionId, SQL); err != nil {
 		return sqlError(SQL, err)
 	}
 
 	SQL = "DROP TABLE " + it.Name + "_fordelete"
-	if err := connectionExec(SQL); err != nil {
+	if err := connectionExec(it.TransactionId, SQL); err != nil {
 		return sqlError(SQL, err)
 	}
 

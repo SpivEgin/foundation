@@ -17,6 +17,7 @@ func init() {
 	dbEngine.attributeTypes = make(map[string]map[string]string)
 
 	var _ db.I_DBEngine = dbEngine
+	var _ db.I_DBCollection = new(SQLiteCollection)
 
 	env.RegisterOnConfigIniStart(dbEngine.Startup)
 	db.RegisterDBEngine(dbEngine)
@@ -31,11 +32,12 @@ func (it *SQLite) Startup() error {
 	it.maxConnections := utils.InterfaceToInt( env.IniGetValue("db.sqlite3.maxConnectinos", "1") )
 
 	it.connectionPool  = make([]*sqlite3.Conn, 0, it.poolSize)
-	it.connectionMutex = make([]sync.RWMutex,  0, it.poolSize)
+	it.connectionMutex = make(map[*sqlite3.Conn]*sync.RWMutex)
 
 	for i:=0; i<it.poolSize; i++ {
 		if newConnection, err := sqlite3.Open(it.uri); err == nil {
 			it.connectionPool = append(it.connectionPool, newConnection)
+			it.connectionMutex[newConnection] = new(sync.RWMutex)
 		} else {
 			return env.ErrorDispatch(err)
 		}

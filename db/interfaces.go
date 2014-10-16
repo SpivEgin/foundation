@@ -16,11 +16,18 @@ const (
 type I_DBEngine interface {
 	GetName() string
 
-	CreateCollection(Name string) error
-	GetCollection(Name string) (I_DBCollection, error)
-	HasCollection(Name string) bool
+	CreateCollection(name string) error
+	HasCollection(name string) bool
 
+	GetCollection(name string) (I_DBCollection, error)
 	RawQuery(query string) (map[string]interface{}, error)
+
+	RawQueryOnTransaction(transactionId string, query string) (map[string]interface{}, error)
+
+	BeginTransaction() (string, error)
+	BeginNamedTransaction(string) error
+	CommitTransaction(transactionId string) error
+	RollbackTransaction(transactionId string) error
 }
 
 type I_DBCollection interface {
@@ -59,4 +66,6 @@ type I_DBCollection interface {
 
 	AddColumn(columnName string, columnType string, indexed bool) error
 	RemoveColumn(columnName string) error
+
+	AssignTransaction(transactionId string) error
 }

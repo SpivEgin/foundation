@@ -19,8 +19,8 @@ func (it *SQLite) HasCollection(collectionName string) bool {
 
 	SQL := "SELECT name FROM sqlite_master WHERE type='table' AND name='" + collectionName + "'"
 
-	stmt, err := connectionQuery(SQL)
-	defer closeStatement(stmt)
+	stmt, err := connectionQuery("", SQL)
+	defer closeStatement("", stmt)
 
 	if err == nil {
 		return true
@@ -38,7 +38,7 @@ func (it *SQLite) CreateCollection(collectionName string) error {
 		SQL = "CREATE TABLE " + collectionName + " (_id NCHAR(24) PRIMARY KEY NOT NULL)"
 	}
 
-	if err := connectionExec(SQL); err == nil {
+	if err := connectionExec("", SQL); err == nil {
 		return nil
 	} else {
 		return env.ErrorDispatch(err)
@@ -74,8 +74,8 @@ func (it *SQLite) RawQuery(query string) (map[string]interface{}, error) {
 
 	row := make(sqlite3.RowMap)
 
-	stmt, err := connectionQuery(query)
-	defer closeStatement(stmt)
+	stmt, err := connectionQuery("", query)
+	defer closeStatement("", stmt)
 
 	if err == nil {
 		return nil, env.ErrorDispatch(err)
@@ -100,19 +100,22 @@ func (it *SQLite) RawQuery(query string) (map[string]interface{}, error) {
 }
 
 
-
-func (it *SQLite) GetConnection() (*sqlite3.Conn, error) {
-
-}
-
-func (it *SQLite) GetTransactionConnection(transactionIdx int) (*sqlite3.Conn, error) {
+func (it *SQLite) RawQueryOnTransaction(transactionId string, query string) (map[string]interface{}, error) {
 
 }
 
-func (it *SQLite) BeginTransaction(transactionIdx int) (*sqlite3.Conn, error) {
+func (it *SQLite) BeginTransaction() (string, error) {
 
 }
 
-func (it *SQLite) EndTransaction(transactionIdx int) (*sqlite3.Conn, error) {
+func (it *SQLite) BeginNamedTransaction(string) error {
+
+}
+
+func (it *SQLite) CommitTransaction(transactionId string) error {
+
+}
+
+func (it *SQLite) RollbackTransaction(transactionId string) error {
 
 }
