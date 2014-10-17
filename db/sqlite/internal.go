@@ -200,7 +200,11 @@ func connectionQuery(transactionId string, SQL string) (*sqlite3.Stmt, error) {
 
 	// assigning statement to connection
 	stmt, err := connection.Query(SQL)
-	dbEngine.statements[stmt] = connection
+	if err == nil && stmt != nil {
+		dbEngine.statements[stmt] = connection
+	} else {
+		connectionUnlock(transactionId, connection)
+	}
 
 	return stmt, err
 }

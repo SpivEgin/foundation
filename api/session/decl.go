@@ -65,10 +65,13 @@ func newSession(responseWriter http.ResponseWriter) (*Session, error) {
 
 	// initializing session structure
 	sessionId = url.QueryEscape(sessionId)
+
+	sessionsMutex.Lock()
 	Sessions[sessionId] = &Session{
 		id:     sessionId,
 		values: make(map[string]interface{}),
 		time:   time.Now()}
+	sessionsMutex.Unlock()
 
 	// updating cookies
 	cookie := &http.Cookie{Name: SESSION_COOKIE_NAME, Value: sessionId, Path: "/"}
@@ -102,9 +105,7 @@ func Gc() {
 	for id, session := range Sessions {
 		if time.Now().Sub(session.time).Seconds() > 3600 {
 			sessionsMutex.Lock()
-
 			delete(Sessions, id)
-
 			sessionsMutex.Unlock()
 		}
 	}
