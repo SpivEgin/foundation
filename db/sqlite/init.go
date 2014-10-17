@@ -1,11 +1,11 @@
 package sqlite
 
 import (
-	"sync"
 	"github.com/mxk/go-sqlite/sqlite3"
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
+	"sync"
 )
 
 var (
@@ -25,16 +25,38 @@ func init() {
 
 func (it *SQLite) Startup() error {
 
-	// opening connection
-	it.uri := env.IniGetValue("db.sqlite3.uri", "ottemo.db")
+	// reading ini values
+	it.uri = env.IniGetValue("db.sqlite3.uri", "ottemo.db")
+	it.poolSize = utils.InterfaceToInt(env.IniGetValue("db.sqlite3.poolSize", ""))
+	it.maxConnections = utils.InterfaceToInt(env.IniGetValue("db.sqlite3.maxConnectinos", ""))
+	it.gcRate = utils.InterfaceToInt(env.IniGetValue("db.sqlite3.gcRate", ""))
 
-	it.poolSize       := utils.InterfaceToInt( env.IniGetValue("db.sqlite3.poolSize", "1") )
-	it.maxConnections := utils.InterfaceToInt( env.IniGetValue("db.sqlite3.maxConnectinos", "1") )
-
-	it.connectionPool  = make([]*sqlite3.Conn, 0, it.poolSize)
+	// initializing db engine struct variables
+	it.connectionPool = make([]*sqlite3.Conn, 0, it.poolSize)
 	it.connectionMutex = make(map[*sqlite3.Conn]*sync.RWMutex)
+	it.connectionQueue = make(map[*sqlite3.Conn]int)
+	it.statements = make(map[*sqlite3.Stmt]*sqlite3.Conn)
+	it.transactions = make(map[string]*sqlite3.Conn)
+	it.transactionMutex = make(map[string]*sync.RWMutex)
 
-	for i:=0; i<it.poolSize; i++ {
+	if it.poolSize <= 0 {
+		it.poolSize = DEFAULT_POOL_SIZE
+	}
+
+	if it.maxConnections <= 0 {
+		it.maxConnections = DEFAULT_MAX_CONNECTIONS
+	}
+
+	if it.maxConnections < it.poolSize {
+		it.maxConnections = it.poolSize
+	}
+
+	if it.gcRate <= 0 {
+		it.gcRate = DEFAULT_POLL_GC_RATE
+	}
+
+	// opening connections
+	for i := 0; i < it.poolSize; i++ {
 		if newConnection, err := sqlite3.Open(it.uri); err == nil {
 			it.connectionPool = append(it.connectionPool, newConnection)
 			it.connectionMutex[newConnection] = new(sync.RWMutex)
@@ -51,7 +73,7 @@ func (it *SQLite) Startup() error {
 		type       VARCHAR(255),
 		indexed    NUMERIC)`
 
-	err := it.connection.Exec(SQL)
+	err := connectionExec("", SQL)
 	if err != nil {
 		return sqlError(SQL, err)
 	}

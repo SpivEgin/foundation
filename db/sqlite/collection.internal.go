@@ -1,11 +1,7 @@
 package sqlite
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"strconv"
 	"strings"
-	"time"
 
 	sqlite3 "github.com/mxk/go-sqlite/sqlite3"
 	"github.com/ottemo/foundation/db"
@@ -62,8 +58,13 @@ func (it *SQLiteCollection) getSelectSQL() string {
 func (it *SQLiteCollection) modifyResultRow(row sqlite3.RowMap) sqlite3.RowMap {
 
 	for columnName, columnValue := range row {
-		columnType := it.GetColumnType(columnName)
-		if columnType != "" {
+		//columnType := it.GetColumnType(columnName)
+		columnType, present := dbEngine.attributeTypes[it.Name][columnName]
+		if !present {
+			columnType = ""
+		}
+
+		if columnName != "_id" && columnType != "" {
 			row[columnName] = db.ConvertTypeFromDbToGo(columnValue, columnType)
 		}
 	}
@@ -157,15 +158,7 @@ func (it *SQLiteCollection) updateFilterGroup(groupName string, columnName strin
 func (it *SQLiteCollection) makeUUID(id string) string {
 
 	if len(id) != 24 {
-		timeStamp := strconv.FormatInt(time.Now().Unix(), 16)
-
-		randomBytes := make([]byte, 8)
-		rand.Reader.Read(randomBytes)
-
-		randomHex := make([]byte, 16)
-		hex.Encode(randomHex, randomBytes)
-
-		id = timeStamp + string(randomHex)
+		id = generateUUID()
 	}
 
 	return id

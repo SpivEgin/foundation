@@ -404,7 +404,11 @@ func (it *SQLiteCollection) ListColumns() map[string]string {
 // returns SQL like type of attribute in current collection, or if not present ""
 func (it *SQLiteCollection) GetColumnType(columnName string) string {
 	if columnName == "_id" {
-		return "string"
+		if UUID_ID {
+			return "int"
+		} else {
+			return "string"
+		}
 	}
 
 	// looking in cache first
@@ -512,7 +516,8 @@ func (it *SQLiteCollection) RemoveColumn(columnName string) error {
 
 	stmt, err := connectionQuery(it.TransactionId, SQL)
 	defer closeStatement(it.TransactionId, stmt)
-	
+	defer it.ListColumns()
+
 	if err != nil {
 		return sqlError(SQL, err)
 	}
@@ -576,6 +581,21 @@ func (it *SQLiteCollection) RemoveColumn(columnName string) error {
 	if err := connectionExec(it.TransactionId, SQL); err != nil {
 		return sqlError(SQL, err)
 	}
+
+	return nil
+}
+
+// assigns transaction to collection, so all collection generated queries will be executed within that transaction
+func (it *SQLiteCollection) AssignTransaction(transactionId string) error {
+	if transactionId == "" {
+		return env.ErrorNew("transaction id can't be blank")
+	}
+
+	if _, present := dbEngine.transactions[transactionId]; !present {
+		return env.ErrorNew("can't find transaction id '" + transactionId + "'")
+	}
+
+	it.TransactionId = transactionId
 
 	return nil
 }
