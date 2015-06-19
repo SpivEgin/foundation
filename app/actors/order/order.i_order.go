@@ -9,7 +9,6 @@ import (
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
 
-	"github.com/ottemo/foundation/app/models/cart"
 	"github.com/ottemo/foundation/app/models/checkout"
 	"github.com/ottemo/foundation/app/models/order"
 	"github.com/ottemo/foundation/app/models/product"
@@ -434,35 +433,45 @@ func (it *DefaultOrder) DuplicateOrder(params map[string]interface{}) (interface
 	}
 
 	// check cart
-	currentCart, err := cart.GetCartModel()
+//	currentCart, err := cart.GetCartModel()
+//	if err != nil {
+//		env.ErrorDispatch(err)
+//	}
+//
+//	for _, orderItem := range it.GetItems() {
+//		fmt.Println(orderItem.GetProductID(), orderItem.GetQty(), orderItem.GetOptions())
+//
+//		_, err = currentCart.AddItem(orderItem.GetProductID(), orderItem.GetQty(), orderItem.GetOptions())
+//		if err != nil {
+//			println("add to cart error")
+//			env.ErrorDispatch(err)
+//		}
+//	}
+//
+//	err = currentCart.ValidateCart()
+//	if err != nil {
+//		env.ErrorDispatch(err)
+//	}
+//
+//	err = currentCart.Save()
+//	if err != nil {
+//		env.ErrorDispatch(err)
+//	}
+//
+//	err = duplicateCheckout.SetCart(currentCart)
+//	if err != nil {
+//		env.ErrorDispatch(err)
+//	}
+
+	err = duplicateCheckout.SetInfo("payment_info", it.Get("payment_info"))
 	if err != nil {
 		env.ErrorDispatch(err)
 	}
-
-	var invalidItems []string
-
-	for _, orderItem := range it.GetItems() {
-		cartItem, err := currentCart.AddItem(orderItem.GetProductID(), orderItem.GetQty(), orderItem.GetOptions())
-		if err != nil || cartItem.ValidateProduct() != nil {
-			invalidItems = append(invalidItems, "Invalid order item removed, pid - "+cartItem.GetProductID())
-			currentCart.RemoveItem(cartItem.GetIdx())
-		}
-	}
-	result["orderItems"] = invalidItems
-
-	cartID := currentCart.GetID()
-
-	err = currentCart.ValidateCart()
-	if err != nil {
-		env.ErrorDispatch(err)
-	}
-
-	duplicateCheckout.Set("cart_id", cartID)
-	duplicateCheckout.SetInfo("payment_info", it.Get("payment_info"))
 
 	err = duplicateCheckout.FromHashMap(params)
 	if err != nil {
 		env.ErrorDispatch(err)
 	}
+
 	return duplicateCheckout, result
 }

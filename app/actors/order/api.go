@@ -5,6 +5,11 @@ import (
 	"github.com/ottemo/foundation/app/models"
 	"github.com/ottemo/foundation/app/models/order"
 	"github.com/ottemo/foundation/env"
+	"github.com/ottemo/foundation/app"
+	"github.com/ottemo/foundation/utils"
+	"github.com/ottemo/foundation/app/models/checkout"
+	"fmt"
+	"github.com/ottemo/foundation/app/models/cart"
 )
 
 // setupAPI setups package related API endpoint routines
@@ -25,6 +30,17 @@ func setupAPI() error {
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
+
+	err = api.GetRestService().RegisterAPI("dorder/:orderID", api.ConstRESTOperationCreate, APIDuplicateOrder)
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
+	err = api.GetRestService().RegisterAPI("dorder/subscription/:confirm", api.ConstRESTOperationGet, APIConfirmOrder)
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
 	// err = api.GetRestService().RegisterAPI("order", api.ConstRESTOperationCreate, APICreateOrder)
 	// if err != nil {
 	// 	return env.ErrorDispatch(err)
@@ -176,4 +192,118 @@ func APIDeleteOrder(context api.InterfaceApplicationContext) (interface{}, error
 	orderModel.Delete()
 
 	return "ok", nil
+}
+
+// APIDuplicateOrder return specified purchase order information for duplicate
+//   - order id should be specified in "orderID" argument
+func APIDuplicateOrder(context api.InterfaceApplicationContext) (interface{}, error) {
+
+	// check request context
+	//---------------------
+	orderID := context.GetRequestArgument("orderID")
+	if orderID == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "723ef443-f974-4455-9be0-a8af13916554", "order id should be specified")
+	}
+
+	requestData, err := api.GetRequestContentAsMap(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	// check rights
+	if err := api.ValidateAdminRights(context); err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	// operation
+	//----------
+	orderModel, err := order.LoadOrderByID(orderID)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	// need to change this settings or remove
+	for attribute, value := range requestData {
+		orderModel.Set(attribute, value)
+	}
+
+	linkHref := app.GetStorefrontURL("login?subscription=" + orderID)
+
+	err = app.SendMail(utils.InterfaceToString(orderModel.Get("customer_email")), "subscription", "Please follow the link to confirm subscription: <a href=\""+linkHref+"\">"+linkHref+"</a>")
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	return "ok", nil
+}
+
+// APIConfirmOrder return specified purchase order information for duplicate
+//   - order id should be specified in "orderID" argument
+func APIConfirmOrder(context api.InterfaceApplicationContext) (interface{}, error) {
+
+	// check request context
+	//---------------------
+	orderID := context.GetRequestArgument("confirm")
+	if orderID == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "8e115c53-caa0-44d1-87f6-27cc5062aca3", "something go wrong")
+	}
+
+	// operation
+	//----------
+	orderModel, err := order.LoadOrderByID(orderID)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	duplicateCheckout, _ := orderModel.DuplicateOrder(nil)
+
+	checkoutInstance, ok := duplicateCheckout.(checkout.InterfaceCheckout)
+	if !ok {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "order can't be typed")
+	}
+
+	session := context.GetSession()
+	err = checkoutInstance.SetSession(session)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	// update cart and checkout object for current session
+	currentCart, err := cart.GetCurrentCart(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	for _, item := range currentCart.GetItems() {
+		fmt.Println(item.GetOptions())
+		currentCart.RemoveItem(item.GetIdx())
+	}
+
+//	checkoutCart := checkoutInstance.GetCart()
+//
+//	for _, item := range checkoutCart.GetItems() {
+//		_, err := currentCart.AddItem(item.GetProductID(), item.GetQty(), item.GetOptions())
+//		if err != nil {
+//			fmt.Println("error in products adding to cart")
+//			return nil, env.ErrorDispatch(err)
+//		}
+//	}
+
+	session.Set(checkout.ConstSessionKeyCurrentCheckout, checkoutInstance)
+
+//	err = checkoutCart.Delete()
+//	if err != nil {
+//		fmt.Println("error cart delete")
+//		return nil, env.ErrorDispatch(err)
+//	}
+
+	err = currentCart.Save()
+	if err != nil {
+		fmt.Println("error cart save")
+		return nil, env.ErrorDispatch(err)
+	}
+
+	fmt.Println(checkoutInstance.ToHashMap())
+
+	return api.StructRestRedirect{Result: "ok", Location: app.GetStorefrontURL("checkout")}, nil
 }
