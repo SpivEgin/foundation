@@ -516,14 +516,7 @@ func (it *DefaultCheckout) Submit() (interface{}, error) {
 
 	checkoutOrder.Set("cart_id", currentCart.GetID())
 
-	paymentMethod := it.GetPaymentMethod()
-
-	if !paymentMethod.IsAllowed(it) {
-		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "7a5490ee-daa3-42b4-a84a-dade12d103e8", "Payment method not allowed")
-	}
-
-	checkoutOrder.Set("payment_method", paymentMethod.GetCode())
-	checkoutOrder.Set("shipping_method", it.GetShippingMethod().GetCode()+"/"+it.GetShippingRate().Code)
+	grandTotal := it.GetGrandTotal()
 
 	discounts := it.GetDiscounts()
 	discountAmount := it.GetDiscountAmount()
@@ -535,6 +528,14 @@ func (it *DefaultCheckout) Submit() (interface{}, error) {
 	checkoutOrder.Set("tax_amount", taxAmount)
 	checkoutOrder.Set("taxes", taxes)
 
+	paymentMethod := it.GetPaymentMethod()
+
+	if !paymentMethod.IsAllowed(it) {
+		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "7a5490ee-daa3-42b4-a84a-dade12d103e8", "Payment method not allowed")
+	}
+
+	checkoutOrder.Set("payment_method", paymentMethod.GetCode())
+	checkoutOrder.Set("shipping_method", it.GetShippingMethod().GetCode()+"/"+it.GetShippingRate().Code)
 	checkoutOrder.Set("shipping_amount", it.GetShippingRate().Price)
 
 	generateDescriptionFlag := false
@@ -575,7 +576,7 @@ func (it *DefaultCheckout) Submit() (interface{}, error) {
 
 	// trying to process payment
 	//--------------------------
-	if checkoutOrder.GetGrandTotal() > 0 {
+	if grandTotal > 0 {
 		paymentInfo := make(map[string]interface{})
 		paymentInfo["sessionID"] = it.GetSession().GetID()
 		paymentInfo["cc"] = it.GetInfo("cc")

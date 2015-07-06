@@ -11,7 +11,6 @@ import (
 	"github.com/ottemo/foundation/app/models/checkout"
 	"github.com/ottemo/foundation/app/models/cart"
 	"github.com/ottemo/foundation/app"
-
 )
 
 // setupAPI setups package related API endpoint routines
@@ -228,10 +227,23 @@ func APIDuplicateOrder(context api.InterfaceApplicationContext) (interface{}, er
 		return nil, env.ErrorDispatch(err)
 	}
 
-	// need to change this settings or remove
-	for attribute, value := range requestData {
-		orderModel.Set(attribute, value)
+	println("Convertation start")
+	duplicateCheckout, notPassedSteps := orderModel.DuplicateOrder(requestData)
+	if len(notPassedSteps) > 0 {
+		fmt.Println(notPassedSteps)
 	}
+
+	checkoutInstance, ok := duplicateCheckout.(checkout.InterfaceCheckout)
+	if !ok {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "order can't be typed")
+	}
+
+	err = checkoutInstance.FromHashMap(requestData)
+	if err != nil {
+		fmt.Println(env.ErrorDispatch(err))
+	}
+
+	fmt.Println(checkoutInstance)
 
 	linkHref := app.GetStorefrontURL("login?subscription=" + orderID)
 
@@ -254,8 +266,26 @@ func APIConfirmOrder(context api.InterfaceApplicationContext) (interface{}, erro
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "8e115c53-caa0-44d1-87f6-27cc5062aca3", "something go wrong")
 	}
 
-	// operation
-	//----------
+	currentCheckout, err := checkout.GetCurrentCheckout(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	currentSession := context.GetSession()
+
+	currentCart := currentCheckout.GetCart()
+
+	err = currentCart.Deactivate()
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	err = currentCart.Save()
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	// update cart and checkout object for current session
 	orderModel, err := order.LoadOrderByID(orderID)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
@@ -268,46 +298,30 @@ func APIConfirmOrder(context api.InterfaceApplicationContext) (interface{}, erro
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "order can't be typed")
 	}
 
-	session := context.GetSession()
-	err = checkoutInstance.SetSession(session)
+	err = checkoutInstance.SetSession(currentSession)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
 
-	// update cart and checkout object for current session
-	currentCart, err := cart.GetCurrentCart(context)
+	currentCart = checkoutInstance.GetCart()
+
+	err = currentCart.SetSessionID(currentSession.GetID())
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
 
-	for _, item := range currentCart.GetItems() {
-		fmt.Println(item.GetOptions())
-		currentCart.RemoveItem(item.GetIdx())
+	err = currentCart.Activate()
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
 	}
-
-//	checkoutCart := checkoutInstance.GetCart()
-//
-//	for _, item := range checkoutCart.GetItems() {
-//		_, err := currentCart.AddItem(item.GetProductID(), item.GetQty(), item.GetOptions())
-//		if err != nil {
-//			fmt.Println("error in products adding to cart")
-//			return nil, env.ErrorDispatch(err)
-//		}
-//	}
-
-	session.Set(checkout.ConstSessionKeyCurrentCheckout, checkoutInstance)
-
-//	err = checkoutCart.Delete()
-//	if err != nil {
-//		fmt.Println("error cart delete")
-//		return nil, env.ErrorDispatch(err)
-//	}
 
 	err = currentCart.Save()
 	if err != nil {
-		fmt.Println("error cart save")
 		return nil, env.ErrorDispatch(err)
 	}
+
+	currentSession.Set(cart.ConstSessionKeyCurrentCart, currentCart.GetID())
+	currentSession.Set(checkout.ConstSessionKeyCurrentCheckout, checkoutInstance)
 
 	fmt.Println(checkoutInstance.ToHashMap())
 
