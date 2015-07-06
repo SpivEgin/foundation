@@ -178,14 +178,14 @@ func (it *FilesystemSessionService) FlushSession(sessionID string) error {
 
 	// serializing session data to file
 	sessionFile, err := os.OpenFile(ConstStorageFolder+sessionID, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
 	defer func() {
 		sessionFile.Close()
 		os.Chtimes(sessionFile.Name(), sessionInstance.UpdatedAt, sessionInstance.UpdatedAt)
 	}()
-
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
 
 	var writer io.Writer = sessionFile
 	if ConstCryptSession {

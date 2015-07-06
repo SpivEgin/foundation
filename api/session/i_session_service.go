@@ -70,7 +70,7 @@ func (it *DefaultSessionService) Get(sessionID string) (api.InterfaceSession, er
 	}
 
 	// checking if session was found, if not - making new session for given id
-	if sessionInstance == nil {
+	if sessionInstance == nil && sessionID != "" {
 		sessionInstance = new(DefaultSessionContainer)
 		sessionInstance.id = DefaultSession(sessionID)
 		sessionInstance.Data = make(map[string]interface{})
