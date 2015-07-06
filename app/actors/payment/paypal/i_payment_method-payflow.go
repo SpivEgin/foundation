@@ -37,18 +37,24 @@ func (it *PayFlowAPI) IsAllowed(checkoutInstance checkout.InterfaceCheckout) boo
 // Authorize makes payment method authorize operation (currently it's a Authorize zero amount + Sale operations)
 func (it *PayFlowAPI) Authorize(orderInstance order.InterfaceOrder, paymentInfo map[string]interface{}) (interface{}, error) {
 
-	authorizeZeroResult, err := it.AuthorizeZeroAmount(orderInstance, paymentInfo)
+	var transactionID string
+	// check is it reference transaction if not make sure that credit card info is valid
+	if ccInfo, present := paymentInfo["cc"]; present && utils.KeysInMapAndNotBlank(utils.InterfaceToMap(ccInfo), "transactionID"){
+		referencePaymentInfo := utils.InterfaceToMap(paymentInfo["cc"])
+		transactionID = utils.InterfaceToString(referencePaymentInfo["transactionID"])
+	} else {
+		authorizeZeroResult, err := it.AuthorizeZeroAmount(orderInstance, paymentInfo)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
 
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
+		authorizeZeroResultMap := utils.InterfaceToMap(authorizeZeroResult)
+		if value, present := authorizeZeroResultMap["transactionID"]; !present || utils.InterfaceToString(value) == "" {
+			return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "5e68f079-e8ce-4677-8fb9-89c6f7acbd7f", "Error: token was not created")
+		}
+
+		transactionID = utils.InterfaceToString(authorizeZeroResultMap["transactionID"])
 	}
-
-	authorizeZeroResultMap := utils.InterfaceToMap(authorizeZeroResult)
-	if value, present := authorizeZeroResultMap["transactionID"]; !present || utils.InterfaceToString(value) == "" {
-		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "5e68f079-e8ce-4677-8fb9-89c6f7acbd7f", "Error: token was not created")
-	}
-
-	transactionID := utils.InterfaceToString(authorizeZeroResultMap["transactionID"])
 
 	// getting order information
 	//--------------------------
