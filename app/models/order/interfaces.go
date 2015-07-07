@@ -80,7 +80,7 @@ type InterfaceOrder interface {
 	Proceed() error
 	Rollback() error
 
-	DuplicateOrder(params map[string]interface{}) (interface{}, map[string]interface{})
+	DuplicateOrder(params map[string]interface{}) (interface{}, error)
 
 	models.InterfaceModel
 	models.InterfaceObject

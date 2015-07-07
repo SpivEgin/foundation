@@ -9,11 +9,11 @@ import (
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
 
+	"github.com/ottemo/foundation/app/models/cart"
 	"github.com/ottemo/foundation/app/models/checkout"
 	"github.com/ottemo/foundation/app/models/order"
 	"github.com/ottemo/foundation/app/models/product"
 	"github.com/ottemo/foundation/app/models/visitor"
-	"github.com/ottemo/foundation/app/models/cart"
 )
 
 // GetItems returns order items for current order
@@ -355,22 +355,21 @@ func (it *DefaultOrder) Rollback() error {
 
 // DuplicateOrder used to create checkout from order with changing params
 // main params for duplication: sessionID, paymentMethod, shippingMethod
-func (it *DefaultOrder) DuplicateOrder(params map[string]interface{}) (interface{}, map[string]interface{}) {
-	failedConversionSteps := make(map[string]interface {})
+func (it *DefaultOrder) DuplicateOrder(params map[string]interface{}) (interface{}, error) {
 
 	duplicateCheckout, err := checkout.GetCheckoutModel()
 	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
+		return nil, env.ErrorDispatch(err)
 	}
 
 	// set visitor basic info
 	visitorID := it.Get("visitor_id")
 	if visitorID != "" {
 		duplicateCheckout.Set("VisitorID", visitorID)
-	} else {
-		duplicateCheckout.SetInfo("customer_email", it.Get("customer_email"))
-		duplicateCheckout.SetInfo("customer_name", it.Get("customer_name"))
 	}
+
+	duplicateCheckout.SetInfo("customer_email", it.Get("customer_email"))
+	duplicateCheckout.SetInfo("customer_name", it.Get("customer_name"))
 
 	// set billing and shipping address
 	shippingAddress := it.GetShippingAddress().ToHashMap()
@@ -382,49 +381,38 @@ func (it *DefaultOrder) DuplicateOrder(params map[string]interface{}) (interface
 	// convert order Item object to cart
 	currentCart, err := cart.GetCartModel()
 	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
+		return nil, env.ErrorDispatch(err)
 	}
 
-	println("products in cart")
-
 	for _, orderItem := range it.GetItems() {
-		itemOptions := make(map[string]interface {})
+		itemOptions := make(map[string]interface{})
 
 		for option, value := range orderItem.GetOptions() {
 			optionMap := utils.InterfaceToMap(value)
 			if optionValue, present := optionMap["value"]; present {
-				fmt.Println(option, optionValue)
 				itemOptions[option] = optionValue
 			}
 		}
 
-		fmt.Println(orderItem.GetProductID(), orderItem.GetQty(), itemOptions)
-
 		_, err = currentCart.AddItem(orderItem.GetProductID(), orderItem.GetQty(), itemOptions)
 		if err != nil {
-			println("add to cart error")
-			fmt.Println(env.ErrorDispatch(err))
+			env.ErrorDispatch(err)
 		}
 	}
 
 	err = currentCart.ValidateCart()
 	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
-	}
-
-	err = currentCart.SetCartInfo("Duplicated", "cart")
-	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
+		return nil, env.ErrorDispatch(err)
 	}
 
 	err = currentCart.Save()
 	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
+		return nil, env.ErrorDispatch(err)
 	}
 
 	err = duplicateCheckout.SetCart(currentCart)
 	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
+		return nil, env.ErrorDispatch(err)
 	}
 
 	// check shipping method for availability
@@ -440,15 +428,17 @@ func (it *DefaultOrder) DuplicateOrder(params map[string]interface{}) (interface
 					if orderShipping[1] == shippingRates.Code {
 						err := duplicateCheckout.SetShippingRate(shippingRates)
 						if err != nil {
-							fmt.Println(env.ErrorDispatch(err))
+							env.ErrorDispatch(err)
 							continue
 						}
 
 						err = duplicateCheckout.SetShippingMethod(shippingMethod)
 						if err != nil {
-							fmt.Println(env.ErrorDispatch(err))
+							env.ErrorDispatch(err)
+							methodFind = false
 							continue
 						}
+
 						rateFind = true
 						break
 					}
@@ -461,35 +451,25 @@ func (it *DefaultOrder) DuplicateOrder(params map[string]interface{}) (interface
 	}
 
 	// check payment method for availability
-	paymentPassFlag := false
 	orderPayment := it.GetPaymentMethod()
 	for _, paymentMethod := range checkout.GetRegisteredPaymentMethods() {
 		if orderPayment == paymentMethod.GetCode() {
 			if paymentMethod.IsAllowed(duplicateCheckout) {
 				err := duplicateCheckout.SetPaymentMethod(paymentMethod)
 				if err != nil {
-					fmt.Println(env.ErrorDispatch(err))
+					env.ErrorDispatch(err)
 					continue
 				}
 
-				paymentPassFlag = true
 				break
 			}
 		}
 	}
-	if !paymentPassFlag {
-		failedConversionSteps["paymentMethod"] = "method not registerde or not allowed"
-	}
 
 	err = duplicateCheckout.SetInfo("cc", it.Get("payment_info"))
 	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
+		env.ErrorDispatch(err)
 	}
 
-	err = duplicateCheckout.FromHashMap(params)
-	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
-	}
-
-	return duplicateCheckout, failedConversionSteps
+	return duplicateCheckout, nil
 }

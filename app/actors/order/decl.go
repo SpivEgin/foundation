@@ -24,7 +24,8 @@ const (
 
 	ConstIncrementIDFormat = "%0.10d"
 
-	ConstConfigPathLastIncrementID = "internal.order.increment_id"
+	ConstConfigPathLastIncrementID               = "internal.order.increment_id"
+	ConstConfigPathSubscriptionConfirmationEmail = "general.checkout.subscribe_confirmation_email"
 
 	ConstErrorModule = "order"
 	ConstErrorLevel  = env.ConstErrorLevelActor

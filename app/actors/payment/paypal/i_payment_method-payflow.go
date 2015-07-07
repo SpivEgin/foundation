@@ -39,7 +39,7 @@ func (it *PayFlowAPI) Authorize(orderInstance order.InterfaceOrder, paymentInfo 
 
 	var transactionID string
 	// check is it reference transaction if not make sure that credit card info is valid
-	if ccInfo, present := paymentInfo["cc"]; present && utils.KeysInMapAndNotBlank(utils.InterfaceToMap(ccInfo), "transactionID"){
+	if ccInfo, present := paymentInfo["cc"]; present && utils.KeysInMapAndNotBlank(utils.InterfaceToMap(ccInfo), "transactionID") {
 		referencePaymentInfo := utils.InterfaceToMap(paymentInfo["cc"])
 		transactionID = utils.InterfaceToString(referencePaymentInfo["transactionID"])
 	} else {

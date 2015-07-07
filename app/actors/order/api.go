@@ -6,11 +6,10 @@ import (
 	"github.com/ottemo/foundation/app/models/order"
 	"github.com/ottemo/foundation/env"
 
-	"github.com/ottemo/foundation/utils"
-	"fmt"
-	"github.com/ottemo/foundation/app/models/checkout"
-	"github.com/ottemo/foundation/app/models/cart"
 	"github.com/ottemo/foundation/app"
+	"github.com/ottemo/foundation/app/models/cart"
+	"github.com/ottemo/foundation/app/models/checkout"
+	"github.com/ottemo/foundation/utils"
 )
 
 // setupAPI setups package related API endpoint routines
@@ -210,27 +209,26 @@ func APIDuplicateOrder(context api.InterfaceApplicationContext) (interface{}, er
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "723ef443-f974-4455-9be0-a8af13916554", "order id should be specified")
 	}
 
-	requestData, err := api.GetRequestContentAsMap(context)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
 	// check rights
 	if err := api.ValidateAdminRights(context); err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
 
-	// operation
+	requestData, err := api.GetRequestContentAsMap(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
 	//----------
 	orderModel, err := order.LoadOrderByID(orderID)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
 
-	println("Convertation start")
-	duplicateCheckout, notPassedSteps := orderModel.DuplicateOrder(requestData)
-	if len(notPassedSteps) > 0 {
-		fmt.Println(notPassedSteps)
+	// err will present only when required elements are can't be used (cart and checkout model)
+	duplicateCheckout, err := orderModel.DuplicateOrder(requestData)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
 	}
 
 	checkoutInstance, ok := duplicateCheckout.(checkout.InterfaceCheckout)
@@ -238,21 +236,60 @@ func APIDuplicateOrder(context api.InterfaceApplicationContext) (interface{}, er
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "order can't be typed")
 	}
 
-	err = checkoutInstance.FromHashMap(requestData)
-	if err != nil {
-		fmt.Println(env.ErrorDispatch(err))
+	visitorMap := map[string]interface{}{
+		"name":  orderModel.Get("customer_name"),
+		"email": orderModel.Get("customer_email"),
 	}
 
-	fmt.Println(checkoutInstance)
+	orderMap := orderModel.ToHashMap()
+
+	var orderItems []map[string]interface{}
+
+	for _, item := range orderModel.GetItems() {
+		options := make(map[string]interface{})
+
+		for _, optionKeys := range item.GetOptions() {
+			optionMap := utils.InterfaceToMap(optionKeys)
+			options[utils.InterfaceToString(optionMap["label"])] = optionMap["value"]
+		}
+		orderItems = append(orderItems, map[string]interface{}{
+			"name":    item.GetName(),
+			"options": options,
+			"sku":     item.GetSku(),
+			"qty":     item.GetQty(),
+			"price":   item.GetPrice()})
+	}
 
 	linkHref := app.GetStorefrontURL("login?subscription=" + orderID)
 
-	err = app.SendMail(utils.InterfaceToString(orderModel.Get("customer_email")), "subscription", "Please follow the link to confirm subscription: <a href=\""+linkHref+"\">"+linkHref+"</a>")
+	customInfo := map[string]interface{}{
+		"Link": linkHref,
+	}
+
+	duplicateConfirmationEmail := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionConfirmationEmail))
+
+	duplicateConfirmationEmail, err = utils.TextTemplate(duplicateConfirmationEmail,
+		map[string]interface{}{
+			"Order":   orderMap,
+			"Visitor": visitorMap,
+			"Info":    customInfo,
+		})
+
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
 
-	return "ok", nil
+	err = app.SendMail(utils.InterfaceToString(orderModel.Get("customer_email")), "confirmation order", duplicateConfirmationEmail)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	err = checkoutInstance.GetCart().Delete()
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	return linkHref, nil
 }
 
 // APIConfirmOrder return specified purchase order information for duplicate
@@ -266,6 +303,7 @@ func APIConfirmOrder(context api.InterfaceApplicationContext) (interface{}, erro
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "8e115c53-caa0-44d1-87f6-27cc5062aca3", "something go wrong")
 	}
 
+	// rewrite current checkout and cart by newly created from duplicate order
 	currentCheckout, err := checkout.GetCurrentCheckout(context)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
@@ -291,7 +329,10 @@ func APIConfirmOrder(context api.InterfaceApplicationContext) (interface{}, erro
 		return nil, env.ErrorDispatch(err)
 	}
 
-	duplicateCheckout, _ := orderModel.DuplicateOrder(nil)
+	duplicateCheckout, err := orderModel.DuplicateOrder(nil)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
 
 	checkoutInstance, ok := duplicateCheckout.(checkout.InterfaceCheckout)
 	if !ok {
@@ -322,8 +363,6 @@ func APIConfirmOrder(context api.InterfaceApplicationContext) (interface{}, erro
 
 	currentSession.Set(cart.ConstSessionKeyCurrentCart, currentCart.GetID())
 	currentSession.Set(checkout.ConstSessionKeyCurrentCheckout, checkoutInstance)
-
-	fmt.Println(checkoutInstance.ToHashMap())
 
 	return api.StructRestRedirect{Result: "ok", Location: app.GetStorefrontURL("checkout")}, nil
 }
