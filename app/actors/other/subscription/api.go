@@ -10,6 +10,7 @@ import (
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
+	"time"
 )
 
 // setupAPI setups package related API endpoint routines
@@ -174,71 +175,121 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 
 	// check request context
 	//---------------------
-	orderID := context.GetRequestArgument("confirm")
-	if orderID == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "8e115c53-caa0-44d1-87f6-27cc5062aca3", "something go wrong")
-	}
 
-	// rewrite current checkout and cart by newly created from duplicate order
-	currentCheckout, err := checkout.GetCurrentCheckout(context)
+	requestData, err := api.GetRequestContentAsMap(context)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
 
-	currentSession := context.GetSession()
-
-	currentCart := currentCheckout.GetCart()
-
-	err = currentCart.Deactivate()
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
+	subscriptionDate := utils.GetFirstMapValue(requestData, "date")
+	if subscriptionDate == nil {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "43873ddc-a817-4216-aa3c-9b004d96a539", "subscription Date can't be blank")
 	}
 
-	err = currentCart.Save()
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
+	subscriptionPeriod := utils.GetFirstMapValue(requestData, "period")
+	if subscriptionPeriod == nil {
+		subscriptionPeriod = 1
 	}
 
-	// update cart and checkout object for current session
-	orderModel, err := order.LoadOrderByID(orderID)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
+	orderID, present := requestData["orderID"]
+
+	if  present {
+
+		orderModel, err := order.LoadOrderByID(utils.InterfaceToString(orderID))
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		// rewrite current checkout and cart by newly created from duplicate order
+		currentCheckout, err := checkout.GetCurrentCheckout(context)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		currentSession := context.GetSession()
+
+		currentCart := currentCheckout.GetCart()
+
+		err = currentCart.Deactivate()
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		err = currentCart.Save()
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		// update cart and checkout object for current session
+
+		duplicateCheckout, err := orderModel.DuplicateOrder(nil)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		checkoutInstance, ok := duplicateCheckout.(checkout.InterfaceCheckout)
+		if !ok {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "order can't be typed")
+		}
+
+		err = checkoutInstance.SetSession(currentSession)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		duplicateCart := checkoutInstance.GetCart()
+
+		err = duplicateCart.SetSessionID(currentSession.GetID())
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		err = duplicateCart.Activate()
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		err = duplicateCart.Save()
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		subscriptionCollection, err := db.GetCollection(ConstCollectionNameSubscription)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		// if we can't submit this checkout we will redirect client to checkout and he need to finish it
+		result, err := checkoutInstance.Submit()
+		if err != nil {
+			currentSession.Set(cart.ConstSessionKeyCurrentCart, currentCart.GetID())
+			currentSession.Set(checkout.ConstSessionKeyCurrentCheckout, checkoutInstance)
+			return api.StructRestRedirect{Result: "ok", Location: app.GetStorefrontURL("checkout")}, env.ErrorDispatch(err)
+		}
+
+		resultMap := utils.InterfaceToMap(result)
+
+		subscriptionOrderID := utils.InterfaceToString(resultMap["_id"])
+//		subscriptionOrder, err := order.LoadOrderByID(subscriptionOrderID)
+//		if err != nil {
+//			return nil, env.ErrorDispatch(err)
+//		}
+
+		subscriptionRecord := map[string]interface {}{
+			"visitor_id": orderModel.Get("visitor_id"),
+			"order_id": subscriptionOrderID,
+			"date": utils.InterfaceToTime(subscriptionDate),
+			"period": utils.InterfaceToInt(subscriptionPeriod),
+			"status": ConstSubscriptionStatusSuspended,
+		}
+
+		_, err := subscriptionCollection.Save(subscriptionRecord)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		return subscriptionRecord, nil
 	}
-
-	duplicateCheckout, err := orderModel.DuplicateOrder(nil)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	checkoutInstance, ok := duplicateCheckout.(checkout.InterfaceCheckout)
-	if !ok {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "order can't be typed")
-	}
-
-	err = checkoutInstance.SetSession(currentSession)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	currentCart = checkoutInstance.GetCart()
-
-	err = currentCart.SetSessionID(currentSession.GetID())
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	err = currentCart.Activate()
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	err = currentCart.Save()
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	currentSession.Set(cart.ConstSessionKeyCurrentCart, currentCart.GetID())
-	currentSession.Set(checkout.ConstSessionKeyCurrentCheckout, checkoutInstance)
 
 	return api.StructRestRedirect{Result: "ok", Location: app.GetStorefrontURL("checkout")}, nil
 }
