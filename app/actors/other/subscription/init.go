@@ -37,6 +37,7 @@ func setupDB() error {
 	collection.AddColumn("period", db.ConstTypeInteger, false)
 
 	collection.AddColumn("status", db.TypeWPrecision(db.ConstTypeVarchar, 50), false)
+	collection.AddColumn("checkoutProcessing", db.TypeWPrecision(db.ConstTypeVarchar, 50), false)
 
 	return nil
 }
@@ -54,6 +55,10 @@ func schedulerFunc(params map[string]interface{}) error {
 
 	fmt.Println(currentDay, currentDay.Add(ConstTimeDay))
 
+	submitEmailSubject := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionSubmitEmailSubject))
+	submitEmailTemplate := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionSubmitEmailTemplate))
+	submitEmailLink := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionSubmitEmailLink))
+
 	// bill orders which subscription date is today and status is confirmed
 	subscriptionCollection.AddFilter("date", ">=", currentDay)
 	subscriptionCollection.AddFilter("date", "<", currentDay.Add(ConstTimeDay))
@@ -61,57 +66,88 @@ func schedulerFunc(params map[string]interface{}) error {
 
 	subscriptionsOnSubmit, err := subscriptionCollection.Load()
 	if err == nil {
-		for subscriptionRecord := range subscriptionsOnSubmit {
+		for _, record := range subscriptionsOnSubmit {
 
-			subscriptionRecord := utils.InterfaceToMap(subscriptionRecord)
+			subscriptionRecord := utils.InterfaceToMap(record)
+
+			subscriptionID := utils.InterfaceToString(subscriptionRecord["_id"])
+			subscriptionCheckoutState := subscriptionRecord["checkoutProcessing"]
+
 			orderID, present := subscriptionRecord["order_id"]
-			if !present {
-				fmt.Println("71")
-				env.LogError(env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "orderID not present in subscription record"))
-				continue
-			}
-
-			orderModel, err := order.LoadOrderByID(utils.InterfaceToString(orderID))
-			if err != nil {
-				fmt.Println(err)
-				env.LogError(err)
-				continue
-			}
-
-			// check for stock availability of products
-			newCheckout, err := orderModel.DuplicateOrder(nil)
-			if err != nil {
-				fmt.Println(err)
-				env.LogError(err)
-				continue
-			}
-
-			checkoutInstance, ok := newCheckout.(checkout.InterfaceCheckout)
-			if !ok {
-				env.LogError(env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "order can't be typed"))
-				continue
-			}
-
-			// need to check for unreached payment
-			// to send email to user in case of low balance on credit card
-			// also here possible some another payment errors
-			_, err = checkoutInstance.Submit()
-			if err != nil {
-				fmt.Println(err)
-				env.LogError(err)
-				continue
-			}
 
 			// add to date month * period
 			subscriptionNextDate := currentDay.AddDate(0, utils.InterfaceToInt(subscriptionRecord["period"]), 0)
-			subscriptionRecord["date"] = subscriptionNextDate
-			subscriptionRecord["status"] = ConstSubscriptionStatusSuspended
 
-			_, err = subscriptionCollection.Save(subscriptionRecord)
-			if err != nil {
-				fmt.Println(err)
-				env.LogError(err)
-				continue
+			// submitting orders which orders are allow to do this, in case of submit error we make a go to checkout email
+			if present && subscriptionCheckoutState == ConstSubscriptionCheckoutProcessingSubmit {
+				orderModel, err := order.LoadOrderByID(utils.InterfaceToString(orderID))
+				if err != nil {
+					fmt.Println(err)
+					env.LogError(err)
+					continue
+				}
+
+				// check for stock availability of products
+				newCheckout, err := orderModel.DuplicateOrder(nil)
+				if err != nil {
+					fmt.Println(err)
+					env.LogError(err)
+					continue
+				}
+
+				checkoutInstance, ok := newCheckout.(checkout.InterfaceCheckout)
+				if !ok {
+					env.LogError(env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "e0e5b596-fbb7-406b-b540-445c2f2e1790", "order can't be typed"))
+					continue
+				}
+
+				err = checkoutInstance.SetInfo("subscription", subscriptionRecord)
+				if err != nil {
+					fmt.Println(err)
+					env.LogError(err)
+				}
+
+				// need to check for unreached payment
+				// to send email to user in case of low balance on credit card
+				_, err = checkoutInstance.Submit()
+				if err != nil {
+					fmt.Println(err)
+					env.LogError(err)
+
+					proceedCheckoutLink := app.GetStorefrontURL(strings.Replace(submitEmailLink, "{{subscriptionID}}", subscriptionID, 1))
+
+					err = sendConfirmationEmail(subscriptionRecord, proceedCheckoutLink, submitEmailTemplate, submitEmailSubject)
+					if err != nil {
+						fmt.Println(err)
+						env.LogError(err)
+						continue
+					}
+
+					subscriptionRecord["checkoutProcessing"] = ConstSubscriptionCheckoutProcessingUpdate
+				}
+
+				subscriptionRecord["date"] = subscriptionNextDate
+				subscriptionRecord["status"] = ConstSubscriptionStatusSuspended
+
+				_, err = subscriptionCollection.Save(subscriptionRecord)
+				if err != nil {
+					fmt.Println(err)
+					env.LogError(err)
+					continue
+				}
+
+			} else {
+
+				subscriptionID := utils.InterfaceToString(subscriptionRecord["_id"])
+				proceedCheckoutLink := app.GetStorefrontURL(strings.Replace(submitEmailLink, "{{subscriptionID}}", subscriptionID, 1))
+
+				err = sendConfirmationEmail(subscriptionRecord, proceedCheckoutLink, submitEmailTemplate, submitEmailSubject)
+				if err != nil {
+					fmt.Println(err)
+					env.LogError(err)
+					continue
+				}
+
 			}
 		}
 	} else {
@@ -132,66 +168,23 @@ func schedulerFunc(params map[string]interface{}) error {
 		return env.ErrorDispatch(err)
 	}
 
-	emailSubject := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionEmailSubject))
-	emailTemplate := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionEmailTemplate))
-	storefrontConfirmationLink := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionEmailTemplate))
+	// email elements for confirmation emails to subscriptions for which the date of payment will be in a week
+	confirmationEmailSubject := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionEmailSubject))
+	confirmationEmailTemplate := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionEmailTemplate))
+	confirmationEmailLink := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionEmailTemplate))
 
-	for record := range subscriptionsToConfirm {
+	for _, record := range subscriptionsToConfirm {
 		subscriptionRecord := utils.InterfaceToMap(record)
-		orderID := utils.InterfaceToString(subscriptionRecord["order_id"])
-		subscriptionID := utils.InterfaceToString(subscriptionRecord["_id"])
 
-		orderModel, err := order.LoadOrderByID(orderID)
+		subscriptionID := utils.InterfaceToString(subscriptionRecord["_id"])
+		confirmationLink := app.GetStorefrontURL(strings.Replace(confirmationEmailLink, "{{subscriptionID}}", subscriptionID, 1))
+
+		err = sendConfirmationEmail(subscriptionRecord, confirmationLink, confirmationEmailTemplate, confirmationEmailSubject)
 		if err != nil {
 			fmt.Println(err)
 			env.LogError(err)
 			continue
 		}
-
-		visitorMap := map[string]interface{}{
-			"name":  orderModel.Get("customer_name"),
-			"email": orderModel.Get("customer_email"),
-		}
-
-		linkHref := app.GetStorefrontURL(strings.Replace(storefrontConfirmationLink, "{{subscriptionID}}", subscriptionID, 1))
-
-		customInfo := map[string]interface{}{
-			"link": linkHref,
-		}
-
-		orderMap := orderModel.ToHashMap()
-
-		var orderItems []map[string]interface{}
-
-		for _, item := range orderModel.GetItems() {
-			options := make(map[string]interface{})
-
-			for _, optionKeys := range item.GetOptions() {
-				optionMap := utils.InterfaceToMap(optionKeys)
-				options[utils.InterfaceToString(optionMap["label"])] = optionMap["value"]
-			}
-			orderItems = append(orderItems, map[string]interface{}{
-				"name":    item.GetName(),
-				"options": options,
-				"sku":     item.GetSku(),
-				"qty":     item.GetQty(),
-				"price":   item.GetPrice()})
-		}
-
-		orderMap["items"] = orderItems
-
-		confirmationEmail, err := utils.TextTemplate(emailTemplate,
-			map[string]interface{}{
-				"Order":   orderMap,
-				"Visitor": visitorMap,
-				"Info":    customInfo,
-			})
-
-		err = app.SendMail(utils.InterfaceToString(orderModel.Get("customer_email")), emailSubject, confirmationEmail)
-		if err != nil {
-			return env.ErrorDispatch(err)
-		}
-
 	}
 
 	return nil
@@ -200,9 +193,11 @@ func schedulerFunc(params map[string]interface{}) error {
 // onAppStart makes module initialization on application startup
 func onAppStart() error {
 
+	env.EventRegisterListener("checkout.success", checkoutSuccessHandler)
+
 	if scheduler := env.GetScheduler(); scheduler != nil {
 		scheduler.RegisterTask("subscriptionProcess", schedulerFunc)
-		scheduler.ScheduleRepeat("*/10 * * * *", "checkOrdersToSent", nil)
+		scheduler.ScheduleRepeat("*/1 * * * *", "subscriptionProcess", nil)
 	}
 
 	return nil

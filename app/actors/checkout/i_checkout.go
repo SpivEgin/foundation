@@ -578,7 +578,10 @@ func (it *DefaultCheckout) Submit() (interface{}, error) {
 	//--------------------------
 	if grandTotal > 0 {
 		paymentInfo := make(map[string]interface{})
-		paymentInfo["sessionID"] = it.GetSession().GetID()
+		if currentSession := it.GetSession(); currentSession != nil {
+			paymentInfo["sessionID"] = currentSession.GetID()
+		}
+
 		paymentInfo["cc"] = it.GetInfo("cc")
 
 		result, err := paymentMethod.Authorize(checkoutOrder, paymentInfo)

@@ -141,6 +141,10 @@ func (it *FilesystemSessionService) LoadSession(sessionID string) (*DefaultSessi
 
 	// file not expired - loading data from it
 	sessionFile, err := os.OpenFile(filename, os.O_RDONLY, 0660)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
 	defer sessionFile.Close()
 
 	var reader io.Reader = sessionFile

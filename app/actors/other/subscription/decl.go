@@ -11,16 +11,25 @@ const (
 	ConstErrorModule = "subscription"
 	ConstErrorLevel  = env.ConstErrorLevelActor
 
-	ConstConfigPathSubscription                 = "general.subscription"
-	ConstConfigPathSubscriptionEnabled          = "general.subscription.enabled"
+	ConstConfigPathSubscription        = "general.subscription"
+	ConstConfigPathSubscriptionEnabled = "general.subscription.enabled"
+
 	ConstConfigPathSubscriptionEmailSubject     = "general.subscription.emailSubject"
 	ConstConfigPathSubscriptionEmailTemplate    = "general.subscription.emailTemplate"
 	ConstConfigPathSubscriptionConfirmationLink = "general.subscription.confirmationLink"
+
+	ConstConfigPathSubscriptionSubmitEmailSubject  = "general.subscription.emailSubmitSubject"
+	ConstConfigPathSubscriptionSubmitEmailTemplate = "general.subscription.emailSubmitTemplate"
+	ConstConfigPathSubscriptionSubmitEmailLink     = "general.subscription.SubmitLink"
 
 	ConstCollectionNameSubscription = "subscription"
 
 	ConstSubscriptionStatusSuspended = "suspended"
 	ConstSubscriptionStatusConfirmed = "confirmed"
+
+	ConstSubscriptionCheckoutProcessingSubmit = "submit"
+	ConstSubscriptionCheckoutProcessingUpdate = "update"
+	ConstSubscriptionCheckoutProcessingCreate = "create"
 
 	ConstTimeDay = time.Hour * 24
 
