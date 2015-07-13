@@ -10,7 +10,6 @@ import (
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
-	"time"
 )
 
 // setupAPI setups package related API endpoint routines
@@ -39,6 +38,11 @@ func setupAPI() error {
 	}
 
 	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID/suspend", api.ConstRESTOperationGet, APISuspendSubscription)
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
+	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID/confirm", api.ConstRESTOperationGet, APIConfirmSubscription)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
@@ -170,6 +174,45 @@ func APISuspendSubscription(context api.InterfaceApplicationContext) (interface{
 	return "ok", nil
 }
 
+// APIConfirmSubscription set subscription status to confirmed that allow it to be procceed
+//   - subscription id should be specified in "subscriptionID" argument
+func APIConfirmSubscription(context api.InterfaceApplicationContext) (interface{}, error) {
+
+	// check request context
+	//---------------------
+	subscriptionID := context.GetRequestArgument("subscriptionID")
+	if subscriptionID == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d61ff7fe-2a22-43be-8b23-3d56f39c94db", "subscription id should be specified")
+	}
+
+	subscriptionCollection, err := db.GetCollection(ConstCollectionNameSubscription)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	subscriptionCollection.AddFilter("_id", "=", subscriptionID)
+
+	dbRecords, err := subscriptionCollection.Load()
+
+	if len(dbRecords) == 0 {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6b37c9c0-1f6d-4b00-b7de-de326d30f8dd", "subscription not found")
+	}
+
+	subscription := utils.InterfaceToMap(dbRecords[0])
+	if utils.InterfaceToString(subscription["status"]) == ConstSubscriptionStatusConfirmed {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "e411dcd1-234b-4dcf-8072-239755b5fa34", "subscription already confirmed")
+	}
+
+	subscription["status"] = ConstSubscriptionStatusConfirmed
+
+	_, err = subscriptionCollection.Save(subscription)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	return "ok", nil
+}
+
 // APICreateSubscription provide mechanism to create new subscription
 func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}, error) {
 
@@ -193,7 +236,7 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 
 	orderID, present := requestData["orderID"]
 
-	if  present {
+	if present {
 
 		orderModel, err := order.LoadOrderByID(utils.InterfaceToString(orderID))
 		if err != nil {
@@ -270,20 +313,20 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 		resultMap := utils.InterfaceToMap(result)
 
 		subscriptionOrderID := utils.InterfaceToString(resultMap["_id"])
-//		subscriptionOrder, err := order.LoadOrderByID(subscriptionOrderID)
-//		if err != nil {
-//			return nil, env.ErrorDispatch(err)
-//		}
+		//		subscriptionOrder, err := order.LoadOrderByID(subscriptionOrderID)
+		//		if err != nil {
+		//			return nil, env.ErrorDispatch(err)
+		//		}
 
-		subscriptionRecord := map[string]interface {}{
+		subscriptionRecord := map[string]interface{}{
 			"visitor_id": orderModel.Get("visitor_id"),
-			"order_id": subscriptionOrderID,
-			"date": utils.InterfaceToTime(subscriptionDate),
-			"period": utils.InterfaceToInt(subscriptionPeriod),
-			"status": ConstSubscriptionStatusSuspended,
+			"order_id":   subscriptionOrderID,
+			"date":       utils.InterfaceToTime(subscriptionDate),
+			"period":     utils.InterfaceToInt(subscriptionPeriod),
+			"status":     ConstSubscriptionStatusSuspended,
 		}
 
-		_, err := subscriptionCollection.Save(subscriptionRecord)
+		_, err = subscriptionCollection.Save(subscriptionRecord)
 		if err != nil {
 			return nil, env.ErrorDispatch(err)
 		}

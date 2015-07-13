@@ -219,7 +219,6 @@ func APIDuplicateOrder(context api.InterfaceApplicationContext) (interface{}, er
 		return nil, env.ErrorDispatch(err)
 	}
 
-	//----------
 	orderModel, err := order.LoadOrderByID(orderID)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
@@ -259,6 +258,8 @@ func APIDuplicateOrder(context api.InterfaceApplicationContext) (interface{}, er
 			"qty":     item.GetQty(),
 			"price":   item.GetPrice()})
 	}
+
+	orderMap["items"] = orderItems
 
 	linkHref := app.GetStorefrontURL("login?subscription=" + orderID)
 
