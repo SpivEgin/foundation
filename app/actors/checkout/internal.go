@@ -94,8 +94,8 @@ func (it *DefaultCheckout) SendOrderConfirmationMail() error {
 func (it *DefaultCheckout) CheckoutSuccess(checkoutOrder order.InterfaceOrder, session api.InterfaceSession) error {
 
 	// making sure order and session were specified
-	if checkoutOrder == nil || session == nil {
-		return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "17d45365-7808-4a1b-ad36-1741a83e820f", "Order or session is null")
+	if checkoutOrder == nil {
+		return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "17d45365-7808-4a1b-ad36-1741a83e820f", "Order is null")
 	}
 
 	// if payment method did not set status by itself - making this
@@ -120,10 +120,12 @@ func (it *DefaultCheckout) CheckoutSuccess(checkoutOrder order.InterfaceOrder, s
 		return env.ErrorDispatch(err)
 	}
 
-	session.Set(cart.ConstSessionKeyCurrentCart, nil)
-	session.Set(checkout.ConstSessionKeyCurrentCheckout, nil)
-	session.Set(coupon.ConstSessionKeyAppliedDiscountCodes, make([]string, 0))
-	session.Set(giftcard.ConstSessionKeyAppliedGiftCardCodes, make([]string, 0))
+	if session != nil {
+		session.Set(cart.ConstSessionKeyCurrentCart, nil)
+		session.Set(checkout.ConstSessionKeyCurrentCheckout, nil)
+		session.Set(coupon.ConstSessionKeyAppliedDiscountCodes, make([]string, 0))
+		session.Set(giftcard.ConstSessionKeyAppliedGiftCardCodes, make([]string, 0))
+	}
 
 	// sending notifications
 	//----------------------

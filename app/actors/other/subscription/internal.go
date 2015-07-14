@@ -8,7 +8,7 @@ import (
 	"github.com/ottemo/foundation/utils"
 )
 
-// sendConfirmationEmail used to send confirmation emails about subscription change status or to proceed checkout
+// sendConfirmationEmail used to send confirmation and submit emails about subscription change status or to proceed checkout
 func sendConfirmationEmail(subscriptionRecord map[string]interface{}, storefrontConfirmationLink, emailTemplate, emailSubject string) error {
 
 	visitorMap := make(map[string]interface{})

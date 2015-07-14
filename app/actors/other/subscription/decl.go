@@ -27,9 +27,9 @@ const (
 	ConstSubscriptionStatusSuspended = "suspended"
 	ConstSubscriptionStatusConfirmed = "confirmed"
 
-	ConstSubscriptionCheckoutProcessingSubmit = "submit"
-	ConstSubscriptionCheckoutProcessingUpdate = "update"
-	ConstSubscriptionCheckoutProcessingCreate = "create"
+	ConstSubscriptionActionSubmit = "submit"
+	ConstSubscriptionActionUpdate = "update"
+	ConstSubscriptionActionCreate = "create"
 
 	ConstTimeDay = time.Hour * 24
 

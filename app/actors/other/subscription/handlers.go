@@ -18,8 +18,8 @@ func checkoutSuccessHandler(event string, eventData map[string]interface{}) bool
 		}
 	}
 
-	subscription := currentCheckout.GetInfo("subscription")
-	if subscription == nil {
+	subscriptionID := currentCheckout.GetInfo("subscription")
+	if subscriptionID == nil {
 		return true
 	}
 
@@ -31,21 +31,53 @@ func checkoutSuccessHandler(event string, eventData map[string]interface{}) bool
 	}
 
 	if checkoutOrder != nil && currentCheckout != nil {
-		go subscriptionUpdate(checkoutOrder, utils.InterfaceToMap(subscription))
+		go subscriptionUpdate(checkoutOrder, utils.InterfaceToString(subscriptionID))
 	}
 
 	return true
 }
 
 // subscriptionUpdate is a asynchronously update subscription with new state of the order
-func subscriptionUpdate(checkoutOrder order.InterfaceOrder, subscriptionMap map[string]interface{}) error {
+func subscriptionUpdate(checkoutOrder order.InterfaceOrder, subscriptionID string) error {
 
 	subscriptionCollection, err := db.GetCollection(ConstCollectionNameSubscription)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
 
-	subscriptionCollection.Load()
+	subscriptionCollection.AddFilter("_id", "=", subscriptionID)
+
+	dbRecords, err := subscriptionCollection.Load()
+
+	if len(dbRecords) == 0 {
+		return env.ErrorDispatch(env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5a4bd9ee-6ba7-4f7b-9e1a-24c254541582", "subscription not found"))
+	}
+
+	subscription := utils.InterfaceToMap(dbRecords[0])
+	subscriptionDate := utils.InterfaceToTime(subscription["date"])
+	subscriptionStatus := utils.InterfaceToString(subscription["status"])
+	subscriptionAction := utils.InterfaceToString(subscription["action"])
+	subscriptionPeriod := utils.InterfaceToInt(subscription["period"])
+
+	if subscriptionAction != ConstSubscriptionActionSubmit && subscriptionStatus == ConstSubscriptionStatusConfirmed {
+
+		subscriptionNextDate := subscriptionDate.AddDate(0, subscriptionPeriod, 0)
+		subscription["date"] = subscriptionNextDate
+		subscription["status"] = ConstSubscriptionStatusSuspended
+		subscription["order_id"] = checkoutOrder.GetID()
+		subscription["action"] = ConstSubscriptionActionUpdate
+
+		if paymentInfo := utils.InterfaceToMap(checkoutOrder.Get("payment_info")); paymentInfo != nil {
+			if _, present := paymentInfo["transactionID"]; present {
+				subscription["action"] = ConstSubscriptionActionSubmit
+			}
+		}
+
+		_, err = subscriptionCollection.Save(subscription)
+		if err != nil {
+			env.LogError(err)
+		}
+	}
 
 	return nil
 }

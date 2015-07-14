@@ -31,13 +31,14 @@ func setupDB() error {
 	}
 	collection.AddColumn("order_id", db.ConstTypeID, true)
 	collection.AddColumn("visitor_id", db.ConstTypeID, true)
+	collection.AddColumn("cart_id", db.ConstTypeID, true)
 
 	// a date on which client set a date to bill order
 	collection.AddColumn("date", db.ConstTypeDatetime, true)
 	collection.AddColumn("period", db.ConstTypeInteger, false)
 
 	collection.AddColumn("status", db.TypeWPrecision(db.ConstTypeVarchar, 50), false)
-	collection.AddColumn("checkoutProcessing", db.TypeWPrecision(db.ConstTypeVarchar, 50), false)
+	collection.AddColumn("action", db.TypeWPrecision(db.ConstTypeVarchar, 50), false)
 
 	return nil
 }
@@ -53,7 +54,7 @@ func schedulerFunc(params map[string]interface{}) error {
 		return env.ErrorDispatch(err)
 	}
 
-	fmt.Println(currentDay, currentDay.Add(ConstTimeDay))
+	fmt.Println(currentDay, currentDay.Add(ConstTimeDay), currentDay.Unix())
 
 	submitEmailSubject := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionSubmitEmailSubject))
 	submitEmailTemplate := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionSubmitEmailTemplate))
@@ -71,15 +72,18 @@ func schedulerFunc(params map[string]interface{}) error {
 			subscriptionRecord := utils.InterfaceToMap(record)
 
 			subscriptionID := utils.InterfaceToString(subscriptionRecord["_id"])
-			subscriptionCheckoutState := subscriptionRecord["checkoutProcessing"]
+			subscriptionCheckoutState := subscriptionRecord["action"]
 
-			orderID, present := subscriptionRecord["order_id"]
+			// subscriptionNextDate add to subscriptionDate month * period
+			subscriptionDate := utils.InterfaceToTime(subscriptionRecord["date"])
+			subscriptionNextDate := subscriptionDate.AddDate(0, utils.InterfaceToInt(subscriptionRecord["period"]), 0)
 
-			// add to date month * period
-			subscriptionNextDate := currentDay.AddDate(0, utils.InterfaceToInt(subscriptionRecord["period"]), 0)
+			proceedCheckoutLink := app.GetStorefrontURL(strings.Replace(submitEmailLink, "{{subscriptionID}}", subscriptionID, 1))
 
 			// submitting orders which orders are allow to do this, in case of submit error we make a go to checkout email
-			if present && subscriptionCheckoutState == ConstSubscriptionCheckoutProcessingSubmit {
+			orderID, orderPresent := subscriptionRecord["order_id"]
+
+			if orderPresent && subscriptionCheckoutState == ConstSubscriptionActionSubmit {
 				orderModel, err := order.LoadOrderByID(utils.InterfaceToString(orderID))
 				if err != nil {
 					fmt.Println(err)
@@ -101,7 +105,7 @@ func schedulerFunc(params map[string]interface{}) error {
 					continue
 				}
 
-				err = checkoutInstance.SetInfo("subscription", subscriptionRecord)
+				err = checkoutInstance.SetInfo("subscription", subscriptionID)
 				if err != nil {
 					fmt.Println(err)
 					env.LogError(err)
@@ -114,8 +118,6 @@ func schedulerFunc(params map[string]interface{}) error {
 					fmt.Println(err)
 					env.LogError(err)
 
-					proceedCheckoutLink := app.GetStorefrontURL(strings.Replace(submitEmailLink, "{{subscriptionID}}", subscriptionID, 1))
-
 					err = sendConfirmationEmail(subscriptionRecord, proceedCheckoutLink, submitEmailTemplate, submitEmailSubject)
 					if err != nil {
 						fmt.Println(err)
@@ -123,8 +125,10 @@ func schedulerFunc(params map[string]interface{}) error {
 						continue
 					}
 
-					subscriptionRecord["checkoutProcessing"] = ConstSubscriptionCheckoutProcessingUpdate
+					subscriptionRecord["action"] = ConstSubscriptionActionUpdate
 				}
+
+				fmt.Println("submit success, id - ", subscriptionID, subscriptionNextDate)
 
 				subscriptionRecord["date"] = subscriptionNextDate
 				subscriptionRecord["status"] = ConstSubscriptionStatusSuspended
@@ -138,16 +142,11 @@ func schedulerFunc(params map[string]interface{}) error {
 
 			} else {
 
-				subscriptionID := utils.InterfaceToString(subscriptionRecord["_id"])
-				proceedCheckoutLink := app.GetStorefrontURL(strings.Replace(submitEmailLink, "{{subscriptionID}}", subscriptionID, 1))
-
 				err = sendConfirmationEmail(subscriptionRecord, proceedCheckoutLink, submitEmailTemplate, submitEmailSubject)
 				if err != nil {
 					fmt.Println(err)
 					env.LogError(err)
-					continue
 				}
-
 			}
 		}
 	} else {
@@ -155,13 +154,13 @@ func schedulerFunc(params map[string]interface{}) error {
 		env.LogError(err)
 	}
 
-	// send email to subscribers to confirm order placing
+	// send email to subscribers that notifies they are about to receive a shipment for a recurring order 1 week before being billed
 	subscriptionCollection.ClearFilters()
 	subscriptionCollection.AddFilter("date", ">=", currentDay.Add(-ConstTimeDay*8))
 	subscriptionCollection.AddFilter("date", "<", currentDay.Add(-ConstTimeDay*7))
 	subscriptionCollection.AddFilter("status", "=", ConstSubscriptionStatusSuspended)
 
-	fmt.Println(currentDay.Add(-ConstTimeDay*8), currentDay.Add(-ConstTimeDay*7))
+	fmt.Println(currentDay.Add(-ConstTimeDay*8), currentDay.Add(-ConstTimeDay*7), currentDay.Add(-ConstTimeDay*7).Unix())
 
 	subscriptionsToConfirm, err := subscriptionCollection.Load()
 	if err != nil {
