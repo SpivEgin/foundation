@@ -43,6 +43,11 @@ func setupAPI() error {
 		return env.ErrorDispatch(err)
 	}
 
+	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID", api.ConstRESTOperationUpdate, APIUpdateSubscription)
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
 	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID/confirm", api.ConstRESTOperationGet, APIConfirmSubscription)
 	if err != nil {
 		return env.ErrorDispatch(err)
@@ -182,6 +187,75 @@ func APISuspendSubscription(context api.InterfaceApplicationContext) (interface{
 	}
 
 	return "ok", nil
+}
+
+// APIUpdateSubscription change status of subscription to suspended, and allow to change date and period
+//   - subscription id should be specified in "subscriptionID" argument
+func APIUpdateSubscription(context api.InterfaceApplicationContext) (interface{}, error) {
+
+	// check request context
+	//---------------------
+	subscriptionID := context.GetRequestArgument("subscriptionID")
+	if subscriptionID == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "4e8f9873-9144-42ae-b119-d1e95bb1bbfd", "subscription id should be specified")
+	}
+
+	// check request context
+	requestData, err := api.GetRequestContentAsMap(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	subscriptionDateValue := utils.GetFirstMapValue(requestData, "date")
+	if subscriptionDateValue == nil {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "e2590c78-0d6f-4bb7-9963-26e55728baae", "subscription Date can't be blank")
+	}
+
+	timeZone := utils.InterfaceToString(env.ConfigGetValue(app.ConstConfigPathStoreTimeZone))
+
+	subscriptionDate, _ := utils.MakeUTCTime(utils.InterfaceToTime(subscriptionDateValue), timeZone)
+	if subscriptionDate.Before(time.Now().Truncate(ConstTimeDay).Add(ConstTimeDay)) {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "f43ee87f-b28c-4635-aae0-4a0ceaa59778", "subscription Date cannot be today or earlier")
+	}
+
+	subscriptionPeriod := utils.GetFirstMapValue(requestData, "period", "recurrence_period", "recurring")
+	if subscriptionPeriod == nil || utils.InterfaceToInt(subscriptionPeriod) < 1 {
+		subscriptionPeriod = 1
+	}
+
+	if utils.InterfaceToInt(subscriptionPeriod) > 3 {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c2f06065-7226-4693-a595-87c18dd5d1d6", "subscription recurrence period cannot be more than 3 month")
+	}
+
+	subscriptionCollection, err := db.GetCollection(ConstCollectionNameSubscription)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	subscriptionCollection.AddFilter("_id", "=", subscriptionID)
+
+	dbRecords, err := subscriptionCollection.Load()
+
+	if len(dbRecords) == 0 {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "59e4ab86-7726-4e3d-bec8-7ef5bf0ebbbf", "subscription not found")
+	}
+
+	subscription := utils.InterfaceToMap(dbRecords[0])
+
+	visitorID := visitor.GetCurrentVisitorID(context)
+	if api.ValidateAdminRights(context) != nil && visitorID != subscription["visitor_id"] {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "cec5f9c7-1034-4c19-b4b0-251052255570", "you are not logined in")
+	}
+
+	subscription["date"] = subscriptionDate
+	subscription["period"] = subscriptionPeriod
+
+	_, err = subscriptionCollection.Save(subscription)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	return subscription, nil
 }
 
 // APIConfirmSubscription set subscription status to confirmed that allow it to be proceed on it's date
@@ -404,6 +478,7 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 	}
 
 	subscriptionDate := utils.InterfaceToTime(subscription["date"])
+	subscriptionAction := utils.InterfaceToString(subscription["action"])
 
 	currentDay := time.Now().Truncate(ConstTimeDay)
 
@@ -430,8 +505,7 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 	currentCart := currentCheckout.GetCart()
 
 	// Duplicating order and set new checkout and cart to current session with redirect to checkout if need to update info
-	if subscriptionOrderID != nil {
-
+	if utils.InterfaceToString(subscriptionOrderID) != "" && subscriptionAction != ConstSubscriptionActionCreate {
 		orderModel, err := order.LoadOrderByID(utils.InterfaceToString(subscriptionOrderID))
 		if err != nil {
 			return nil, env.ErrorDispatch(err)
@@ -502,7 +576,6 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 
 		// We need to set for user his subscription cart and add to checkout info subscription to handle it on success
 	} else {
-
 		err = currentCheckout.SetInfo("subscription", subscriptionID)
 		if err != nil {
 			return nil, env.ErrorDispatch(err)
@@ -529,7 +602,6 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 			return nil, env.ErrorDispatch(err)
 		}
 
-		currentSession.Set(cart.ConstSessionKeyCurrentCart, utils.InterfaceToString(subscriptionCartID))
 		return api.StructRestRedirect{Result: "ok", Location: app.GetStorefrontURL("checkout")}, nil
 
 	}

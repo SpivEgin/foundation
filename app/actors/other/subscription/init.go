@@ -145,7 +145,7 @@ func schedulerFunc(params map[string]interface{}) error {
 				err = sendConfirmationEmail(subscriptionRecord, proceedCheckoutLink, submitEmailTemplate, submitEmailSubject)
 				if err != nil {
 					fmt.Println(err)
-					env.LogError(err)
+					env.ErrorDispatch(err)
 				}
 			}
 		}
@@ -196,7 +196,7 @@ func onAppStart() error {
 
 	if scheduler := env.GetScheduler(); scheduler != nil {
 		scheduler.RegisterTask("subscriptionProcess", schedulerFunc)
-		scheduler.ScheduleRepeat("*/1 * * * *", "subscriptionProcess", nil)
+		scheduler.ScheduleRepeat("*/5 * * * *", "subscriptionProcess", nil)
 	}
 
 	return nil
