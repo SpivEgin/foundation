@@ -348,12 +348,12 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 
 	currentSession := context.GetSession()
 
-	if !orderPresent && len(currentCart.GetItems()) == 0 {
+	if (!orderPresent || utils.InterfaceToString(orderID) == "") && len(currentCart.GetItems()) == 0 {
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d0484d9d-cb6d-48ed-be5f-f77fe19c6dca", "No items in cart or no order subscription specified")
 	}
 
 	// try to create new subscription with existing order
-	if orderPresent {
+	if orderPresent && utils.InterfaceToString(orderID) != "" {
 
 		orderModel, err := order.LoadOrderByID(utils.InterfaceToString(orderID))
 		if err != nil {
