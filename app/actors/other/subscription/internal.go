@@ -6,6 +6,7 @@ import (
 	"github.com/ottemo/foundation/app/models/visitor"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
+	"time"
 )
 
 // sendConfirmationEmail used to send confirmation and submit emails about subscription change status or to proceed checkout
@@ -82,4 +83,26 @@ func sendConfirmationEmail(subscriptionRecord map[string]interface{}, storefront
 	}
 
 	return nil
+}
+
+// sendConfirmationEmail used to send confirmation and submit emails about subscription change status or to proceed checkout
+// current day - 30.07 -- + 30 = 29.08 if 29.08 > (15.08) - > new next date
+// if 01.09 !before 01.09 --> new date
+func nextAllowedCreationDate() time.Time {
+	currentDayWithOffset := time.Now().Truncate(ConstTimeDay).AddDate(0, 0, ConstCreationDaysDelay)
+	if !currentDayWithOffset.Before(nextCreationDate) {
+		nextCreationDate = currentDayWithOffset
+		nextDay := nextCreationDate.Day()
+
+		switch {
+		case nextDay > 15:
+			nextCreationDate = nextCreationDate.AddDate(0, 1, 1-nextCreationDate.Day())
+			break
+		case nextDay > 1:
+			nextCreationDate = nextCreationDate.AddDate(0, 0, 14)
+			break
+		}
+	}
+
+	return nextCreationDate
 }

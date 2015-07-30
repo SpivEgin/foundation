@@ -321,11 +321,15 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "43873ddc-a817-4216-aa3c-9b004d96a539", "subscription Date can't be blank")
 	}
 
-	timeZone := utils.InterfaceToString(env.ConfigGetValue(app.ConstConfigPathStoreTimeZone))
+	subscriptionDate := utils.InterfaceToTime(subscriptionDateValue)
+	nextAllowedDate := nextAllowedCreationDate()
 
-	subscriptionDate, _ := utils.MakeUTCTime(utils.InterfaceToTime(subscriptionDateValue), timeZone)
-	if subscriptionDate.Before(time.Now().Truncate(ConstTimeDay).Add(ConstTimeDay)) {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c4881529-8b05-4a16-8cd4-6c79d0d79856", "subscription Date cannot be today or earlier")
+	if subscriptionDate.Before(nextAllowedDate) {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c4881529-8b05-4a16-8cd4-6c79d0d79856", "subscription Date cannot be earlier then "+utils.InterfaceToString(nextAllowedDate))
+	} else {
+		if subscriptionDate.Day() != 15 && subscriptionDate.Day() != 1 {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "29c73d2f-0c85-4906-95b7-4812542e33a1", "schedule for either the 1st of the month or the 15th of the month")
+		}
 	}
 
 	subscriptionPeriod := utils.GetFirstMapValue(requestData, "period", "recurrence_period", "recurring")

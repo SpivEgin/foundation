@@ -26,6 +26,7 @@ const (
 
 	ConstSubscriptionStatusSuspended = "suspended"
 	ConstSubscriptionStatusConfirmed = "confirmed"
+	ConstSubscriptionStatusCanceled  = "confirmed"
 
 	ConstSubscriptionActionSubmit = "submit"
 	ConstSubscriptionActionUpdate = "update"
@@ -33,5 +34,9 @@ const (
 
 	ConstTimeDay = time.Hour * 24
 
-//	ConstGiftCardStatusCanceled = "canceled"
+	ConstCreationDaysDelay = 33
+)
+
+var (
+	nextCreationDate time.Time
 )

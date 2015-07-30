@@ -31,20 +31,11 @@ func setupAPI() error {
 		return env.ErrorDispatch(err)
 	}
 
-	err = api.GetRestService().RegisterAPI("dorder/:orderID", api.ConstRESTOperationCreate, APIDuplicateOrder)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
-
-	err = api.GetRestService().RegisterAPI("dorder/subscription/:confirm", api.ConstRESTOperationGet, APIConfirmOrder)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
-
 	// err = api.GetRestService().RegisterAPI("order", api.ConstRESTOperationCreate, APICreateOrder)
 	// if err != nil {
 	// 	return env.ErrorDispatch(err)
 	// }
+
 	err = api.GetRestService().RegisterAPI("order/:orderID", api.ConstRESTOperationUpdate, APIUpdateOrder)
 	if err != nil {
 		return env.ErrorDispatch(err)
@@ -196,101 +187,6 @@ func APIDeleteOrder(context api.InterfaceApplicationContext) (interface{}, error
 	orderModel.Delete()
 
 	return "ok", nil
-}
-
-// APIDuplicateOrder return specified purchase order information for duplicate
-//   - order id should be specified in "orderID" argument
-func APIDuplicateOrder(context api.InterfaceApplicationContext) (interface{}, error) {
-
-	// check request context
-	//---------------------
-	orderID := context.GetRequestArgument("orderID")
-	if orderID == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "723ef443-f974-4455-9be0-a8af13916554", "order id should be specified")
-	}
-
-	// check rights
-	if err := api.ValidateAdminRights(context); err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	requestData, err := api.GetRequestContentAsMap(context)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	orderModel, err := order.LoadOrderByID(orderID)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	// err will present only when required elements are can't be used (cart and checkout model)
-	duplicateCheckout, err := orderModel.DuplicateOrder(requestData)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	checkoutInstance, ok := duplicateCheckout.(checkout.InterfaceCheckout)
-	if !ok {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "946c3598-53b4-4dad-9d6f-23bf1ed6440f", "order can't be typed")
-	}
-
-	visitorMap := map[string]interface{}{
-		"name":  orderModel.Get("customer_name"),
-		"email": orderModel.Get("customer_email"),
-	}
-
-	orderMap := orderModel.ToHashMap()
-
-	var orderItems []map[string]interface{}
-
-	for _, item := range orderModel.GetItems() {
-		options := make(map[string]interface{})
-
-		for _, optionKeys := range item.GetOptions() {
-			optionMap := utils.InterfaceToMap(optionKeys)
-			options[utils.InterfaceToString(optionMap["label"])] = optionMap["value"]
-		}
-		orderItems = append(orderItems, map[string]interface{}{
-			"name":    item.GetName(),
-			"options": options,
-			"sku":     item.GetSku(),
-			"qty":     item.GetQty(),
-			"price":   item.GetPrice()})
-	}
-
-	orderMap["items"] = orderItems
-
-	linkHref := app.GetStorefrontURL("login?subscription=" + orderID)
-
-	customInfo := map[string]interface{}{
-		"Link": linkHref,
-	}
-
-	duplicateConfirmationEmail := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionConfirmationEmail))
-
-	duplicateConfirmationEmail, err = utils.TextTemplate(duplicateConfirmationEmail,
-		map[string]interface{}{
-			"Order":   orderMap,
-			"Visitor": visitorMap,
-			"Info":    customInfo,
-		})
-
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	err = app.SendMail(utils.InterfaceToString(orderModel.Get("customer_email")), "confirmation order", duplicateConfirmationEmail)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	err = checkoutInstance.GetCart().Delete()
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	return linkHref, nil
 }
 
 // APIConfirmOrder return specified purchase order information for duplicate
