@@ -28,12 +28,18 @@ func setupDB() error {
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
-	collection.AddColumn("order_id", db.ConstTypeID, true)
-	collection.AddColumn("visitor_id", db.ConstTypeID, true)
-	collection.AddColumn("cart_id", db.ConstTypeID, true)
 
-	// a date on which client set a date to bill order
-	collection.AddColumn("date", db.ConstTypeDatetime, true)
+	collection.AddColumn("visitor_id", db.ConstTypeID, true)
+	collection.AddColumn("order_id", db.ConstTypeID, true)
+
+	collection.AddColumn("email", db.TypeWPrecision(db.ConstTypeVarchar, 100), true)
+	collection.AddColumn("name", db.TypeWPrecision(db.ConstTypeVarchar, 100), false)
+
+	collection.AddColumn("cart_id", db.ConstTypeID, true)
+	collection.AddColumn("shipping_address", db.ConstTypeJSON, true)
+
+	collection.AddColumn("action_date", db.ConstTypeDatetime, true)
+	collection.AddColumn("last_submit", db.ConstTypeDatetime, true)
 	collection.AddColumn("period", db.ConstTypeInteger, false)
 
 	collection.AddColumn("status", db.TypeWPrecision(db.ConstTypeVarchar, 50), false)
@@ -57,8 +63,8 @@ func schedulerFunc(params map[string]interface{}) error {
 	submitEmailTemplate := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionSubmitEmailTemplate))
 	submitEmailLink := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathSubscriptionSubmitEmailLink))
 
-	subscriptionCollection.AddFilter("date", ">=", currentDay)
-	subscriptionCollection.AddFilter("date", "<", currentDay.Add(ConstTimeDay))
+	subscriptionCollection.AddFilter("action_date", ">=", currentDay)
+	subscriptionCollection.AddFilter("action_date", "<", currentDay.Add(ConstTimeDay))
 
 	//	get subscriptions with current day date and do action
 	subscriptionsOnSubmit, err := subscriptionCollection.Load()
@@ -69,9 +75,10 @@ func schedulerFunc(params map[string]interface{}) error {
 
 			subscriptionID := utils.InterfaceToString(subscriptionRecord["_id"])
 			subscriptionCheckoutAction := utils.InterfaceToString(subscriptionRecord["action"])
+			shippingAddress := utils.InterfaceToMap(subscriptionRecord["shipping_address"])
 
 			// subscriptionNextDate add to subscriptionDate month * period
-			subscriptionDate := utils.InterfaceToTime(subscriptionRecord["date"])
+			subscriptionDate := utils.InterfaceToTime(subscriptionRecord["action_date"])
 			subscriptionNextDate := subscriptionDate.AddDate(0, utils.InterfaceToInt(subscriptionRecord["period"]), 0)
 
 			subscriptionStatus := utils.InterfaceToString(subscriptionRecord["status"])
@@ -104,6 +111,11 @@ func schedulerFunc(params map[string]interface{}) error {
 						continue
 					}
 
+					err = checkoutInstance.Set("ShippingAddress", shippingAddress)
+					if err != nil {
+						env.LogError(err)
+					}
+
 					err = checkoutInstance.SetInfo("subscription", subscriptionID)
 					if err != nil {
 						env.LogError(err)
@@ -122,9 +134,11 @@ func schedulerFunc(params map[string]interface{}) error {
 						}
 
 						subscriptionRecord["action"] = ConstSubscriptionActionUpdate
+					} else {
+						subscriptionRecord["last_submit"] = currentDay
 					}
 
-					subscriptionRecord["date"] = subscriptionNextDate
+					subscriptionRecord["action_date"] = subscriptionNextDate
 					subscriptionRecord["status"] = ConstSubscriptionStatusSuspended
 
 					_, err = subscriptionCollection.Save(subscriptionRecord)
@@ -141,7 +155,7 @@ func schedulerFunc(params map[string]interface{}) error {
 					}
 				}
 			} else {
-				subscriptionRecord["date"] = subscriptionNextDate
+				subscriptionRecord["action_date"] = subscriptionNextDate
 				_, err = subscriptionCollection.Save(subscriptionRecord)
 				if err != nil {
 					env.LogError(err)
@@ -156,9 +170,9 @@ func schedulerFunc(params map[string]interface{}) error {
 
 	// send email to subscribers that notifies they are about to receive a shipment for a recurring order 1 week before being billed
 	subscriptionCollection.ClearFilters()
-	subscriptionCollection.AddFilter("date", ">=", currentDay.Add(-ConstTimeDay*8))
-	subscriptionCollection.AddFilter("date", "<", currentDay.Add(-ConstTimeDay*7))
-	subscriptionCollection.AddFilter("status", "=", ConstSubscriptionStatusSuspended)
+	subscriptionCollection.AddFilter("action_date", ">=", currentDay.Add(-ConstTimeDay*8))
+	subscriptionCollection.AddFilter("action_date", "<", currentDay.Add(-ConstTimeDay*7))
+	subscriptionCollection.AddFilter("status", "=", ConstSubscriptionStatusConfirmed)
 
 	subscriptionsToConfirm, err := subscriptionCollection.Load()
 	if err != nil {

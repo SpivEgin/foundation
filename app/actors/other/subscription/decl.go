@@ -26,7 +26,7 @@ const (
 
 	ConstSubscriptionStatusSuspended = "suspended"
 	ConstSubscriptionStatusConfirmed = "confirmed"
-	ConstSubscriptionStatusCanceled  = "confirmed"
+	ConstSubscriptionStatusCanceled  = "canceled"
 
 	ConstSubscriptionActionSubmit = "submit"
 	ConstSubscriptionActionUpdate = "update"
@@ -40,3 +40,25 @@ const (
 var (
 	nextCreationDate time.Time
 )
+
+// DefaultSubscription just for controlling values
+type DefaultSubscription struct {
+	id        string
+	OrderID   string
+	CartID    string
+	VisitorID string
+
+	Email string
+	Name  string
+
+	Status string
+	State  string
+	Action string
+
+	ShippingAddress map[string]string
+
+	LastSubmit time.Time
+	NextAction time.Time
+
+	Period int
+}

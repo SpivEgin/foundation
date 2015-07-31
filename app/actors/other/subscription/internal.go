@@ -96,10 +96,10 @@ func nextAllowedCreationDate() time.Time {
 
 		switch {
 		case nextDay > 15:
-			nextCreationDate = nextCreationDate.AddDate(0, 1, 1-nextCreationDate.Day())
+			nextCreationDate = nextCreationDate.AddDate(0, 1, 1-nextDay)
 			break
 		case nextDay > 1:
-			nextCreationDate = nextCreationDate.AddDate(0, 0, 14)
+			nextCreationDate = nextCreationDate.AddDate(0, 0, 15-nextDay)
 			break
 		}
 	}

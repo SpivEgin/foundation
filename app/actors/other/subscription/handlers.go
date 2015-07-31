@@ -54,7 +54,7 @@ func subscriptionUpdate(checkoutOrder order.InterfaceOrder, subscriptionID strin
 	}
 
 	subscription := utils.InterfaceToMap(dbRecords[0])
-	subscriptionDate := utils.InterfaceToTime(subscription["date"])
+	subscriptionDate := utils.InterfaceToTime(subscription["action_date"])
 	subscriptionStatus := utils.InterfaceToString(subscription["status"])
 	subscriptionAction := utils.InterfaceToString(subscription["action"])
 	subscriptionPeriod := utils.InterfaceToInt(subscription["period"])
@@ -62,7 +62,7 @@ func subscriptionUpdate(checkoutOrder order.InterfaceOrder, subscriptionID strin
 	if subscriptionAction != ConstSubscriptionActionSubmit && subscriptionStatus == ConstSubscriptionStatusConfirmed {
 
 		subscriptionNextDate := subscriptionDate.AddDate(0, subscriptionPeriod, 0)
-		subscription["date"] = subscriptionNextDate
+		subscription["action_date"] = subscriptionNextDate
 		subscription["status"] = ConstSubscriptionStatusSuspended
 		subscription["order_id"] = checkoutOrder.GetID()
 		subscription["action"] = ConstSubscriptionActionUpdate

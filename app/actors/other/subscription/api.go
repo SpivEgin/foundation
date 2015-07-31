@@ -38,22 +38,17 @@ func setupAPI() error {
 		return env.ErrorDispatch(err)
 	}
 
-	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID/suspend", api.ConstRESTOperationGet, APISuspendSubscription)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
-
 	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID", api.ConstRESTOperationUpdate, APIUpdateSubscription)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
 
-	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID/confirm", api.ConstRESTOperationGet, APIConfirmSubscription)
+	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID/submit", api.ConstRESTOperationGet, APISubmitSubscription)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
 
-	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID/submit", api.ConstRESTOperationGet, APISubmitSubscription)
+	err = api.GetRestService().RegisterAPI("subscription/:subscriptionID/status/:status", api.ConstRESTOperationGet, APIUpdateSubscriptionStatus)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
@@ -67,7 +62,7 @@ func APIListSubscriptions(context api.InterfaceApplicationContext) (interface{},
 
 	visitorID := visitor.GetCurrentVisitorID(context)
 	if visitorID == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "29e6d0c1-c7d0-433f-8d4f-a9bebafef76b", "59f8171f-af26-403f-93fa-f67ab6103adc")
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "21762af1-e352-4ef6-82b3-2fe9d55d6c36", "you are not logined in")
 	}
 
 	// making database request
@@ -114,6 +109,10 @@ func APIGetSubscription(context api.InterfaceApplicationContext) (interface{}, e
 //   - subscription id should be specified in "subscriptionID" argument
 func APIDeleteSubscription(context api.InterfaceApplicationContext) (interface{}, error) {
 
+	visitorID := visitor.GetCurrentVisitorID(context)
+	if visitorID == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5d438cbd-60a3-44af-838f-bddf4e19364e", "you are not logined in")
+	}
 	// check request context
 	//---------------------
 	subscriptionID := context.GetRequestArgument("subscriptionID")
@@ -134,56 +133,10 @@ func APIDeleteSubscription(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6c9559d5-c0fe-4fa1-a07b-4e7b6ac1dad6", "subscription not found")
 	}
 
-	visitorID := visitor.GetCurrentVisitorID(context)
 	if api.ValidateAdminRights(context) == nil || visitorID == dbRecords[0]["visitor_id"] {
 		subscriptionCollection.DeleteByID(subscriptionID)
 	} else {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5d438cbd-60a3-44af-838f-bddf4e19364e", "59f8171f-af26-403f-93fa-f67ab6103adc")
-	}
-
-	return "ok", nil
-}
-
-// APISuspendSubscription change status of subscription to suspended, it will pass any action on next date
-//   - subscription id should be specified in "subscriptionID" argument
-func APISuspendSubscription(context api.InterfaceApplicationContext) (interface{}, error) {
-
-	// check request context
-	//---------------------
-	subscriptionID := context.GetRequestArgument("subscriptionID")
-	if subscriptionID == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "4e8f9873-9144-42ae-b119-d1e95bb1bbfd", "subscription id should be specified")
-	}
-
-	subscriptionCollection, err := db.GetCollection(ConstCollectionNameSubscription)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	subscriptionCollection.AddFilter("_id", "=", subscriptionID)
-
-	dbRecords, err := subscriptionCollection.Load()
-
-	if len(dbRecords) == 0 {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "59e4ab86-7726-4e3d-bec8-7ef5bf0ebbbf", "subscription not found")
-	}
-
-	subscription := utils.InterfaceToMap(dbRecords[0])
-
-	visitorID := visitor.GetCurrentVisitorID(context)
-	if api.ValidateAdminRights(context) != nil && visitorID != subscription["visitor_id"] {
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5d438cbd-60a3-44af-838f-bddf4e19364e", "you are not logined in")
-	}
-
-	if utils.InterfaceToString(subscription["status"]) == ConstSubscriptionStatusSuspended {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "ceb58d22-876a-47fb-a686-017508618313", "subscription already suspended")
-	}
-
-	subscription["status"] = ConstSubscriptionStatusSuspended
-
-	_, err = subscriptionCollection.Save(subscription)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
 	}
 
 	return "ok", nil
@@ -206,25 +159,63 @@ func APIUpdateSubscription(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorDispatch(err)
 	}
 
-	subscriptionDateValue := utils.GetFirstMapValue(requestData, "date")
-	if subscriptionDateValue == nil {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "e2590c78-0d6f-4bb7-9963-26e55728baae", "subscription Date can't be blank")
+	// validate new params for subscription
+	requestedParams := make(map[string]interface{})
+	subscriptionDateValue := utils.GetFirstMapValue(requestData, "date", "action_date", "billing_date")
+
+	if subscriptionDateValue != nil {
+		subscriptionDate := utils.InterfaceToTime(subscriptionDateValue)
+		nextAllowedDate := nextAllowedCreationDate()
+		// here is requirements for subscription date and day
+		if subscriptionDate.Before(nextAllowedDate) {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c4881529-8b05-4a16-8cd4-6c79d0d79856", "subscription Date cannot be earlier then "+utils.InterfaceToString(nextAllowedDate))
+		}
+
+		if subscriptionDate.Day() != 15 && subscriptionDate.Day() != 1 {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "29c73d2f-0c85-4906-95b7-4812542e33a1", "schedule for either the 1st of the month or the 15th of the month")
+		}
+
+		requestedParams["action_date"] = subscriptionDate
 	}
 
-	timeZone := utils.InterfaceToString(env.ConfigGetValue(app.ConstConfigPathStoreTimeZone))
+	subscriptionPeriodValue := utils.GetFirstMapValue(requestData, "period", "recurrence_period", "recurring")
 
-	subscriptionDate, _ := utils.MakeUTCTime(utils.InterfaceToTime(subscriptionDateValue), timeZone)
-	if subscriptionDate.Before(time.Now().Truncate(ConstTimeDay).Add(ConstTimeDay)) {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "f43ee87f-b28c-4635-aae0-4a0ceaa59778", "subscription Date cannot be today or earlier")
+	if subscriptionPeriodValue != nil {
+		subscriptionPeriod := utils.InterfaceToInt(subscriptionPeriodValue)
+
+		if subscriptionPeriod < 1 || subscriptionPeriod > 3 {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "85f539fa-89fe-4ad8-b171-3b66910bad3f", "subscription recurrence period cannot be only 1, 2 or 3 monthes")
+		}
+
+		requestedParams["period"] = subscriptionPeriod
 	}
 
-	subscriptionPeriod := utils.GetFirstMapValue(requestData, "period", "recurrence_period", "recurring")
-	if subscriptionPeriod == nil || utils.InterfaceToInt(subscriptionPeriod) < 1 {
-		subscriptionPeriod = 1
+	subscriptionEmailValue := utils.GetFirstMapValue(requestData, "email", "customer_email")
+
+	if subscriptionEmailValue != nil {
+		subscriptionEmail := utils.InterfaceToString(subscriptionEmailValue)
+		if !utils.ValidEmailAddress(subscriptionEmail) {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "bfb0b402-6e89-43ee-8c69-ae104f389e70", "given email is not valid")
+		}
+
+		requestedParams["email"] = subscriptionEmail
 	}
 
-	if utils.InterfaceToInt(subscriptionPeriod) > 3 {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c2f06065-7226-4693-a595-87c18dd5d1d6", "subscription recurrence period cannot be more than 3 month")
+	subscriptionNameValue := utils.GetFirstMapValue(requestData, "name", "customer_name")
+	if subscriptionNameValue != nil {
+		requestedParams["name"] = utils.InterfaceToString(subscriptionNameValue)
+	}
+
+	subscriptionShippingAddressValue := utils.GetFirstMapValue(requestData, "address", "shipping_address")
+	if subscriptionShippingAddressValue != nil {
+		subscriptionShippingAddress := utils.InterfaceToMap(subscriptionShippingAddressValue)
+
+		requiredAddressFields := []string{"first_name", "last_name", "address_line1", "country", "city", "zip_code"}
+		if !utils.KeysInMapAndNotBlank(subscriptionShippingAddress, requiredAddressFields) {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "08a18398-a836-4a2b-a63a-4fac077407bb", "shipping address fields not all")
+		}
+
+		requestedParams["shipping_address"] = subscriptionShippingAddress
 	}
 
 	subscriptionCollection, err := db.GetCollection(ConstCollectionNameSubscription)
@@ -247,8 +238,9 @@ func APIUpdateSubscription(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "cec5f9c7-1034-4c19-b4b0-251052255570", "you are not logined in")
 	}
 
-	subscription["date"] = subscriptionDate
-	subscription["period"] = subscriptionPeriod
+	for key, value := range requestedParams {
+		subscription[key] = value
+	}
 
 	_, err = subscriptionCollection.Save(subscription)
 	if err != nil {
@@ -256,46 +248,6 @@ func APIUpdateSubscription(context api.InterfaceApplicationContext) (interface{}
 	}
 
 	return subscription, nil
-}
-
-// APIConfirmSubscription set subscription status to confirmed that allow it to be proceed on it's date
-//   - subscription id should be specified in "subscriptionID" argument
-// TODO: check requirements for this action maybe block unregistered or create key to perform action
-func APIConfirmSubscription(context api.InterfaceApplicationContext) (interface{}, error) {
-
-	// check request context
-	//---------------------
-	subscriptionID := context.GetRequestArgument("subscriptionID")
-	if subscriptionID == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d61ff7fe-2a22-43be-8b23-3d56f39c94db", "subscription id should be specified")
-	}
-
-	subscriptionCollection, err := db.GetCollection(ConstCollectionNameSubscription)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	subscriptionCollection.AddFilter("_id", "=", subscriptionID)
-
-	dbRecords, err := subscriptionCollection.Load()
-
-	if len(dbRecords) == 0 {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6b37c9c0-1f6d-4b00-b7de-de326d30f8dd", "subscription not found")
-	}
-
-	subscription := utils.InterfaceToMap(dbRecords[0])
-	if utils.InterfaceToString(subscription["status"]) == ConstSubscriptionStatusConfirmed {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "e411dcd1-234b-4dcf-8072-239755b5fa34", "subscription already confirmed")
-	}
-
-	subscription["status"] = ConstSubscriptionStatusConfirmed
-
-	_, err = subscriptionCollection.Save(subscription)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	return "ok", nil
 }
 
 // APICreateSubscription provide mechanism to create new subscription
@@ -316,7 +268,7 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorDispatch(err)
 	}
 
-	subscriptionDateValue := utils.GetFirstMapValue(requestData, "date")
+	subscriptionDateValue := utils.GetFirstMapValue(requestData, "date", "action_date", "billing_date")
 	if subscriptionDateValue == nil {
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "43873ddc-a817-4216-aa3c-9b004d96a539", "subscription Date can't be blank")
 	}
@@ -324,12 +276,13 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 	subscriptionDate := utils.InterfaceToTime(subscriptionDateValue)
 	nextAllowedDate := nextAllowedCreationDate()
 
+	// here is requirements for subscription date and day
 	if subscriptionDate.Before(nextAllowedDate) {
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c4881529-8b05-4a16-8cd4-6c79d0d79856", "subscription Date cannot be earlier then "+utils.InterfaceToString(nextAllowedDate))
-	} else {
-		if subscriptionDate.Day() != 15 && subscriptionDate.Day() != 1 {
-			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "29c73d2f-0c85-4906-95b7-4812542e33a1", "schedule for either the 1st of the month or the 15th of the month")
-		}
+	}
+
+	if subscriptionDate.Day() != 15 && subscriptionDate.Day() != 1 {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "29c73d2f-0c85-4906-95b7-4812542e33a1", "schedule for either the 1st of the month or the 15th of the month")
 	}
 
 	subscriptionPeriod := utils.GetFirstMapValue(requestData, "period", "recurrence_period", "recurring")
@@ -342,8 +295,11 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 	}
 
 	orderID, orderPresent := requestData["orderID"]
-
 	cartID := ""
+
+	customerName := utils.InterfaceToString(utils.GetFirstMapValue(requestData, "name", "customer_name"))
+	customerEmail := utils.InterfaceToString(utils.GetFirstMapValue(requestData, "email", "customer_email"))
+	shippingAddress := utils.InterfaceToMap(utils.GetFirstMapValue(requestData, "address", "shipping_address"))
 
 	currentCart, err := cart.GetCurrentCart(context)
 	if err != nil {
@@ -353,7 +309,7 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 	currentSession := context.GetSession()
 
 	if (!orderPresent || utils.InterfaceToString(orderID) == "") && len(currentCart.GetItems()) == 0 {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d0484d9d-cb6d-48ed-be5f-f77fe19c6dca", "No items in cart or no order subscription specified")
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d0484d9d-cb6d-48ed-be5f-f77fe19c6dca", "No items in cart or no order for subscription are specified")
 	}
 
 	// try to create new subscription with existing order
@@ -366,6 +322,10 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 
 		orderVisitorID := utils.InterfaceToString(orderModel.Get("visitor_id"))
 		cartID = utils.InterfaceToString(orderModel.Get("cart_id"))
+
+		customerName = utils.InterfaceToString(orderModel.Get("customer_name"))
+		customerEmail = utils.InterfaceToString(orderModel.Get("customer_email"))
+		shippingAddress = orderModel.GetShippingAddress().ToHashMap()
 
 		if api.ValidateAdminRights(context) != nil && visitorID != orderVisitorID {
 			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "4916bf20-e053-472e-98e1-bb28b7c867a1", "you are trying to use vicarious order")
@@ -396,6 +356,18 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 			}
 		}
 	} else {
+		// Creation of subscription from current cart and given additional parameters
+		if !utils.ValidEmailAddress(customerEmail) {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "2a2b8eef-2168-492b-a59d-70d921005daf", "email address not valid")
+		}
+
+		requiredAddressFields := []string{"first_name", "last_name", "address_line1", "country", "city", "zip_code"}
+		if !utils.KeysInMapAndNotBlank(shippingAddress, requiredAddressFields) {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "08a18398-a836-4a2b-a63a-4fac077407bb", "shipping address fields not all")
+		}
+
+		customerName = utils.InterfaceToString(shippingAddress["first_name"]) + " " + utils.InterfaceToString(shippingAddress["last_name"])
+
 		err = currentCart.ValidateCart()
 		if err != nil {
 			return nil, env.ErrorDispatch(err)
@@ -422,17 +394,20 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 	}
 
 	result = map[string]interface{}{
-		"visitor_id": visitorID,
-		"order_id":   utils.InterfaceToString(orderID),
-		"cart_id":    cartID,
-		"date":       subscriptionDate,
-		"period":     utils.InterfaceToInt(subscriptionPeriod),
-		"status":     ConstSubscriptionStatusSuspended,
-		"action":     ConstSubscriptionActionUpdate,
+		"visitor_id":       visitorID,
+		"order_id":         utils.InterfaceToString(orderID),
+		"cart_id":          cartID,
+		"email":            customerEmail,
+		"name":             customerName,
+		"shipping_address": shippingAddress,
+		"action_date":      subscriptionDate,
+		"period":           utils.InterfaceToInt(subscriptionPeriod),
+		"status":           ConstSubscriptionStatusSuspended,
+		"action":           ConstSubscriptionActionUpdate,
 	}
 
 	// for orders that not have transaction by default we set action value to Update or Create
-	// that means on subscription Date they will need to proceed checkout one more time
+	// that means on subscription Date they will need to proceed checkout
 	if submittableOrder && orderID != nil {
 		result["action"] = ConstSubscriptionActionSubmit
 	}
@@ -447,6 +422,71 @@ func APICreateSubscription(context api.InterfaceApplicationContext) (interface{}
 	}
 
 	return result, nil
+}
+
+// APIUpdateSubscriptionStatus change status of subscription to suspended, confirmed or canceled
+//   - subscription id and new status should be specified in "subscriptionID" and "status" arguments
+func APIUpdateSubscriptionStatus(context api.InterfaceApplicationContext) (interface{}, error) {
+
+	visitorID := visitor.GetCurrentVisitorID(context)
+	if visitorID == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6845852a-e484-4f18-adcc-f8e166838c09", "you are not logined in")
+	}
+
+	// check request context
+	//---------------------
+	subscriptionID := context.GetRequestArgument("subscriptionID")
+	if subscriptionID == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "4e8f9873-9144-42ae-b119-d1e95bb1bbfd", "subscription id should be specified")
+	}
+
+	requestedStatus := context.GetRequestArgument("status")
+	if requestedStatus != ConstSubscriptionStatusSuspended && requestedStatus != ConstSubscriptionStatusConfirmed && requestedStatus != ConstSubscriptionStatusCanceled {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "3b7d17c3-c5fa-4369-a039-49bafec2fb9d", "new subscription status should be one of allowed")
+	}
+
+	// load subscription by id
+	subscriptionCollection, err := db.GetCollection(ConstCollectionNameSubscription)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	subscriptionCollection.AddFilter("_id", "=", subscriptionID)
+
+	dbRecords, err := subscriptionCollection.Load()
+
+	if len(dbRecords) == 0 {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "59e4ab86-7726-4e3d-bec8-7ef5bf0ebbbf", "subscription not found")
+	}
+
+	subscription := utils.InterfaceToMap(dbRecords[0])
+
+	// check is current visitor was a creator of subscription or it's admin
+	if api.ValidateAdminRights(context) != nil && visitorID != subscription["visitor_id"] {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5d438cbd-60a3-44af-838f-bddf4e19364e", "you are not logined in")
+	}
+
+	currentStatus := utils.InterfaceToString(subscription["status"])
+	if currentStatus == requestedStatus {
+		return "ok", nil
+	}
+
+	// in case subscription was canceled we would check it's date
+	if currentStatus == ConstSubscriptionStatusCanceled {
+		currentDate := utils.InterfaceToTime(subscription["action_date"])
+		if currentDate.Before(nextAllowedCreationDate()) {
+			subscription["action_date"] = nextCreationDate
+		}
+	}
+
+	subscription["status"] = requestedStatus
+
+	_, err = subscriptionCollection.Save(subscription)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	return "ok", nil
 }
 
 // APISubmitSubscription give current session new checkout and card from subscription  and try to proceed it
@@ -481,7 +521,7 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "153ee2dd-3e3f-42ac-b669-1d15ec741547", "subscription not confirmed")
 	}
 
-	subscriptionDate := utils.InterfaceToTime(subscription["date"])
+	subscriptionDate := utils.InterfaceToTime(subscription["action_date"])
 	subscriptionAction := utils.InterfaceToString(subscription["action"])
 
 	currentDay := time.Now().Truncate(ConstTimeDay)
@@ -497,6 +537,8 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 	if subscriptionOrderID == nil && subscriptionCartID == nil {
 		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "780975f0-c24d-452c-ae43-cfbef64b9a1a", "this subscription can't be submited (no cart and order in)")
 	}
+
+	shippingAddress := utils.InterfaceToMap(subscription["shipping_address"])
 
 	// obtain user current cart and checkout for future operations
 	currentSession := context.GetSession()
@@ -524,6 +566,11 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 		checkoutInstance, ok := duplicateCheckout.(checkout.InterfaceCheckout)
 		if !ok {
 			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "3788a54b-6ef6-486f-9819-c85e34ff43c5", "order can't be typed")
+		}
+
+		err = checkoutInstance.Set("ShippingAddress", shippingAddress)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
 		}
 
 		// rewrite current checkout and cart by newly created from duplicate order
@@ -585,6 +632,11 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 			return nil, env.ErrorDispatch(err)
 		}
 
+		err = currentCheckout.Set("ShippingAddress", shippingAddress)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
 		subscriptionCart, err := cart.LoadCartByID(utils.InterfaceToString(subscriptionCartID))
 		if err != nil {
 			return nil, env.ErrorDispatch(err)
@@ -607,12 +659,12 @@ func APISubmitSubscription(context api.InterfaceApplicationContext) (interface{}
 		}
 
 		return api.StructRestRedirect{Result: "ok", Location: app.GetStorefrontURL("checkout")}, nil
-
 	}
 
 	// in case of instant checkout submit
 	subscriptionNextDate := subscriptionDate.AddDate(0, utils.InterfaceToInt(subscription["period"]), 0)
-	subscription["date"] = subscriptionNextDate
+	subscription["action_date"] = subscriptionNextDate
+	subscription["last_submit"] = currentDay
 	subscription["status"] = ConstSubscriptionStatusSuspended
 
 	_, err = subscriptionCollection.Save(subscription)
