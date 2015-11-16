@@ -41,6 +41,11 @@ func setupAPI() error {
 		return env.ErrorDispatch(err)
 	}
 
+	err = api.GetRestService().RegisterAPI("cron/tasks/run/:taskIndex", api.ConstRESTOperationGet, runScheduleTask)
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
 	return nil
 }
 
@@ -101,7 +106,7 @@ func updateSchedule(context api.InterfaceApplicationContext) (interface{}, error
 	}
 
 	scheduler := env.GetScheduler()
-	scheduleParams := []string{"expr", "time", "task", "repeat", "params"}
+	scheduleParams := []string{"expr", "task", "repeat", "params", "time"}
 
 	for index, schedule := range scheduler.ListSchedules() {
 		if index == taskIndex {
@@ -218,6 +223,45 @@ func enableSchedule(context api.InterfaceApplicationContext) (interface{}, error
 	}
 
 	return currentSchedules[taskIndex].GetInfo(), nil
+}
+
+// runScheduleTask - allows to execute task of schedule without updating of it
+// taskIndex - need to be specified in request argument
+func runScheduleTask(context api.InterfaceApplicationContext) (interface{}, error) {
+
+	// check rights
+	if err := api.ValidateAdminRights(context); err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	reqTaskIndex := context.GetRequestArgument("taskIndex")
+	if reqTaskIndex == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d4ee4c0c-124a-4098-aeef-23d868b0d682", "task index should be specified")
+	}
+
+	taskIndex, err := utils.StringToInteger(reqTaskIndex)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	scheduler := env.GetScheduler()
+	currentSchedules := scheduler.ListSchedules()
+
+	if taskIndex > len(currentSchedules)-1 || taskIndex < 0 {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5cf9ead0-d23d-4cb6-87b1-3578d54dd1ba", "task index is out of range for existing tasks")
+	}
+
+	for index, schedule := range currentSchedules {
+		if index == taskIndex {
+			err := schedule.RunTask(make(map[string]interface {}))
+			if err != nil {
+				return nil, env.ErrorDispatch(err)
+			}
+			break
+		}
+	}
+
+	return "ok", nil
 }
 
 // disableSchedule make schedule inactive

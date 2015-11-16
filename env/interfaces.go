@@ -50,6 +50,7 @@ type InterfaceSchedule interface {
 	Get(param string) interface{}
 
 	GetInfo() map[string]interface{}
+	RunTask(params map[string]interface{}) error
 }
 
 // InterfaceScheduler is an interface to system scheduler service
