@@ -211,6 +211,11 @@ func IsMD5(value string) bool {
 	return ok
 }
 
+// InterfaceGetType returns string representation of interface type
+func InterfaceGetType(value interface{}) string {
+	return reflect.TypeOf(value).String()
+}
+
 // InterfaceToBool converts interface{} to string
 func InterfaceToBool(value interface{}) bool {
 	switch typedValue := value.(type) {
@@ -420,6 +425,40 @@ func InterfaceToString(value interface{}) string {
 	}
 }
 
+// InterfaceToUint converts interface{} to unsigned integer
+func InterfaceToUint(value interface{}) uint {
+	if value == nil {
+		return 0
+	}
+
+	switch typedValue := value.(type) {
+	case uint:
+		return typedValue
+	case uint8:
+		return uint(typedValue)
+	case uint16:
+		return uint(typedValue)
+	case uint32:
+		return uint(typedValue)
+	case uint64:
+		return uint(typedValue)
+	case float64:
+		return uint(typedValue)
+	case string:
+		uintValue, err := strconv.ParseUint(typedValue, 10, 64)
+		if err != nil {
+			floatValue, err := strconv.ParseFloat(typedValue, 64)
+			if err != nil {
+				return 0
+			}
+			return uint(floatValue)
+		}
+		return uint(uintValue)
+	default:
+		return 0
+	}
+}
+
 // InterfaceToInt converts interface{} to integer
 func InterfaceToInt(value interface{}) int {
 	if value == nil {
@@ -524,6 +563,15 @@ func InterfaceToTime(value interface{}) time.Time {
 	return (time.Time{})
 }
 
+// IsArray checks if given value is array
+func IsArray(value interface{}) bool {
+	kind := reflect.TypeOf(value).Kind().String()
+	if kind == "slice" || kind == "array" {
+		return true
+	}
+	return false
+}
+
 // IsZeroTime checks time for zero value
 func IsZeroTime(value time.Time) bool {
 	zeroTime := (time.Time{})
@@ -618,4 +666,96 @@ func StringToInterface(value string) interface{} {
 	}
 
 	return trimmedValue
+}
+
+// Equals converts operands to comparable values and compares them, returns true for zero or one argument
+func Equals(operands ...interface{}) bool {
+
+	// constant represents types conversion priority
+	const (
+		tBool   = iota // 0
+		tFloat  = iota // 1
+		tDate   = iota // 2
+		tString = iota // 3  stands before int as ("10.1" == 10) supposedly should return false
+		tInt    = iota // 4
+		tUint   = iota // 5
+	)
+
+	// determining types of operands
+	compareAs := tUint
+	for _, x := range operands {
+		operandType := tString
+		switch x.(type) {
+		case uint:
+			operandType = tUint
+		case uint8:
+			operandType = tUint
+		case uint16:
+			operandType = tUint
+		case uint32:
+			operandType = tUint
+		case uint64:
+			operandType = tUint
+
+		case int:
+			operandType = tInt
+		case int8:
+			operandType = tInt
+		case int16:
+			operandType = tInt
+		case int32:
+			operandType = tInt
+		case int64:
+			operandType = tInt
+
+		case float32:
+			operandType = tFloat
+		case float64:
+			operandType = tFloat
+
+		case bool:
+			operandType = tBool
+
+		case time.Time:
+			operandType = tDate
+
+		case string:
+			operandType = tString
+		case []byte:
+			operandType = tString
+		}
+
+		// compare should happen by lowest priority
+		if operandType < compareAs {
+			compareAs = operandType
+		}
+	}
+
+	// compare operation
+	result := true
+	var previousOperand interface{}
+	for _, operand := range operands {
+		switch compareAs {
+		case tBool:
+			operand = InterfaceToBool(operand)
+		case tString:
+			operand = InterfaceToString(operand)
+		case tDate:
+			operand = InterfaceToTime(operand)
+		case tFloat:
+			operand = InterfaceToFloat64(operand)
+		case tUint:
+			operand = InterfaceToUint(operand)
+		case tInt:
+			operand = InterfaceToInt(operand)
+		}
+
+		if previousOperand == nil {
+			previousOperand = operand
+		} else {
+			result = (operand == previousOperand)
+		}
+	}
+
+	return result
 }
