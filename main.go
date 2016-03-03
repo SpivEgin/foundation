@@ -48,5 +48,6 @@ func main() {
 	fmt.Println("Ottemo " + app.GetVerboseVersion())
 
 	// starting HTTP server
-	app.Serve()
+	go app.Serve()
+	startInteraction()
 }
