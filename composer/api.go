@@ -80,38 +80,20 @@ func composerCheck(context api.InterfaceApplicationContext) (interface{}, error)
 }
 
 func composerType(context api.InterfaceApplicationContext) (interface{}, error) {
-	//	modelName := context.GetRequestArgument("name")
-	//	model, err := models.GetModel(modelName)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//
-	//	object, ok := model.(models.InterfaceObject)
-	//	if !ok {
-	//		env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "24bb5e98-b5de-4d4a-a5dc-cf2573dae3dd", "Model " + modelName + " is not implements InterfaceObject")
-	//	}
-	//
-	//	result := make(map[string]interface{})
-	//
-	//	for _, value := range object.GetAttributesInfo() {
-	//		result[value.Attribute] = value.Type;
-	//	}
+	result := make(map[string]interface{})
 
 	composer := registeredComposer
-
 	typeName := context.GetRequestArgument("name")
 	typeInfo := composer.GetType(typeName)
 	if typeInfo == nil {
-		env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "24bb5e98-b5de-4d4a-a5dc-cf2573dae3dd", "Type "+typeName+" is not defined")
+		return result, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "24bb5e98-b5de-4d4a-a5dc-cf2573dae3dd", "Type "+typeName+" is not defined")
 	}
-
-	result := make(map[string]interface{})
 
 	for _, item := range typeInfo.ListItems() {
 		result[item] = map[string]interface{}{
-			"label":       typeInfo.GetLabel(item),
-			"description": typeInfo.GetDescription(item),
-			"type":        typeInfo.GetType(item),
+			"label": typeInfo.GetLabel(item),
+			"desc":  typeInfo.GetDescription(item),
+			"type":  typeInfo.GetType(item),
 		}
 	}
 

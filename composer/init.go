@@ -21,6 +21,7 @@ func init() {
 	app.OnAppStart(initModelTypes)
 	initBaseUnits()
 	initTest()
+	initBaseTypes()
 }
 
 func initBaseUnits() {
@@ -127,6 +128,24 @@ func initBaseUnits() {
 		Description: map[string]string{ConstPrefixUnit: "Checks regular expression over value"},
 		Action:      action,
 	})
+
+
+
+	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
+		return "ok", nil
+	}
+
+	registeredComposer.RegisterUnit(&BasicUnit{
+		Name: "test",
+		Type: map[string]string{
+			"": "string",
+			ConstPrefixUnit: "string",
+			// ConstPrefixArg:  "string",
+		},
+		Label:       map[string]string{ConstPrefixUnit: "Test"},
+		Description: map[string]string{ConstPrefixUnit: "Temporary test unit"},
+		Action:      action,
+	})
 }
 
 func initTest() error {
@@ -143,6 +162,7 @@ func initTest() error {
 			"b": "float",
 			"c": "string",
 			"d": "Product",
+			"e": "[]Product",
 		},
 		Description: map[string]string{
 			"a": "Description for Test type",
@@ -153,7 +173,35 @@ func initTest() error {
 	return nil
 }
 
+func initBaseTypes() error{
+	
+	for goType, jsonType := range map[string]string {
+		utils.ConstDataTypeID:       "string",
+		utils.ConstDataTypeBoolean:  "bool",
+		utils.ConstDataTypeVarchar:  "string",
+		utils.ConstDataTypeText:     "string",
+		utils.ConstDataTypeInteger:  "int",
+		utils.ConstDataTypeDecimal:  "float",
+		utils.ConstDataTypeMoney:    "float",
+		utils.ConstDataTypeFloat:    "float",
+		utils.ConstDataTypeDatetime: "string",
+		utils.ConstDataTypeJSON:     "object",
+	} {
+
+		registeredComposer.RegisterType(&BasicType {
+			Name:        goType,
+			Label:       map[string]string {"": strings.Title(goType)},
+			Type:        map[string]string {"": jsonType},
+			Description: map[string]string {"": "Basic Ottemo type {" + goType + "}"},
+		})
+
+	}
+
+	return nil
+}
+
 func initModelTypes() error {
+
 	for modelName, modelInstance := range models.GetDeclaredModels() {
 		if modelInstance == nil {
 			continue
@@ -165,20 +213,20 @@ func initModelTypes() error {
 		}
 
 		if objectInstance, ok := modelInstance.(models.InterfaceObject); ok {
-			productType := &BasicType{
-				Name:        modelName,
-				Label:       make(map[string]string),
-				Type:        make(map[string]string),
-				Description: make(map[string]string),
+			baseType := &BasicType{
+				Name:  modelName,
+				Label: map[string]string{"": modelName},
+				Type:  map[string]string{"": "object"},
+				Description: map[string]string{"": modelName + " model object"},
 			}
 
 			for _, v := range objectInstance.GetAttributesInfo() {
-				productType.Label[v.Attribute] = v.Label
-				productType.Type[v.Attribute] = v.Type
-				productType.Description[v.Attribute] = "Product field " + v.Label
+				baseType.Label[v.Attribute] = v.Label
+				baseType.Type[v.Attribute] = v.Type
+				baseType.Description[v.Attribute] = "The '" + v.Label + "' attribute"
 			}
 
-			registeredComposer.RegisterType(productType)
+			registeredComposer.RegisterType(baseType)
 		}
 	}
 
