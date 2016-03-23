@@ -108,12 +108,11 @@
                     /**
                      * Scope variables declaration
                      */
-
                     var _UP_ = ">"; // unit prefix
-                    var keyBelongsToUnits = function(key){
+                    var isUnit = function(key){
                         return key.toString().startsWith(_UP_);
                     };
-                    $scope.keyBelongsToUnits = keyBelongsToUnits;
+                    $scope.isUnit = isUnit;
 
                     var _PS_ = "."; // path separator
                     var pathToArray = function(path) {
@@ -135,29 +134,41 @@
                     var complexTypes = {};
                     $scope.complexTypes = complexTypes;
 
+                    var DBTypes = {};
+                    $scope.DBTypes = DBTypes;
+
                     /**
                      * Base types declaration and validation
                      */
                     var baseTypes = {
-                        "string":  function(val) {
+                        "string":   function(val) {
+                            if(val == undefined){
+                                val = "";
+                            }
                             return val.toString();
                         },
-                        "int":     function(val) {
+                        "int":      function(val) {
+                            if(val == undefined){
+                                val = 0;
+                            }
                             return parseInt(val);
                         },
-                        "float":   function(val) {
+                        "float":    function(val) {
+                            if(val == undefined){
+                                val = 0;
+                            }
                             return parseFloat(val);
                         },
-                        "boolean": function(val) {
+                        "boolean":  function(val) {
                             return val ? true : false;
                         },
-                        "array":   function(val) {
+                        "array":    function(val) {
                             if (!Array.isArray(val)) {
                                 val = [];
                             }
                             return val;
                         },
-                        "object":  function(val) {
+                        "object":   function(val) {
                             if (getTypeOf(val) != "object") {
                                 val = {};
                             }
@@ -165,6 +176,21 @@
                         }
                     };
                     $scope.baseTypes = baseTypes;
+
+                    /**
+                     * Makes HTTP request to get information about db types
+                     */
+                    var requestDBTypesInfo = function(){
+                        $http({
+                            method : "GET",
+                            url : "http://localhost:3000/composer/db-types"
+                        }).then(function(response){
+                            DBTypes = response.data.result;
+                        }, function(){
+                            return null;
+                        });
+                    };
+                    requestDBTypesInfo();
 
                     /**
                      * Makes HTTP request in order to resolve complex type information
@@ -200,6 +226,14 @@
                     $scope.getBaseTypes = getBaseTypes;
 
                     /**
+                     * Returns array of "db" types names
+                     */
+                    var getDBTypes = function() {
+                        return Object.keys(DBTypes);
+                    };
+                    $scope.getDBTypes = getDBTypes;
+
+                    /**
                      * Returns array of "complex" types names
                      */
                     var getComplexTypes = function() {
@@ -216,7 +250,15 @@
                     $scope.isBaseType = isBaseType;
 
                     /**
-                     * Returns true if given type is kind of "base" type
+                     * Returns true if given type is kind of "db" type
+                     */
+                    var isDBType = function(type) {
+                        return isInArray(type, getDBTypes());
+                    }
+                    $scope.isDBType = isDBType;
+
+                    /**
+                     * Returns true if given type is kind of "complex" type
                      */
                     var isComplexType = function(type) {
                         return isInArray(type, getComplexTypes())
@@ -246,17 +288,11 @@
                         if(type == undefined) {
                             return null;
                         }
+                        //type in base types
                         if(type in $scope.baseTypes) {
                             val = $scope.baseTypes[type](val);
-                        } else if(type == "number") {
-                            if (Number.isInteger(val)) {
-                                val = convertToValue("int", val);
-                            } else {
-                                val = convertToValue("float", val);
-                            }
                         } else {
-                            var typeisArray = isArrayType(type);
-                            if(typeisArray){
+                            if(isArrayType(type)){
                                 type = "array";
                             } else {
                                 type = "object";
@@ -315,7 +351,7 @@
                      */
                     var typeItems = null;
                     $scope.typeItems = typeItems;
-                    var getItemType = function(path, val, type) {
+                    var getItemTypeInfo = function(path, val, type) {
                         if (type == undefined) {
                             type = jsonType;
                         }
@@ -329,10 +365,10 @@
                         var path = pathToArray(path);
 
                         // arrays have the same type for each item
-                        var isTypeArray = isArrayType(type);
+                        var typeIsArray = isArrayType(type);
                         type = replaceBrackets(type);
 
-                        if (type in complexTypes) {
+                        if(isComplexType(type)) {
                             typeItems = complexTypes[type];
                         }
 
@@ -343,13 +379,13 @@
                         if(typeof typeItems == "object"){
                             var path0 = path.shift();
                             if (path0 in typeItems) {
-                                type = typeItems[path0].type;
-                            } else if (!isTypeArray) {
+                                type = typeItems[path0];
+                            } else if (!typeIsArray) {
                                 return null;
                             }
 
                             if (path.length > 0) {
-                                return getItemType(path.join(_PS_), val, type);
+                                return getItemTypeInfo(path.join(_PS_), val, getItemType(type));
                             }
 
                             return type;
@@ -357,7 +393,33 @@
 
                         return getTypeOf(val);
                     };
-                    $scope.getItemType  = getItemType;
+                    $scope.getItemTypeInfo  = getItemTypeInfo;
+
+                    /**
+                     * Returns type for Complex type
+                     */
+                    var getItemType = function(typeInfo){
+                        if(getTypeOf(typeInfo) == "object"){
+                            var type = typeInfo.type;
+                            if(isDBType(type)){
+                                return DBTypes[type].type;
+                            }
+                            return type;
+                        }
+                        return typeInfo;
+                    };
+                    $scope.getItemType = getItemType;
+
+                    /**
+                     * Returns label for Complex type
+                     */
+                    var getItemLabel = function(typeInfo){
+                        if(getTypeOf(typeInfo) == "object"){
+                            return typeInfo.label;
+                        }
+                        return typeInfo;
+                    };
+                    $scope.getItemLabel = getItemLabel;
 
                     /**
                      * Returns the given object value for a specified path
@@ -403,17 +465,20 @@
                             return;
                         }
 
-                        if (keyBelongsToUnits(key)){
-                            type = "object";
+                        var workingItem = getItem(path, root);
+
+                        if (getTypeOf(workingItem) != "object" && isUnit(key)){
+                            var newType = "object";
 
                             var parentPath = pathToArray(path);
                             var workingItemKey = parentPath.pop();
                             parentPath = parentPath.join(_PS_);
 
-                            editItem(parentPath, workingItemKey, type, {});
+                            //editItem(parentPath, workingItemKey, newType, {"": workingItem});
+                            editItem(parentPath, workingItemKey, newType, {});
+                            workingItem = getItem(path, root);
                         }
 
-                        var workingItem = getItem(path, root);
                         val = convertToValue(type, val);
 
                         if(key in workingItem){
@@ -477,19 +542,13 @@
                             path = "";
                         }
 
-                        if (key == undefined){
-                            key = "";
-                        } else {
+                        if (key != undefined){
                             path = path + _PS_ + key;
                         }
 
-                        if(keyBelongsToUnits(key)){
-                            var parentType = "object";
-                        } else {
-                            var parentType = getItemType(path);
-                            if(getTypeOf(parentType) == "object"){
-                                parentType = parentType.type;
-                            }
+                        var parentType = getItemType(getItemTypeInfo(path));
+                        if(getTypeOf(parentType) == "object"){
+                            parentType = parentType.type;
                         }
 
                         var parentItem = getItem(path);
@@ -527,13 +586,16 @@
                             dialogObject.possibleKeys = getPossibleKeys(parentType);
                             dialogObject.path = path;
 
+//                            if(dialogObject.key == undefined){
+//                                dialogObject.key = dialogObject.possibleKeys[0].key;
+//                            }
                             // Showing dialog to user
                             // ----------------------
                             $scope.dialog = dialogObject;
                             if($scope.isDialogHidden){
                                 $scope.isDialogHidden = false;
                             }
-                        }
+                        };
 
                         if (!isBaseType(parentType)) {
                             if (!isComplexType(parentType)) {
@@ -554,15 +616,66 @@
                      */
                     var units = {};
                     $scope.units = units;
-                    var requestUnitsInfo = function() {
+                    var requestUnitsInfo = function(type) {
                         $http({
                             method: "GET",
-                            url: "http://localhost:3000/composer/units"
+                            url: "http://localhost:3000/composer/units" + type
                         }).then(function(response){
-                            units = response.data.result;
+                            units[type] = response.data.result;
                         });
                     };
-                    requestUnitsInfo();
+                    // requestUnitsInfo();
+
+                    /**
+                     * Adds unit prefix
+                     */
+                    var addUP = function(unitName){
+                        return _UP_ + unitName;
+                    };
+                    $scope.addUP = addUP;
+
+                    /**
+                     * Removes unit prefix
+                     */
+                    var removeUP = function(unitName){
+                        return unitName.replace(_UP_, "");;
+                    };
+                    $scope.removeUP = removeUP;
+
+                    /**
+                     * Returns information about unit
+                     */
+                    var getUnitInfo = function(unitName){
+                        if(unitName == undefined && !isUnit(unitName)){
+                            return null;
+                        }
+                        unitName = removeUP(unitName);
+
+                        return units[unitName];
+                    };
+                    $scope.getUnitInfo = getUnitInfo;
+
+                    /**
+                     * Returns label for Complex type
+                     */
+                    var getUnitType = function(unitInfo){
+                        if(getTypeOf(unitInfo) == "object"){
+                            return unitInfo["in_type"];
+                        }
+                        return unitInfo;
+                    };
+                    $scope.getUnitType = getUnitType;
+
+                    /**
+                     * Returns label for Complex type
+                     */
+                    var getUnitLabel = function(unitInfo){
+                        if(getTypeOf(unitInfo) == "object"){
+                            return unitInfo.label;
+                        }
+                        return unitInfo;
+                    };
+                    $scope.getItemLabel = getItemLabel;
 
                     /**
                      * Returns keys by type
@@ -580,45 +693,61 @@
                         // arrays have the same type for each item
                         type = replaceBrackets(type);
                         var keys = [];
-                        if (type in complexTypes) {
+                        if (isComplexType(type)) {
                             var item = complexTypes[type];
-                            if(typeof item == "object"){
-                                keys = Object.keys(item);
-                            } else {
-                                keys = item.split("");
+                            for(var key in item){
+                                if(key != ""){
+                                    var v = {};
+                                    v.key = key;
+                                    v.label = getItemLabel(item[key]);
+                                    keys.push(v);
+                                }
                             }
                         }
 
                         // get possible units
                         for (var unitName in units){
-                            var unitInfo = units[unitName];
-                            var unitInType = "";
-                            if ("in_type" in unitInfo) {
-                                unitInType = unitInfo["in_type"];
-                            }
-
+                            var unitInfo = getUnitInfo(unitName);
+                            var unitInType = getUnitType(unitInfo);
                             if (unitInType == type
                                     || (unitInType == "*" && isBaseType(type)) ){
 
-                                keys.push(_UP_ + unitName);
+                                var uv = {};
+                                uv.key = addUP(unitName);
+                                uv.label = getUnitLabel(unitInfo);
+                                keys.push(uv);
                             }
                         }
                         return keys;
                     };
                     $scope.getPossibleKeys = getPossibleKeys;
 
-                    var getSimpleType = function(path, key, val) {
+                    /**
+                     * Returns  type and label for corresponding complex type by path and key
+                     */
+                    var getTypeInfo = function(path, key, val) {
                         if(path == undefined){
                             path = "";
                         }
 
-                        if (keyBelongsToUnits(key)) {
-                            return "object";
+                        var itemInfo, info = {};
+
+                        if(key != undefined && isUnit(key)) {
+                            itemInfo = getItemTypeInfo(path, val);
+                            info.type = getItemType(itemInfo);
+
+                            var unitInfo = getUnitInfo(key);
+                            info.label = _UP_ + getUnitLabel(unitInfo);
+
+                            return info;
                         }
 
-                        return getItemType(path + '.' + key, val);
+                        itemInfo = getItemTypeInfo(path + '.' + key, val);
+                        info.type = getItemType(itemInfo);
+                        info.label = getItemLabel(itemInfo);
+                        return info;
                     };
-                    $scope.getSimpleType = getSimpleType;
+                    $scope.getTypeInfo = getTypeInfo;
 
                     /**
                      * checks accordance between input and rule
@@ -790,149 +919,149 @@
                 }]);
     </script>
 </head>
-    <body ng-app="JSONEditor" ng-controller="JSONEditor">
+<body ng-app="JSONEditor" ng-controller="JSONEditor">
 
-    <!-- Template for tree item rendering -->
+<!-- Template for tree item rendering -->
 
-    <ul template="tpl" tpl-set="tree-item" ng-if="getTypeOf(item) == 'object' || getTypeOf(item) == 'array'" >
+<ul template="tpl" tpl-set="tree-item" ng-if="getTypeOf(item) == 'object' || getTypeOf(item) == 'array'" >
 
-        <!-- items loop -->
-        <li ng-repeat="(key, val) in item track by [key,val,item]">
-            <!-- http://stackoverflow.com/questions/16796341/set-angular-scope-variable-in-markup -->
-            <!--{{type = getItemType(path + '.' +key, val) ;""}}-->
-            {{itemType = getSimpleType(path, key, val);""}}
-            {{valueType = getTypeOf(val);""}}
+    <!-- items loop -->
+    <li ng-repeat="(key, val) in item track by [key,val,item]">
+        <!-- http://stackoverflow.com/questions/16796341/set-angular-scope-variable-in-markup -->
+        {{itemInfo = getTypeInfo(path, key, val);""}}
+        {{itemType = itemInfo.type;""}}
+        {{valueType = getTypeOf(val);""}}
+        <div class="value-line">
+                    <span>
+                        <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                        <b>{{itemInfo.label}}</b>
+                    </span>
+            <span>({{itemType}})</span>
+
+            <!-- string value -->
+                <span ng-if="valueType == 'string'">
+                    <input class="form-input" type="text" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+                </span>
+
+            <!-- number value -->
+                <span ng-if="valueType == 'number'">
+                    <input class="form-input" type="number" step="0.1" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+                </span>
+
+            <!-- boolean value -->
+                <span ng-if="valueType == 'boolean'">
+                    <input class="form-input-checkbox" type="checkbox" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+                </span>
+
+            <!-- remove button -->
+            <button  class="temp-btn" ng-click="removeJsonItem(path, key)"><i class="glyphicon glyphicon-trash"></i></button>
+
+            <!-- add item button -->
+                <span>
+                    <button ng-if="itemType == 'object' || itemType == 'array' || !isBaseType(itemType)" class="trigger-modal temp-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+                </span>
+
+            <!-- add unit button -->
+                <span>
+                    <button ng-if="isBaseType(itemType) && !isUnit(key)" class="trigger-modal temp-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-indent-left"></i></button>
+                </span>
+        </div>
+
+        <!-- recursive template execution for a value -->
+        <template get="tree-item" item="val" key="key" path="{{path + '.' + key}}"></template>
+    </li>
+</ul>
+
+<!-- Raw JSON Representation -->
+<pre>{{json |json}}</pre>
+
+<!-- JSON Editor -->
+<div id="container">
+    <ul id="wrapper">
+        <li>
             <div class="value-line">
-                        <span>
-                            <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
-                            <b>{{key}}</b>
-                        </span>
-                <span>({{itemType}})</span>
-
-                <!-- string value -->
-                    <span ng-if="valueType == 'string'">
-                        <input class="form-input" type="text" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-                    </span>
-
-                <!-- number value -->
-                    <span ng-if="valueType == 'number'">
-                        <input class="form-input" type="number" step="0.1" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-                    </span>
-
-                <!-- boolean value -->
-                    <span ng-if="valueType == 'boolean'">
-                        <input class="form-input-checkbox" type="checkbox" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-                    </span>
-
-                <!-- remove button -->
-                <button  class="temp-btn" ng-click="removeJsonItem(path, key)"><i class="glyphicon glyphicon-trash"></i></button>
-
-                <!-- add item button -->
                     <span>
-                        <button ng-if="itemType == 'object' || itemType == 'array' || !isBaseType(itemType)" class="trigger-modal temp-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+                        <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                        ({{jsonType}})
                     </span>
-
-                <!-- add unit button -->
-                    <span>
-                        <button ng-if="isBaseType(itemType) && !keyBelongsToUnits(key)" class="trigger-modal temp-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-indent-left"></i></button>
-                    </span>
+                <!--add item button-->
+                <button class="trigger-modal temp-btn" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
             </div>
 
-            <!-- recursive template execution for a value -->
-            <template get="tree-item" item="val" key="key" path="{{path + '.' + key}}"></template>
+            <template get="tree-item" item="json" key="" path=""></template>
         </li>
     </ul>
+    <button class="temp-btn" ng-click="checkAccordance(json)">Check</button>
+</div>
 
-    <!-- Raw JSON Representation -->
-    <pre>{{json |json}}</pre>
+<!-- Create Item Dialog -->
+<!--<div id="screen" ng-hide="isDialogHidden"></div>-->
+<div id="modal" class="panel panel-default" ng-hide="isDialogHidden">
+    <div class="panel-heading">
+        <p>add to <b>{{dialog.path}}</b></p>
+    </div>
+    <div class="panel-body">
+        <form novalidate name="addItem" class="css-form">
+            <div novalidate class="form-group css-form">
 
-    <!-- JSON Editor -->
-    <div id="container">
-        <ul id="wrapper">
-            <li>
-                <div class="value-line">
-                        <span>
-                            <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
-                            ({{jsonType}})
+                <!-- key input -->
+                <div ng-show="dialog.showKey">
+                    <label>Key:</label>
+                    <input  type="text" ng-show="dialog.showInputKey" ng-model="dialog.key" class="form-control" required/>
+                    <select ng-show="dialog.showSelectKey" ng-options="option.label for option in dialog.possibleKeys" ng-model="info" ng-change="dialog.type = getTypeInfo(dialog.path, info.key).type" class="form-control" required></select>
+                </div>
+
+                <!-- type selector -->
+                <div>
+                    <br>
+                    <label>Type:</label>
+                    <input ng-show="dialog.showInputType" type="text" ng-model="dialog.type" class="form-control" readonly/>
+                    <select ng-show="dialog.showSelectType" ng-options="option for option in dialog.baseTypes" ng-model="dialog.type" class="form-control" required></select>
+                </div>
+
+                <!-- value input -->
+                <div ng-switch="dialog.type">
+                    <br>
+                    <label>Value:</label>
+
+                    <!-- string value -->
+                        <span ng-switch-when="string">
+                            <input class="form-control" type="text" ng-model="dialog.val" required/>
                         </span>
-                    <!--add item button-->
-                    <button class="trigger-modal temp-btn" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+
+                    <!-- number value -->
+                        <span ng-switch-when="int">
+                            <input class="form-control" type="number" ng-model="dialog.val" required/>
+                        </span>
+
+                    <!-- number value -->
+                        <span ng-switch-when="float">
+                            <input class="form-control" type="number" ng-model="dialog.val" required/>
+                        </span>
+
+                    <!--boolean value -->
+                        <span ng-switch-when="boolean">
+                            <input class="form-input-checkbox" type="checkbox" ng-model="dialog.val"/>
+                        </span>
+
+                    <!-- default value -->
+                        <span ng-switch-default>
+                            N/A
+                        </span>
                 </div>
 
-                <template get="tree-item" item="json" key="" path=""></template>
-            </li>
-        </ul>
-        <button class="temp-btn" ng-click="checkAccordance(json)">Check</button>
+            </div>
+        </form>
     </div>
 
-    <!-- Create Item Dialog -->
-    <!--<div id="screen" ng-hide="isDialogHidden"></div>-->
-    <div id="modal" class="panel panel-default" ng-hide="isDialogHidden">
-        <div class="panel-heading">
-            <p>add to <b>{{dialog.path}}</b></p>
-        </div>
-        <div class="panel-body">
-            <form novalidate name="addItem" class="css-form">
-                <div novalidate class="form-group css-form">
-
-                    <!-- key input -->
-                    <div ng-show="dialog.showKey">
-                        <label>Key:</label>
-                        <input  type="text" ng-show="dialog.showInputKey" ng-model="dialog.key" class="form-control" required/>
-                        <select ng-show="dialog.showSelectKey" ng-options="option for option in dialog.possibleKeys" ng-model="dialog.key" ng-change="dialog.type = getSimpleType(dialog.path, dialog.key)" class="form-control" required></select>
-                        <!--<select ng-show="dialog.showSelectKey" ng-options="option for option in dialog.possibleKeys" ng-model="dialog.key" ng-change="dialog.type = getItemType(dialog.path + '.' + dialog.key)" class="form-control" required></select>-->
-                    </div>
-
-                    <!-- type selector -->
-                    <div>
-                        <br>
-                        <label>Type:</label>
-                        <input ng-show="dialog.showInputType" type="text" ng-model="dialog.type" class="form-control" readonly/>
-                        <select ng-show="dialog.showSelectType" ng-options="option for option in dialog.baseTypes" ng-model="dialog.type" class="form-control" required></select>
-                    </div>
-
-                    <!-- value input -->
-                    <div ng-switch="dialog.type">
-                        <br>
-                        <label>Value:</label>
-
-                        <!-- string value -->
-                            <span ng-switch-when="string">
-                                <input class="form-control" type="text" ng-model="dialog.val" required/>
-                            </span>
-
-                        <!-- number value -->
-                            <span ng-switch-when="int">
-                                <input class="form-control" type="number" ng-model="dialog.val" required/>
-                            </span>
-
-                        <!-- number value -->
-                            <span ng-switch-when="float">
-                                <input class="form-control" type="number" ng-model="dialog.val" required/>
-                            </span>
-
-                        <!-- boolean value -->
-                            <span ng-switch-when="boolean">
-                                <input class="form-input-checkbox" type="checkbox" ng-model="dialog.val"/>
-                            </span>
-
-                        <!-- default value -->
-                            <span ng-switch-default>
-                                N/A
-                            </span>
-                    </div>
-
-                </div>
-            </form>
-        </div>
-
-        <!-- Actions -->
-        <div class="panel-footer">
-            <button class="btn btn-default" ng-disabled="addItem.$invalid" ng-click="isDialogHidden=true; addJsonItem(dialog.path, dialog.key, dialog.type, dialog.val)">Add</button>
-            <button class="btn btn-default" ng-click="isDialogHidden=true;">Cancel</button>
-        </div>
+    <!-- Actions -->
+    <div class="panel-footer">
+        {{currKey = info.key ? info.key : dialog.key; ""}}
+        <button class="btn btn-default" ng-click="isDialogHidden=true; addJsonItem(dialog.path, currKey, dialog.type, dialog.val)">Add</button>
+        <button class="btn btn-default" ng-click="isDialogHidden=true;">Cancel</button>
     </div>
+</div>
 
-    </body>
+</body>
 
 </html>

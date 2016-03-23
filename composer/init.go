@@ -139,7 +139,7 @@ func initBaseUnits() {
 		Name: "test",
 		Type: map[string]string{
 			"": "string",
-			ConstPrefixUnit: "string",
+			ConstPrefixUnit: "int",
 			// ConstPrefixArg:  "string",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "Test"},
@@ -156,6 +156,7 @@ func initTest() error {
 			"b": "FloatTest",
 			"c": "StringTest",
 			"d": "ProductTest",
+			"e": "ArrOfProductsTest",
 		},
 		Type: map[string]string{
 			"a": "int",
@@ -177,22 +178,22 @@ func initBaseTypes() error{
 	
 	for goType, jsonType := range map[string]string {
 		utils.ConstDataTypeID:       "string",
-		utils.ConstDataTypeBoolean:  "bool",
+		utils.ConstDataTypeBoolean:  "boolean",
 		utils.ConstDataTypeVarchar:  "string",
 		utils.ConstDataTypeText:     "string",
-		utils.ConstDataTypeInteger:  "int",
+		//utils.ConstDataTypeInteger:  "int",
 		utils.ConstDataTypeDecimal:  "float",
 		utils.ConstDataTypeMoney:    "float",
-		utils.ConstDataTypeFloat:    "float",
+		//utils.ConstDataTypeFloat:    "float",
 		utils.ConstDataTypeDatetime: "string",
 		utils.ConstDataTypeJSON:     "object",
 	} {
 
 		registeredComposer.RegisterType(&BasicType {
 			Name:        goType,
-			Label:       map[string]string {"": strings.Title(goType)},
-			Type:        map[string]string {"": jsonType},
-			Description: map[string]string {"": "Basic Ottemo type {" + goType + "}"},
+			Label:       map[string]string {goType: strings.Title(goType)},
+			Type:        map[string]string {goType: jsonType},
+			Description: map[string]string {goType: "Basic Ottemo type {" + goType + "}"},
 		})
 
 	}

@@ -17,12 +17,12 @@ func setupAPI() error {
 		return env.ErrorDispatch(err)
 	}
 
-	err = api.GetRestService().RegisterAPI("composer/units", api.ConstRESTOperationGet, composerUnits)
+	err = api.GetRestService().RegisterAPI("composer/units/:typeName", api.ConstRESTOperationGet, composerUnits)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
 
-	err = api.GetRestService().RegisterAPI("composer/units/:namePattern", api.ConstRESTOperationGet, composerUnitSearch)
+	err = api.GetRestService().RegisterAPI("composer/search-unit/:namePattern", api.ConstRESTOperationGet, composerUnitSearch)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
@@ -32,7 +32,7 @@ func setupAPI() error {
 		return env.ErrorDispatch(err)
 	}
 
-	err = api.GetRestService().RegisterAPI("composer/test/:name", api.ConstRESTOperationGet, composerTest)
+	err = api.GetRestService().RegisterAPI("composer/db-types", api.ConstRESTOperationGet, composerDBTypes)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
@@ -56,7 +56,7 @@ func composerCheck(context api.InterfaceApplicationContext) (interface{}, error)
 		"b": 25,
 		"c": "123",
 		"d": map[string]interface{}{
-			"id":    "0bf7939973984c67b6b56b1c098edfca",
+			"_id":    "0bf7939973984c67b6b56b1c098edfca",
 			"name":  "Product1",
 			"sku":   "PR-1",
 			"price": 10.5,
@@ -82,80 +82,50 @@ func composerCheck(context api.InterfaceApplicationContext) (interface{}, error)
 func composerType(context api.InterfaceApplicationContext) (interface{}, error) {
 	result := make(map[string]interface{})
 
-	composer := registeredComposer
-	typeName := context.GetRequestArgument("name")
-	typeInfo := composer.GetType(typeName)
-	if typeInfo == nil {
-		return result, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "24bb5e98-b5de-4d4a-a5dc-cf2573dae3dd", "Type "+typeName+" is not defined")
-	}
+	composer := GetComposer();
+	typeNames := strings.Split(context.GetRequestArgument("name"), ",")
+	for _, typeName := range typeNames {
+		typeInfo := composer.GetType(typeName)
+		if typeInfo == nil {
+			return result, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "24bb5e98-b5de-4d4a-a5dc-cf2573dae3dd", "Type " + typeName + " is not defined")
+		}
 
-	for _, item := range typeInfo.ListItems() {
-		result[item] = map[string]interface{}{
-			"label": typeInfo.GetLabel(item),
-			"desc":  typeInfo.GetDescription(item),
-			"type":  typeInfo.GetType(item),
+		for _, item := range typeInfo.ListItems() {
+			result[item] = map[string]interface{}{
+				"label": typeInfo.GetLabel(item),
+				"desc":  typeInfo.GetDescription(item),
+				"type":  typeInfo.GetType(item),
+			}
 		}
 	}
-
 	return result, nil
 }
 
-func composerTest(context api.InterfaceApplicationContext) (interface{}, error) {
-	result := make(map[string]interface{})
-	typeName := utils.InterfaceToString(api.GetArgumentOrContentValue(context, "name"))
-	switch strings.ToLower(typeName) {
-	case "product":
-		return map[string]interface{}{
-			"test":    "test",
-			"sku":     "array",
-			"name":    "string",
-			"price":   "float",
-			"related": "[]Id",
-			"options": "[]Option",
-		}, nil
+func composerDBTypes(context api.InterfaceApplicationContext) (interface{}, error) {
+	result := make(map[string]interface{});
+	composer := GetComposer();
 
-	case "option":
-		return map[string]interface{}{
-			"key":   "string",
-			"value": "[]Any",
-		}, nil
-	case "id":
-		return map[string]interface{}{
-			"Id": "int",
-		}, nil
-	case "any":
-		return "baseTypes", nil
-	case "test":
-		return map[string]interface{}{
-			"a": "[]Test",
-			"b": "int",
-		}, nil
-	case "all":
-		return utils.DecodeJSONToStringKeyMap(`{
-						"Product": {
-                            "sku": "boolean",
-                            "name": "string",
-                            "price": "float",
-                            "related": "[]Id",
-                            "options": "[]Option"
-                        },
-                        "Option": {
-                            "key": "string",
-                            "value": "[]Test"
-                        },
-                        "Id" : "int",
-
-                        "Test": {
-                            "a": "[]Test",
-                            "b": "array"
-                        },
-
-                        "Any" : "baseTypes"
-                        }
-                        `)
+	for _, goType := range []string {
+			utils.ConstDataTypeID,
+			utils.ConstDataTypeBoolean,
+			utils.ConstDataTypeVarchar,
+			utils.ConstDataTypeText,
+			utils.ConstDataTypeDecimal,
+			utils.ConstDataTypeMoney,
+			utils.ConstDataTypeDatetime,
+			utils.ConstDataTypeJSON,
+		}	{
+		typeInfo := composer.GetType(goType);
+		for _, item := range typeInfo.ListItems() {
+			result[item] = map[string]interface{}{
+				"label": typeInfo.GetLabel(item),
+				"desc":  typeInfo.GetDescription(item),
+				"type":  typeInfo.GetType(item),
+			}
+		}
 	}
 
-	return result, nil
+	return  result, nil
 }
 
 func composerUnit(context api.InterfaceApplicationContext) (interface{}, error) {
@@ -183,15 +153,18 @@ func composerUnit(context api.InterfaceApplicationContext) (interface{}, error) 
 func composerUnits(context api.InterfaceApplicationContext) (interface{}, error) {
 
 	result := make(map[string]interface{})
+	typeName := context.GetRequestArgument("typeName")
 
 	if composer := GetComposer(); composer != nil {
 		for _, unit := range composer.ListUnits() {
-			if unitName := unit.GetName(); unitName != "" {
+			unitName := unit.GetName();
+			unitType := unit.GetType(ConstPrefixUnit);
+			if  unitType == typeName {
 				result[unitName] = map[string]interface{}{
-					"name":        unit.GetName(),
+					"name":        unitName,
 					"label":       unit.GetLabel(ConstPrefixUnit),
 					"description": unit.GetLabel(ConstPrefixUnit),
-					"in_type":     unit.GetType(ConstPrefixUnit),
+					"in_type":     unitType,
 					"in_required": unit.IsRequired(ConstPrefixUnit),
 				}
 			}
