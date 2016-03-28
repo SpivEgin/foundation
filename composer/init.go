@@ -129,8 +129,6 @@ func initBaseUnits() {
 		Action:      action,
 	})
 
-
-
 	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
 		return "ok", nil
 	}
@@ -138,9 +136,9 @@ func initBaseUnits() {
 	registeredComposer.RegisterUnit(&BasicUnit{
 		Name: "test",
 		Type: map[string]string{
-			"": "string",
-			ConstPrefixUnit: "int",
-			// ConstPrefixArg:  "string",
+			"":              "string",
+			ConstPrefixUnit: "Product",
+			ConstPrefixArg:  "string",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "Test"},
 		Description: map[string]string{ConstPrefixUnit: "Temporary test unit"},
@@ -161,7 +159,7 @@ func initTest() error {
 		Type: map[string]string{
 			"a": "int",
 			"b": "float",
-			"c": "string",
+			"c": "int",
 			"d": "Product",
 			"e": "[]Product",
 		},
@@ -174,26 +172,26 @@ func initTest() error {
 	return nil
 }
 
-func initBaseTypes() error{
-	
-	for goType, jsonType := range map[string]string {
-		utils.ConstDataTypeID:       "string",
-		utils.ConstDataTypeBoolean:  "boolean",
-		utils.ConstDataTypeVarchar:  "string",
-		utils.ConstDataTypeText:     "string",
+func initBaseTypes() error {
+
+	for goType, jsonType := range map[string]string{
+		utils.ConstDataTypeID:      "string",
+		utils.ConstDataTypeBoolean: "boolean",
+		utils.ConstDataTypeVarchar: "string",
+		utils.ConstDataTypeText:    "string",
 		//utils.ConstDataTypeInteger:  "int",
-		utils.ConstDataTypeDecimal:  "float",
-		utils.ConstDataTypeMoney:    "float",
+		utils.ConstDataTypeDecimal: "float",
+		utils.ConstDataTypeMoney:   "float",
 		//utils.ConstDataTypeFloat:    "float",
 		utils.ConstDataTypeDatetime: "string",
 		utils.ConstDataTypeJSON:     "object",
 	} {
 
-		registeredComposer.RegisterType(&BasicType {
+		registeredComposer.RegisterType(&BasicType{
 			Name:        goType,
-			Label:       map[string]string {goType: strings.Title(goType)},
-			Type:        map[string]string {goType: jsonType},
-			Description: map[string]string {goType: "Basic Ottemo type {" + goType + "}"},
+			Label:       map[string]string{goType: strings.Title(goType)},
+			Type:        map[string]string{goType: jsonType},
+			Description: map[string]string{goType: "Basic Ottemo type {" + goType + "}"},
 		})
 
 	}
@@ -215,9 +213,9 @@ func initModelTypes() error {
 
 		if objectInstance, ok := modelInstance.(models.InterfaceObject); ok {
 			baseType := &BasicType{
-				Name:  modelName,
-				Label: map[string]string{"": modelName},
-				Type:  map[string]string{"": "object"},
+				Name:        modelName,
+				Label:       map[string]string{"": modelName},
+				Type:        map[string]string{"": "object"},
 				Description: map[string]string{"": modelName + " model object"},
 			}
 

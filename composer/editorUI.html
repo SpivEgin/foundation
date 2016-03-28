@@ -13,6 +13,10 @@
             float: right;
         }
 
+        #check-btn {
+            float: left;
+        }
+
         #container {
             width: 900px;
             margin-left: 10px;
@@ -83,14 +87,28 @@
             position: fixed;
         }
 
-        .value-line span{
+        .value-line span {
             line-height: 30px;
         }
 
-        .value-line button{
+        .value-line button {
             box-sizing: border-box;
             height: 30px;
             line-height: 26px;
+            border-color: transparent;
+            background-color: transparent;
+        }
+
+        .add-btn {
+            margin-right: 5px;
+        }
+
+        .unit-btn {
+            margin-right: 40px;
+        }
+
+        .remove-btn {
+            margin-right: 0px;
         }
 
     </style>
@@ -204,13 +222,44 @@
                         promise.then(function (response){
                             var res = response.data.result;
                             complexTypes[type] = res;
-                            if (handler != undefined) {
+                            return res;
+                        }, function(){
+                            return null;
+                        }).then(function (res){
+                            var types = [];
+                            for(var key in res){
+                                var itemType = getItemType(res[key]);
+                                if(units[itemType] == undefined &&
+                                        types.indexOf(itemType) == -1 &&
+                                        !isArrayType(itemType)) {
+                                    types.push(itemType);
+                                }
+                            }
+                            //types.join(",");
+
+                            if(types != []){
+                                var promise = $http({
+                                    method : "GET",
+                                    url : "http://localhost:3000/composer/units/" + types
+                                });
+
+                                promise.then(function(response) {
+                                    var types = response.data.result;
+                                    for(var type in types){
+                                        units[type] = types[type];
+                                    }
+                                    if(handler != undefined){
+                                        try {
+                                            handler();
+                                        } catch(e) {}
+                                    }
+                                });
+                            } else if(handler != undefined) {
                                 try {
                                     handler();
                                 } catch(e) {}
                             }
-                        }, function(){
-                            return null;
+
                         });
 
                         return promise;
@@ -351,7 +400,7 @@
                      */
                     var typeItems = null;
                     $scope.typeItems = typeItems;
-                    var getItemTypeInfo = function(path, val, type) {
+                    var getItemInfo = function(path, val, type) {
                         if (type == undefined) {
                             type = jsonType;
                         }
@@ -368,8 +417,15 @@
                         var typeIsArray = isArrayType(type);
                         type = replaceBrackets(type);
 
-                        if(isComplexType(type)) {
+                        var path0 = path.shift();
+                        if(!isUnit(path0) && isComplexType(type)) {
                             typeItems = complexTypes[type];
+                        } else {
+                            path0 = removeUP(path0);
+                            typeItems = units[type];
+                            if(isBaseType(type)){
+                                Object.assign(typeItems, units["*"]);
+                            }
                         }
 
                         if(typeItems == undefined){
@@ -377,7 +433,6 @@
                         }
 
                         if(typeof typeItems == "object"){
-                            var path0 = path.shift();
                             if (path0 in typeItems) {
                                 type = typeItems[path0];
                             } else if (!typeIsArray) {
@@ -385,7 +440,7 @@
                             }
 
                             if (path.length > 0) {
-                                return getItemTypeInfo(path.join(_PS_), val, getItemType(type));
+                                return getItemInfo(path.join(_PS_), val, getItemType(type));
                             }
 
                             return type;
@@ -393,7 +448,7 @@
 
                         return getTypeOf(val);
                     };
-                    $scope.getItemTypeInfo  = getItemTypeInfo;
+                    $scope.getItemInfo  = getItemInfo;
 
                     /**
                      * Returns type for Complex type
@@ -535,7 +590,7 @@
                     /**
                      * Show dialog - opens the items creation dialog
                      */
-                    var addItemDialog = function(path, key){
+                    var addItemDialog = function(path, key, flag){
                         // Initialization / Validation
                         // ---------------------------
                         if (path == undefined){
@@ -544,9 +599,11 @@
 
                         if (key != undefined){
                             path = path + _PS_ + key;
+                        } else {
+                            key = "";
                         }
 
-                        var parentType = getItemType(getItemTypeInfo(path));
+                        var parentType = getItemType(getItemInfo(path));
                         if(getTypeOf(parentType) == "object"){
                             parentType = parentType.type;
                         }
@@ -562,33 +619,39 @@
                                 showInputKey: false,
                                 showSelectKey: true,
                                 showInputType: true,
-                                showSelectType: false,
+                                showSelectType: false
                             };
 
-                            if(isArrayType(parentType)){
-                                dialogObject.showKey = false;
-                                dialogObject.key = parentItem.length;
-                                if(parentType == "[]Any" || parentType == "array"){
-                                    dialogObject.baseTypes = getBaseTypes();
+                            if(isUnit(key)) {
+
+                            } else {
+                                if (isArrayType(parentType)) {
+                                    dialogObject.showKey = false;
+                                    dialogObject.key = parentItem.length;
+                                    if (parentType == "[]Any" || parentType == "array") {
+                                        dialogObject.baseTypes = getBaseTypes();
+                                        dialogObject.showSelectType = true;
+                                        dialogObject.showInputType = false;
+                                    } else {
+                                        dialogObject.type = replaceBrackets(parentType);
+                                    }
+                                } else if (parentType == "object") {
+                                    dialogObject.showSelectKey = false;
+                                    dialogObject.showInputKey = true;
                                     dialogObject.showSelectType = true;
                                     dialogObject.showInputType = false;
-                                } else {
-                                    dialogObject.type = replaceBrackets(parentType);
+                                    dialogObject.baseTypes = getBaseTypes();
                                 }
-                            } else if(parentType == "object"){
-                                dialogObject.showSelectKey = false;
-                                dialogObject.showInputKey = true;
-                                dialogObject.showSelectType = true;
-                                dialogObject.showInputType = false;
-                                dialogObject.baseTypes = getBaseTypes();
+
+                                if(flag == "unit"){
+                                    dialogObject.possibleKeys = getPossibleUnits(parentType);
+                                } else {
+                                    dialogObject.possibleKeys = getPossibleKeys(parentType);
+                                }
                             }
 
-                            dialogObject.possibleKeys = getPossibleKeys(parentType);
                             dialogObject.path = path;
 
-//                            if(dialogObject.key == undefined){
-//                                dialogObject.key = dialogObject.possibleKeys[0].key;
-//                            }
                             // Showing dialog to user
                             // ----------------------
                             $scope.dialog = dialogObject;
@@ -597,7 +660,7 @@
                             }
                         };
 
-                        if (!isBaseType(parentType)) {
+                        if (!isArrayType(parentType) && !isBaseType(parentType) && parentType != "*") {
                             if (!isComplexType(parentType)) {
                                 requestTypeInfo(replaceBrackets(parentType), function() {
                                     showDialog();
@@ -616,15 +679,15 @@
                      */
                     var units = {};
                     $scope.units = units;
-                    var requestUnitsInfo = function(type) {
+                    var requestUnitsForTypeAny = function() {
                         $http({
                             method: "GET",
-                            url: "http://localhost:3000/composer/units" + type
+                            url: "http://localhost:3000/composer/units/*"
                         }).then(function(response){
-                            units[type] = response.data.result;
+                            units = response.data.result;
                         });
                     };
-                    // requestUnitsInfo();
+                    requestUnitsForTypeAny();
 
                     /**
                      * Adds unit prefix
@@ -643,54 +706,37 @@
                     $scope.removeUP = removeUP;
 
                     /**
-                     * Returns information about unit
+                     * Checks if to type can be applied units
                      */
-                    var getUnitInfo = function(unitName){
-                        if(unitName == undefined && !isUnit(unitName)){
-                            return null;
-                        }
-                        unitName = removeUP(unitName);
-
-                        return units[unitName];
+                    var hasUnits = function(type){
+                        return units[type] != undefined && (!isEmpty(units[type]) || isBaseType(type));
                     };
-                    $scope.getUnitInfo = getUnitInfo;
+                    $scope.hasUnits = hasUnits;
 
                     /**
-                     * Returns label for Complex type
+                     * Checks object on emptiness
                      */
-                    var getUnitType = function(unitInfo){
-                        if(getTypeOf(unitInfo) == "object"){
-                            return unitInfo["in_type"];
+                    function isEmpty(obj) {
+                        for(var prop in obj) {
+                            if(prop)
+                                return false;
                         }
-                        return unitInfo;
-                    };
-                    $scope.getUnitType = getUnitType;
 
-                    /**
-                     * Returns label for Complex type
-                     */
-                    var getUnitLabel = function(unitInfo){
-                        if(getTypeOf(unitInfo) == "object"){
-                            return unitInfo.label;
-                        }
-                        return unitInfo;
-                    };
-                    $scope.getItemLabel = getItemLabel;
-
+                        return true;
+                    }
                     /**
                      * Returns keys by type
                      */
                     var getPossibleKeys = function(type){
 
                         if(type == undefined){
-                            type = jsonType;
+                            return null;
                         }
 
                         if(type == "array"){
                             return Object.keys($scope.baseTypes);
                         }
 
-                        // arrays have the same type for each item
                         type = replaceBrackets(type);
                         var keys = [];
                         if (isComplexType(type)) {
@@ -703,25 +749,54 @@
                                     keys.push(v);
                                 }
                             }
+                        } else {
+                            return null;
                         }
 
-                        // get possible units
-                        for (var unitName in units){
-                            var unitInfo = getUnitInfo(unitName);
-                            var unitInType = getUnitType(unitInfo);
-                            if (unitInType == type
-                                    || (unitInType == "*" && isBaseType(type)) ){
-
-                                var uv = {};
-                                uv.key = addUP(unitName);
-                                uv.label = getUnitLabel(unitInfo);
-                                keys.push(uv);
-                            }
-                        }
                         return keys;
                     };
                     $scope.getPossibleKeys = getPossibleKeys;
 
+                    /**
+                     * Returns unitss by type
+                     */
+                    var getPossibleUnits = function(type) {
+                        if(type == undefined){
+                            return null;
+                        }
+
+                        type = replaceBrackets(type);
+                        var keys = [];
+                        var typeUnits;
+
+                        if (hasUnits(type)) {
+                            typeUnits = units[type];
+                            keys = keys.concat(getUnits(typeUnits, type));
+                        }
+                        if(isBaseType(type)){
+                            typeUnits = units["*"];
+                            keys = keys.concat(getUnits(typeUnits, "*"));
+                        }
+
+                        return keys;
+                    };
+                    $scope.getPossibleUnits = getPossibleUnits;
+
+                    var getUnits = function(typeUnits, type) {
+                        var keys = [];
+                        for(var unitName in typeUnits){
+                            var unitInfo = typeUnits[unitName];
+                            var unitInType = getItemType(typeUnits[unitName]);
+                            if (unitInType == type) {
+                                var v = {};
+                                v.key = addUP(unitName);
+                                v.label = addUP(getItemLabel(unitInfo));
+                                keys.push(v);
+                            }
+                        }
+
+                        return keys;
+                    };
                     /**
                      * Returns  type and label for corresponding complex type by path and key
                      */
@@ -730,21 +805,18 @@
                             path = "";
                         }
 
-                        var itemInfo, info = {};
+                        var info = {};
+                        var parentItemInfo = getItemInfo(path, val);
+                        var itemInfo = getItemInfo(path + '.' + key, val);
 
                         if(key != undefined && isUnit(key)) {
-                            itemInfo = getItemTypeInfo(path, val);
+                            info.label = addUP(getItemLabel(itemInfo));
+                            info.type = getItemType(parentItemInfo);
+                        } else {
+                            info.label = getItemLabel(itemInfo);
                             info.type = getItemType(itemInfo);
-
-                            var unitInfo = getUnitInfo(key);
-                            info.label = _UP_ + getUnitLabel(unitInfo);
-
-                            return info;
                         }
 
-                        itemInfo = getItemTypeInfo(path + '.' + key, val);
-                        info.type = getItemType(itemInfo);
-                        info.label = getItemLabel(itemInfo);
                         return info;
                     };
                     $scope.getTypeInfo = getTypeInfo;
@@ -954,17 +1026,14 @@
                 </span>
 
             <!-- remove button -->
-            <button  class="temp-btn" ng-click="removeJsonItem(path, key)"><i class="glyphicon glyphicon-trash"></i></button>
+            <button  class="temp-btn remove-btn" ng-click="removeJsonItem(path, key)"><i class="glyphicon glyphicon-trash"></i></button>
 
             <!-- add item button -->
-                <span>
-                    <button ng-if="itemType == 'object' || itemType == 'array' || !isBaseType(itemType)" class="trigger-modal temp-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
-                </span>
+            <button ng-if="itemType == 'object' || itemType == 'array' || !isBaseType(itemType)" class="trigger-modal temp-btn add-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
 
             <!-- add unit button -->
-                <span>
-                    <button ng-if="isBaseType(itemType) && !isUnit(key)" class="trigger-modal temp-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-indent-left"></i></button>
-                </span>
+            <button ng-if="hasUnits(itemType)" class="trigger-modal temp-btn unit-btn" ng-click="addItemDialog(path, key, 'unit')"><i class="glyphicon glyphicon-indent-left"></i></button>
+
         </div>
 
         <!-- recursive template execution for a value -->
@@ -985,13 +1054,13 @@
                         ({{jsonType}})
                     </span>
                 <!--add item button-->
-                <button class="trigger-modal temp-btn" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+                <button class="trigger-modal temp-btn" style="margin-right: 35px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
             </div>
 
             <template get="tree-item" item="json" key="" path=""></template>
         </li>
     </ul>
-    <button class="temp-btn" ng-click="checkAccordance(json)">Check</button>
+    <button id="check-btn" class="temp-btn" ng-click="checkAccordance(json)">Check</button>
 </div>
 
 <!-- Create Item Dialog -->
