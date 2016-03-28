@@ -161,22 +161,28 @@ func composerUnits(context api.InterfaceApplicationContext) (interface{}, error)
 	typeNames := strings.Split(types, ",")
 
 	for _, typeName := range typeNames {
-		res := make(map[string]interface{})
+		typeFilledByUnits := make(map[string]interface{})
+
 		if composer := GetComposer(); composer != nil {
 			for _, unit := range composer.ListUnits() {
-				unitName := unit.GetName()
+				unitName := unit.GetName();
 				unitType := unit.GetType(ConstPrefixUnit)
-				if unitType == typeName {
-					res[unitName] = map[string]interface{}{
-						"name":        unitName,
-						"label":       unit.GetLabel(ConstPrefixUnit),
-						"description": unit.GetLabel(ConstPrefixUnit),
-						"type":        unitType,
-						"in_required": unit.IsRequired(ConstPrefixUnit),
+
+				if unitType == strings.ToLower(typeName) {
+					unitInfo := make(map[string]interface{})
+
+					for _, item := range unit.ListItems() {
+						unitInfo[item] = map[string]interface{}{
+							"label":       unit.GetLabel(item),
+							"description": unit.GetDescription(item),
+							"type":        unit.GetType(item),
+							"required":    unit.IsRequired(item),
+						}
 					}
+					typeFilledByUnits[unitName] = unitInfo
 				}
 			}
-			result[typeName] = res
+			result[typeName] = typeFilledByUnits
 		}
 	}
 

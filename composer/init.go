@@ -137,7 +137,7 @@ func initBaseUnits() {
 		Name: "test",
 		Type: map[string]string{
 			"":              "string",
-			ConstPrefixUnit: "Product",
+			ConstPrefixUnit: "product",
 			ConstPrefixArg:  "string",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "Test"},

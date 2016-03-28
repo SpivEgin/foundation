@@ -126,11 +126,34 @@
                     /**
                      * Scope variables declaration
                      */
+                    var _ANY_ = "*"; // any base type
+
                     var _UP_ = ">"; // unit prefix
                     var isUnit = function(key){
+                        if(key == undefined){
+                            return false;
+                        }
                         return key.toString().startsWith(_UP_);
                     };
                     $scope.isUnit = isUnit;
+
+                    var _AP_ = "@"; // argument prefix
+                    var isArgument = function(key){
+                        if(key == undefined){
+                            return false;
+                        }
+                        return key.toString().startsWith(_AP_);
+                    };
+                    $scope.isArgument = isArgument;
+
+                    var _OP_ = " "; // output prefix
+                    var isOutput = function(key){
+                        if(key == undefined){
+                            return false;
+                        }
+                        return key.toString().startsWith(_OP_);
+                    };
+                    $scope.isOutput = isOutput;
 
                     var _PS_ = "."; // path separator
                     var pathToArray = function(path) {
@@ -398,8 +421,6 @@
                     /**
                      * Returns type by path
                      */
-                    var typeItems = null;
-                    $scope.typeItems = typeItems;
                     var getItemInfo = function(path, val, type) {
                         if (type == undefined) {
                             type = jsonType;
@@ -411,20 +432,23 @@
                             return type;
                         }
 
-                        var path = pathToArray(path);
+                        path = pathToArray(path);
 
                         // arrays have the same type for each item
                         var typeIsArray = isArrayType(type);
                         type = replaceBrackets(type);
 
+                        var typeItems = undefined;
                         var path0 = path.shift();
-                        if(!isUnit(path0) && isComplexType(type)) {
+                        var pathIsUnit = isUnit(path0);
+
+                        if(!pathIsUnit && isComplexType(type)) {
                             typeItems = complexTypes[type];
                         } else {
                             path0 = removeUP(path0);
-                            typeItems = units[type];
+                            typeItems = Object.assign({}, units[type]);
                             if(isBaseType(type)){
-                                Object.assign(typeItems, units["*"]);
+                                Object.assign(typeItems, units[_ANY_]);
                             }
                         }
 
@@ -432,10 +456,12 @@
                             return null;
                         }
 
-                        if(typeof typeItems == "object"){
+                        if(typeof typeItems == "object") {
                             if (path0 in typeItems) {
-                                type = typeItems[path0];
-                            } else if (!typeIsArray) {
+                                if(!pathIsUnit) {
+                                    type = typeItems[path0];
+                                }
+                            } else if(!typeIsArray) {
                                 return null;
                             }
 
@@ -443,6 +469,9 @@
                                 return getItemInfo(path.join(_PS_), val, getItemType(type));
                             }
 
+                            if(pathIsUnit) {
+                                type = typeItems[path0];
+                            }
                             return type;
                         }
 
@@ -522,7 +551,7 @@
 
                         var workingItem = getItem(path, root);
 
-                        if (getTypeOf(workingItem) != "object" && isUnit(key)){
+                        if (getTypeOf(workingItem) != "object" && (isUnit(key) || isArgument(key) || isOutput(key))){
                             var newType = "object";
 
                             var parentPath = pathToArray(path);
@@ -597,13 +626,20 @@
                             path = "";
                         }
 
-                        if (key != undefined){
+                        if(key != undefined) {
                             path = path + _PS_ + key;
                         } else {
                             key = "";
                         }
 
-                        var parentType = getItemType(getItemInfo(path));
+                        var pathToParent, index = path.indexOf(_UP_);
+                        if(index != -1){
+                            pathToParent = path.substring(0, index);
+                        } else {
+                            pathToParent = path;
+                        }
+
+                        var parentType = getItemType(getItemInfo(pathToParent));
                         if(getTypeOf(parentType) == "object"){
                             parentType = parentType.type;
                         }
@@ -622,32 +658,32 @@
                                 showSelectType: false
                             };
 
-                            if(isUnit(key)) {
-
-                            } else {
-                                if (isArrayType(parentType)) {
-                                    dialogObject.showKey = false;
-                                    dialogObject.key = parentItem.length;
-                                    if (parentType == "[]Any" || parentType == "array") {
-                                        dialogObject.baseTypes = getBaseTypes();
-                                        dialogObject.showSelectType = true;
-                                        dialogObject.showInputType = false;
-                                    } else {
-                                        dialogObject.type = replaceBrackets(parentType);
-                                    }
-                                } else if (parentType == "object") {
-                                    dialogObject.showSelectKey = false;
-                                    dialogObject.showInputKey = true;
+                            if (isArrayType(parentType)) {
+                                dialogObject.showKey = false;
+                                dialogObject.key = parentItem.length;
+                                if (parentType == "[]Any" || parentType == "array") {
+                                    dialogObject.baseTypes = getBaseTypes();
                                     dialogObject.showSelectType = true;
                                     dialogObject.showInputType = false;
-                                    dialogObject.baseTypes = getBaseTypes();
-                                }
-
-                                if(flag == "unit"){
-                                    dialogObject.possibleKeys = getPossibleUnits(parentType);
                                 } else {
-                                    dialogObject.possibleKeys = getPossibleKeys(parentType);
+                                    dialogObject.type = replaceBrackets(parentType);
                                 }
+                            } else if (parentType == "object") {
+                                dialogObject.showSelectKey = false;
+                                dialogObject.showInputKey = true;
+                                dialogObject.showSelectType = true;
+                                dialogObject.showInputType = false;
+                                dialogObject.baseTypes = getBaseTypes();
+                            }
+
+                            if(isUnit(key)) {
+                                var unitKeys = getPossibleUnitKeys();
+                                var units = getPossibleUnits(parentType);
+                                dialogObject.possibleKeys = unitKeys.concat(units);
+                            } else if(flag == "unit") {
+                                dialogObject.possibleKeys = getPossibleUnits(parentType);
+                            } else {
+                                dialogObject.possibleKeys = getPossibleKeys(parentType);
                             }
 
                             dialogObject.path = path;
@@ -660,11 +696,15 @@
                             }
                         };
 
-                        if (!isArrayType(parentType) && !isBaseType(parentType) && parentType != "*") {
-                            if (!isComplexType(parentType)) {
-                                requestTypeInfo(replaceBrackets(parentType), function() {
+                        if(!isUnit(key) && !isArgument(key) && !isOutput(key)) {
+                            if (!isArrayType(parentType) && !isBaseType(parentType) && parentType != _ANY_) {
+                                if (!isComplexType(parentType)) {
+                                    requestTypeInfo(replaceBrackets(parentType), function () {
+                                        showDialog();
+                                    });
+                                } else {
                                     showDialog();
-                                });
+                                }
                             } else {
                                 showDialog();
                             }
@@ -692,7 +732,7 @@
                     /**
                      * Adds unit prefix
                      */
-                    var addUP = function(unitName){
+                    var addUP = function(unitName) {
                         return _UP_ + unitName;
                     };
                     $scope.addUP = addUP;
@@ -700,7 +740,7 @@
                     /**
                      * Removes unit prefix
                      */
-                    var removeUP = function(unitName){
+                    var removeUP = function(unitName) {
                         return unitName.replace(_UP_, "");;
                     };
                     $scope.removeUP = removeUP;
@@ -708,7 +748,7 @@
                     /**
                      * Checks if to type can be applied units
                      */
-                    var hasUnits = function(type){
+                    var hasUnits = function(type) {
                         return units[type] != undefined && (!isEmpty(units[type]) || isBaseType(type));
                     };
                     $scope.hasUnits = hasUnits;
@@ -724,10 +764,11 @@
 
                         return true;
                     }
+
                     /**
                      * Returns keys by type
                      */
-                    var getPossibleKeys = function(type){
+                    var getPossibleKeys = function(type) {
 
                         if(type == undefined){
                             return null;
@@ -758,6 +799,25 @@
                     $scope.getPossibleKeys = getPossibleKeys;
 
                     /**
+                     * Returns keys by type
+                     */
+                    var getPossibleUnitKeys = function() {
+                        var keys = [];
+                        var posKeys = {
+                            "arg": _AP_,
+                            "out": _OP_
+                        };
+                        for(var key in posKeys) {
+                            var v = {};
+                            v.key = posKeys[key];
+                            v.label = posKeys[key] + key;
+                            keys.push(v);
+                        }
+                        return keys;
+                    };
+                    $scope.getPossibleUnitKeys = getPossibleUnitKeys;
+
+                    /**
                      * Returns unitss by type
                      */
                     var getPossibleUnits = function(type) {
@@ -774,8 +834,8 @@
                             keys = keys.concat(getUnits(typeUnits, type));
                         }
                         if(isBaseType(type)){
-                            typeUnits = units["*"];
-                            keys = keys.concat(getUnits(typeUnits, "*"));
+                            typeUnits = units[_ANY_];
+                            keys = keys.concat(getUnits(typeUnits, _ANY_));
                         }
 
                         return keys;
@@ -785,9 +845,9 @@
                     var getUnits = function(typeUnits, type) {
                         var keys = [];
                         for(var unitName in typeUnits){
-                            var unitInfo = typeUnits[unitName];
-                            var unitInType = getItemType(typeUnits[unitName]);
-                            if (unitInType == type) {
+                            var unitInfo = typeUnits[unitName][_UP_];
+                            var unitInType = getItemType(unitInfo);
+                            if (unitInType == type.toLowerCase()) {
                                 var v = {};
                                 v.key = addUP(unitName);
                                 v.label = addUP(getItemLabel(unitInfo));
@@ -805,13 +865,32 @@
                             path = "";
                         }
 
-                        var info = {};
+                        var pathToParent, info = {};
+
+                        var index = path.indexOf(_UP_);
+                        if(index != -1){
+                            pathToParent = path.substring(0, index);
+                        } else {
+                            pathToParent = path;
+                        }
+
+                        var grandParentItemInfo = getItemInfo(pathToParent, val);
                         var parentItemInfo = getItemInfo(path, val);
                         var itemInfo = getItemInfo(path + '.' + key, val);
 
-                        if(key != undefined && isUnit(key)) {
-                            info.label = addUP(getItemLabel(itemInfo));
-                            info.type = getItemType(parentItemInfo);
+
+                        if(isUnit(key)){
+                            info.label = addUP(getItemLabel(itemInfo[_UP_]));
+                            info.type = getItemType(grandParentItemInfo);
+                        } else if (isArgument(key)) {
+                            info.label = "@arg";
+                            info.type = getItemType(parentItemInfo[_AP_]);
+                            if(info.type == _ANY_){
+                                info.type = getItemType(grandParentItemInfo);
+                            }
+                        } else if (isOutput(key)) {
+                            info.label = "''out";
+                            info.type = getItemType(parentItemInfo[""]);
                         } else {
                             info.label = getItemLabel(itemInfo);
                             info.type = getItemType(itemInfo);
@@ -1032,7 +1111,7 @@
             <button ng-if="itemType == 'object' || itemType == 'array' || !isBaseType(itemType)" class="trigger-modal temp-btn add-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
 
             <!-- add unit button -->
-            <button ng-if="hasUnits(itemType)" class="trigger-modal temp-btn unit-btn" ng-click="addItemDialog(path, key, 'unit')"><i class="glyphicon glyphicon-indent-left"></i></button>
+            <button ng-if="hasUnits(itemType) && !isArgument(key) && !isOutput(key)" class="trigger-modal temp-btn unit-btn" ng-click="addItemDialog(path, key, 'unit')"><i class="glyphicon glyphicon-indent-left"></i></button>
 
         </div>
 
