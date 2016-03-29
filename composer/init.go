@@ -68,7 +68,7 @@ func initBaseUnits() {
 
 	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
 		if argValue, present := args[ConstPrefixArg]; present {
-			if utils.InterfaceToFloat64(in) > utils.InterfaceToFloat64(argValue) {
+			if utils.InterfaceToFloat64(in) < utils.InterfaceToFloat64(argValue) {
 				return true, nil
 			}
 		}
