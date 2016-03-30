@@ -6,6 +6,7 @@ import (
 	"github.com/ottemo/foundation/utils"
 	"regexp"
 	"strings"
+	"fmt"
 )
 
 func (it *DefaultComposer) RegisterType(item InterfaceComposeType) error {
@@ -118,7 +119,7 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 	var err error
 	var stop bool
 
-	// fmt.Printf("s: %v <- %v\n", in, rule)
+	fmt.Printf("s: (%T)%v <- (%T)%v\n", in, in, rule, rule)
 
 	// subroutine used within 2 places
 	applyRuleToUnit := func(unit InterfaceComposeUnit, rule interface{}) (interface{}, error, bool) {
@@ -143,7 +144,7 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 			}
 		} else {
 			if unit.GetType(ConstPrefixArg) != "" {
-				args[ConstPrefixArg] = rule
+				args[""] = rule
 				useAsResult = true
 			}
 		}
@@ -180,10 +181,15 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 				result = false
 			}
 
-			// case 2: in interface{} <- {...}
+		// case 2: in interface{} <- {...}
 		} else if mapRule, ok := ruleItem.(map[string]interface{}); ok {
 
 			for ruleKey, ruleValue := range mapRule {
+
+				// skipping unit arguments
+				if strings.HasPrefix(ruleKey, ConstPrefixArg) {
+					continue
+				}
 
 				// case 2.1: in interface{} <- {"$unit": value}
 				if strings.HasPrefix(ruleKey, ConstPrefixUnit) {
@@ -203,7 +209,7 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 						result = false
 					}
 
-					// case 2.2: in map[string]interface{} <- {"key": value}
+				// case 2.2: in map[string]interface{} <- {"key": value}
 				} else if inAsMap, ok := in.(map[string]interface{}); ok {
 					if inValue, present := inAsMap[ruleKey]; present {
 						result, err = it.Check(inValue, ruleValue)
@@ -211,12 +217,15 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 						result = false
 					}
 
-					// case 2.3: in InterfaceObject <- {"key": value}
+				// case 2.3: in InterfaceObject <- {"key": value}
 				} else if inAsObject, ok := in.(models.InterfaceObject); ok {
 					result, err = it.Check(inAsObject.Get(ruleKey), ruleValue)
 
-					// case 2.4: in interface{} <- {"key": value}
+				// case 2.4: in interface{} <- {"key": value}
 				} else {
+					if ruleKey != "" {
+						continue
+					}
 					result = utils.Equals(in, ruleValue)
 				}
 
@@ -241,7 +250,7 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 		}
 	}
 
-	// fmt.Printf("e: %v <- %v = %v, %v\n", in, rule, result, err)
+	fmt.Printf("e: (%T)%v <- (%T)%v = (%T)%v, %v\n", in, in, rule, rule, result, result, err)
 
 	return result, err
 }

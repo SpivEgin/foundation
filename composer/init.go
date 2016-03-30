@@ -27,7 +27,7 @@ func init() {
 func initBaseUnits() {
 
 	action := func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
-		if argValue, present := args[ConstPrefixArg]; present {
+		if argValue, present := args[""]; present {
 			return utils.Equals(in, argValue), nil
 		}
 		return false, nil
@@ -46,7 +46,7 @@ func initBaseUnits() {
 	})
 
 	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
-		if argValue, present := args[ConstPrefixArg]; present {
+		if argValue, present := args[""]; present {
 			if utils.InterfaceToFloat64(in) > utils.InterfaceToFloat64(argValue) {
 				return true, nil
 			}
@@ -67,7 +67,7 @@ func initBaseUnits() {
 	})
 
 	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
-		if argValue, present := args[ConstPrefixArg]; present {
+		if argValue, present := args[""]; present {
 			if utils.InterfaceToFloat64(in) < utils.InterfaceToFloat64(argValue) {
 				return true, nil
 			}
@@ -88,7 +88,7 @@ func initBaseUnits() {
 	})
 
 	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
-		if argValue, present := args[ConstPrefixArg]; present {
+		if argValue, present := args[""]; present {
 			if strings.Contains(utils.InterfaceToString(in), utils.InterfaceToString(argValue)) {
 				return true, nil
 			}
@@ -109,7 +109,7 @@ func initBaseUnits() {
 	})
 
 	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
-		if argValue, present := args[ConstPrefixArg]; present {
+		if argValue, present := args[""]; present {
 			if matched, err := regexp.MatchString(utils.InterfaceToString(argValue), utils.InterfaceToString(in)); err == nil {
 				return matched, nil
 			}
