@@ -139,6 +139,7 @@ func initBaseUnits() {
 			"":              "string",
 			ConstPrefixUnit: "product",
 			ConstPrefixArg:  "string",
+			ConstPrefixArg + "a":  "bool",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "Test"},
 		Description: map[string]string{ConstPrefixUnit: "Temporary test unit"},

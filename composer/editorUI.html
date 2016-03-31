@@ -132,7 +132,7 @@
             var _ANY_ = "*"; // any base type
             var _UP_ = ">"; // unit prefix
             var _AP_ = "@"; // argument prefix
-            var _OP_ = " "; // output prefix
+            var _OP_ = ":"; // output prefix
             var _PS_ = "."; // path separator
 
             var json = {};
@@ -239,6 +239,7 @@
             units.removeUP = removeUP;
             units.hasUnits = hasUnits;
             units.getUnits = getUnits;
+            units.getUnitArgs = getUnitArgs;
 
             /**
              * applied to Base types
@@ -261,8 +262,8 @@
                 return addItem($scope.json, path, key, type, val);
             };
             $scope.removeItem = removeItem;
-            $scope.removeJsonItem = function(path, key){
-                return removeItem($scope.json, path, key);
+            $scope.removeJsonItem = function(path, key, val){
+                return removeItem($scope.json, path, key, val);
             };
             $scope.editItem = editItem;
 
@@ -627,7 +628,7 @@
 
                 var workingItem = getItem(path, root);
 
-                if (baseTypes.getTypeOf(workingItem) != "object" && (units.isUnit(key) || units.isArgument(key) || units.isOutput(key))){
+                if (baseTypes.getTypeOf(workingItem) != "object" && (units.isUnit(key)) || units.isArgument(key) || units.isOutput(key)) {
                     var newType = "object";
 
                     var parentPath = pathToArray(path);
@@ -653,11 +654,17 @@
             /**
              * Removes the given object value for a specified path
              */
-            function removeItem(object, path, key) {
+            function removeItem(object, path, key, val) {
                 var item = getItem(path, object);
                 var type = baseTypes.getTypeOf(item);
                 if (type == "object") {
                     delete(item[key]);
+//                        if(isUnit(key)) {
+//                            var parentPath = pathToArray(path);
+//                            var workingItemKey = parentPath.pop();
+//                            var newType = getItemType(getItemInfo(path, val));
+//                            editItem(parentPath, workingItemKey, newType, val);
+//                        }
                 } else if (type == "array") {
                     item.splice(key,1);
                 }
@@ -722,7 +729,8 @@
                         showInputKey: false,
                         showSelectKey: true,
                         showInputType: true,
-                        showSelectType: false
+                        showSelectType: false,
+                        unitFlag: false
                     };
 
                     if (isArrayType(parentType)) {
@@ -744,13 +752,19 @@
                     }
 
                     if(units.isUnit(key)) {
-                        var unitKeys = getPossibleUnitKeys();
-                        var posUnits = getPossibleUnits(parentType);
-                        dialogObject.possibleKeys = unitKeys.concat(posUnits);
-                    } else if(flag == "unit") {
-                        dialogObject.possibleKeys = getPossibleUnits(parentType);
+                        if(flag == "unit") {
+                            dialogObject.unitFlag = true;
+                            dialogObject.possibleKeys = getPossibleUnits(parentType);
+                        } else {
+                            dialogObject.possibleKeys = getPossibleUnitKeys(parentType, key);
+                        }
                     } else {
-                        dialogObject.possibleKeys = getPossibleKeys(parentType);
+                        if(flag == "unit") {
+                            dialogObject.unitFlag = true;
+                            dialogObject.possibleKeys = getPossibleUnits(parentType);
+                        } else {
+                            dialogObject.possibleKeys = getPossibleKeys(parentType);
+                        }
                     }
 
                     dialogObject.path = path;
@@ -847,7 +861,7 @@
                         if(key != ""){
                             var v = {};
                             v.key = key;
-                            v.label = getItemLabel(item[key]);
+                            v.label = "(" + key + ") - " + getItemLabel(item[key]);
                             keys.push(v);
                         }
                     }
@@ -861,18 +875,39 @@
             /**
              * Returns keys by type
              */
-            function getPossibleUnitKeys() {
+            function getPossibleUnitKeys(type, unitName) {
                 var keys = [];
-                var posKeys = {
-                    "arg": _AP_,
-                    "out": _OP_
-                };
-                for(var key in posKeys) {
-                    var v = {};
-                    v.key = posKeys[key];
-                    v.label = posKeys[key] + key;
-                    keys.push(v);
+                unitName = removeUP(unitName);
+
+                keys = keys.concat(units.getUnitArgs(type, unitName));
+                if(baseTypes.isBaseType(type)){
+                    keys = keys.concat(units.getUnitArgs(_ANY_, unitName));
                 }
+
+                return keys;
+            }
+
+            function getUnitArgs(type, unitName){
+                var keys = [];
+                var unit = units.unitsDict[type][unitName];
+                if(unit) {
+                    for (var key in unit) {
+                        if (key != _UP_) {
+                            var v = {};
+                            v.key = key;
+                            if(units.isArgument(key)){
+                                v.label = "\<arg\> - (" + key + ")";
+                            } else if(key == "") {
+                                v.key = _OP_;
+                                v.label = "\<out\> - (" + _OP_ + ")";
+                            } else {
+                                v.label = "(" + key + ")";
+                            }
+                            keys.push(v);
+                        }
+                    }
+                }
+
                 return keys;
             }
 
@@ -890,27 +925,24 @@
 
                 if (units.hasUnits(type)) {
                     typeUnits = units.unitsDict[type];
-                    keys = keys.concat(units.getUnits(typeUnits, type));
+                    keys = keys.concat(units.getUnits(typeUnits));
                 }
                 if(baseTypes.isBaseType(type)){
                     typeUnits = units.unitsDict[_ANY_];
-                    keys = keys.concat(units.getUnits(typeUnits, _ANY_));
+                    keys = keys.concat(units.getUnits(typeUnits));
                 }
 
                 return keys;
             }
 
-            function getUnits(typeUnits, type) {
+            function getUnits(typeUnits) {
                 var keys = [];
                 for(var unitName in typeUnits){
                     var unitInfo = typeUnits[unitName][_UP_];
-                    var unitInType = getItemType(unitInfo);
-                    if (unitInType == type.toLowerCase()) {
-                        var v = {};
-                        v.key = units.addUP(unitName);
-                        v.label = units.addUP(getItemLabel(unitInfo));
-                        keys.push(v);
-                    }
+                    var v = {};
+                    v.key = units.addUP(unitName);
+                    v.label = "(" + unitName + ") - " + getItemLabel(unitInfo);
+                    keys.push(v);
                 }
 
                 return keys;
@@ -938,19 +970,23 @@
 
 
                 if(units.isUnit(key)) {
-                    info.label = units.addUP(getItemLabel(itemInfo[_UP_]));
+                    info.label = "(" + key + ") - " + getItemLabel(itemInfo[_UP_]);
                     info.type = getItemType(grandParentItemInfo);
+                    //info.type = "unit";
                 } else if (units.isArgument(key)) {
-                    info.label = "@arg";
+                    info.label = "\<arg\> - (" + key + ")";
                     info.type = getItemType(parentItemInfo[_AP_]);
                     if(info.type == _ANY_){
                         info.type = getItemType(grandParentItemInfo);
                     }
                 } else if (units.isOutput(key)) {
-                    info.label = "''out";
+                    info.label = "\<out\> - (" + key + ")"
                     info.type = getItemType(parentItemInfo[""]);
+                    if(info.type == _ANY_){
+                        info.type = getItemType(grandParentItemInfo);
+                    }
                 } else {
-                    info.label = getItemLabel(itemInfo);
+                    info.label = "(" + key + ") - " + getItemLabel(itemInfo);
                     info.type = getItemType(itemInfo);
                 }
 
@@ -1142,7 +1178,10 @@
                         <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
                         <b>{{itemInfo.label}}</b>
                     </span>
-            <span>({{itemType}})</span>
+            <!--({{itemType}})-->
+            {{isUnit = units.isUnit(key);""}}
+            <span ng-if="units.isUnit(key)">(unit)</span>
+            <span ng-if="!units.isUnit(key)">({{itemType}})</span>
 
             <!-- string value -->
                     <span ng-if="valueType == 'string'">
@@ -1160,10 +1199,10 @@
                     </span>
 
             <!-- remove button -->
-            <button  class="temp-btn remove-btn" ng-click="removeJsonItem(path, key)"><i class="glyphicon glyphicon-trash"></i></button>
+            <button  class="temp-btn remove-btn" ng-click="removeJsonItem(path, key, val)"><i class="glyphicon glyphicon-trash"></i></button>
 
             <!-- add item button -->
-            <button ng-if="(itemType == 'object' || itemType == 'array' || !baseTypes.isBaseType(itemType)) && (!units.isUnit(key) && !units.isArgument(key) && !units.isOutput(key))" class="trigger-modal temp-btn add-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+            <button ng-if="(itemType == 'object' || itemType == 'array' || units.isUnit(key) || !baseTypes.isBaseType(itemType)) && (!units.isArgument(key) && !units.isOutput(key))" class="trigger-modal temp-btn add-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
 
             <!-- add unit button -->
             <button ng-if="units.hasUnits(itemType) && !units.isArgument(key) && !units.isOutput(key)" class="trigger-modal temp-btn unit-btn" ng-click="addItemDialog(path, key, 'unit')"><i class="glyphicon glyphicon-indent-left"></i></button>
@@ -1210,7 +1249,9 @@
 
                 <!-- key input -->
                 <div ng-show="dialog.showKey">
-                    <label>Key:</label>
+                    <label ng-if="dialog.unitFlag">Unit:</label>
+                    {{unitFlag}}
+                    <label ng-if="!dialog.unitFlag">Key:</label>
                     <input  type="text" ng-show="dialog.showInputKey" ng-model="dialog.key" class="form-control" required/>
                     <select ng-show="dialog.showSelectKey" ng-options="option.label for option in dialog.possibleKeys" ng-model="info" ng-change="dialog.type = getKeyInfo(dialog.path, info.key).type" class="form-control" required></select>
                 </div>
