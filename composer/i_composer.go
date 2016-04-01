@@ -6,7 +6,6 @@ import (
 	"github.com/ottemo/foundation/utils"
 	"regexp"
 	"strings"
-	"fmt"
 )
 
 func (it *DefaultComposer) RegisterType(item InterfaceComposeType) error {
@@ -119,7 +118,7 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 	var err error
 	var stop bool
 
-	fmt.Printf("s: (%T)%v <- (%T)%v\n", in, in, rule, rule)
+	//fmt.Printf("s: (%T)%v <- (%T)%v\n", in, in, rule, rule)
 
 	// subroutine used within 2 places
 	applyRuleToUnit := func(unit InterfaceComposeUnit, rule interface{}) (interface{}, error, bool) {
@@ -184,59 +183,62 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 		// case 2: in interface{} <- {...}
 		} else if mapRule, ok := ruleItem.(map[string]interface{}); ok {
 
-			for ruleKey, ruleValue := range mapRule {
+			if len(mapRule) != 0 {
+				for ruleKey, ruleValue := range mapRule {
 
-				// skipping unit arguments
-				if strings.HasPrefix(ruleKey, ConstPrefixArg) {
-					continue
-				}
-
-				// case 2.1: in interface{} <- {"$unit": value}
-				if strings.HasPrefix(ruleKey, ConstPrefixUnit) {
-					if unit, present := it.units[strings.TrimPrefix(ruleKey, ConstPrefixUnit)]; present {
-						if out, outErr, stop := applyRuleToUnit(unit, ruleValue); err == nil {
-							if !stop {
-								result, err = it.Check(out, ruleValue)
-							} else {
-								result = utils.InterfaceToBool(out)
-							}
-						} else {
-							err = outErr
-							result = false
-						}
-					} else {
-						err = env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3537c93c-4f22-466a-8c76-da47373a26ba", "unit not exists")
-						result = false
-					}
-
-				// case 2.2: in map[string]interface{} <- {"key": value}
-				} else if inAsMap, ok := in.(map[string]interface{}); ok {
-					if inValue, present := inAsMap[ruleKey]; present {
-						result, err = it.Check(inValue, ruleValue)
-					} else {
-						result = false
-					}
-
-				// case 2.3: in InterfaceObject <- {"key": value}
-				} else if inAsObject, ok := in.(models.InterfaceObject); ok {
-					result, err = it.Check(inAsObject.Get(ruleKey), ruleValue)
-
-				// case 2.4: in interface{} <- {"key": value}
-				} else {
-					if ruleKey != "" {
+					// skipping unit arguments
+					if strings.HasPrefix(ruleKey, ConstPrefixArg) {
 						continue
 					}
-					result = utils.Equals(in, ruleValue)
-				}
 
-				if err != nil {
-					result = false
+					// case 2.1: in interface{} <- {"$unit": value}
+					if strings.HasPrefix(ruleKey, ConstPrefixUnit) {
+						if unit, present := it.units[strings.TrimPrefix(ruleKey, ConstPrefixUnit)]; present {
+							if out, outErr, stop := applyRuleToUnit(unit, ruleValue); err == nil {
+								if !stop {
+									result, err = it.Check(out, ruleValue)
+								} else {
+									result = utils.InterfaceToBool(out)
+								}
+							} else {
+								err = outErr
+								result = false
+							}
+						} else {
+							err = env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3537c93c-4f22-466a-8c76-da47373a26ba", "unit not exists")
+							result = false
+						}
+
+						// case 2.2: in map[string]interface{} <- {"key": value}
+					} else if inAsMap, ok := in.(map[string]interface{}); ok {
+						if inValue, present := inAsMap[ruleKey]; present {
+							result, err = it.Check(inValue, ruleValue)
+						} else {
+							result = false
+						}
+
+						// case 2.3: in InterfaceObject <- {"key": value}
+					} else if inAsObject, ok := in.(models.InterfaceObject); ok {
+						result, err = it.Check(inAsObject.Get(ruleKey), ruleValue)
+
+						// case 2.4: in interface{} <- {"key": value}
+					} else {
+						if ruleKey != ConstPrefixOut {
+							continue
+						}
+						result = utils.Equals(in, ruleValue)
+					}
+
+					if err != nil {
+						result = false
+					}
+					if !result {
+						break
+					}
 				}
-				if !result {
-					break
-				}
+			} else {
+				result = true
 			}
-
 			// case 3: in interface{} <- interface{}
 		} else {
 			result = utils.Equals(in, rule)
@@ -250,7 +252,7 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 		}
 	}
 
-	fmt.Printf("e: (%T)%v <- (%T)%v = (%T)%v, %v\n", in, in, rule, rule, result, result, err)
+	//fmt.Printf("e: (%T)%v <- (%T)%v = (%T)%v, %v\n", in, in, rule, rule, result, result, err)
 
 	return result, err
 }

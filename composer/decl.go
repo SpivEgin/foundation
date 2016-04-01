@@ -12,6 +12,7 @@ var (
 const (
 	ConstPrefixUnit = ">"
 	ConstPrefixArg  = "@"
+	ConstPrefixOut  = "#"
 
 	ConstTypeAny      = "*"
 	ConstTypeValidate = "validate"

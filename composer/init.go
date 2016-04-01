@@ -38,7 +38,7 @@ func initBaseUnits() {
 		Type: map[string]string{
 			ConstPrefixUnit: ConstTypeAny, // input type
 			ConstPrefixArg:  ConstTypeAny, // operand type (unnamed argument is a key for rule right-side value if it is not a map)
-			"":              "bool",       // output type
+			ConstPrefixOut:  "bool",       // output type
 		},
 		Label:       map[string]string{ConstPrefixUnit: "equals"},
 		Description: map[string]string{ConstPrefixUnit: "Checks if value equals to other value"},
@@ -59,7 +59,7 @@ func initBaseUnits() {
 		Type: map[string]string{
 			ConstPrefixUnit: ConstTypeAny,
 			ConstPrefixArg:  ConstTypeAny,
-			"":              "bool",
+			ConstPrefixOut:  "bool",
 		},
 		Label:       map[string]string{ConstPrefixUnit: ">"},
 		Description: map[string]string{ConstPrefixUnit: "Checks if value if greather then other value"},
@@ -80,7 +80,7 @@ func initBaseUnits() {
 		Type: map[string]string{
 			ConstPrefixUnit: ConstTypeAny,
 			ConstPrefixArg:  ConstTypeAny,
-			"":              "bool",
+			ConstPrefixOut:  "bool",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "<"},
 		Description: map[string]string{ConstPrefixUnit: "Checks if value if lower then other value"},
@@ -101,7 +101,7 @@ func initBaseUnits() {
 		Type: map[string]string{
 			ConstPrefixUnit: "string",
 			ConstPrefixArg:  "string",
-			"":              "bool",
+			ConstPrefixOut:  "bool",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "contains"},
 		Description: map[string]string{ConstPrefixUnit: "Checks if value containt other value"},
@@ -122,7 +122,7 @@ func initBaseUnits() {
 		Type: map[string]string{
 			ConstPrefixUnit: "string",
 			ConstPrefixArg:  "string",
-			"":              "bool",
+			ConstPrefixOut:  "bool",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "regex"},
 		Description: map[string]string{ConstPrefixUnit: "Checks regular expression over value"},
@@ -136,10 +136,11 @@ func initBaseUnits() {
 	registeredComposer.RegisterUnit(&BasicUnit{
 		Name: "test",
 		Type: map[string]string{
-			"":              "string",
+			ConstPrefixOut:  "bool",
 			ConstPrefixUnit: "product",
-			ConstPrefixArg:  "string",
-			ConstPrefixArg + "a":  "bool",
+			//ConstPrefixArg:  "object",
+			ConstPrefixArg + "sku":  "string",
+			ConstPrefixArg + "price":  "float",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "Test"},
 		Description: map[string]string{ConstPrefixUnit: "Temporary test unit"},
@@ -160,7 +161,7 @@ func initTest() error {
 		Type: map[string]string{
 			"a": "int",
 			"b": "float",
-			"c": "int",
+			"c": "string",
 			"d": "Product",
 			"e": "[]Product",
 		},
