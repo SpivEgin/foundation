@@ -114,7 +114,7 @@ func (it *DefaultComposer) SearchUnits(namePattern string, typeFilter map[string
 }
 
 func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error) {
-	var result bool
+	var result bool = true
 	var err error
 	var stop bool
 
@@ -183,62 +183,59 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 		// case 2: in interface{} <- {...}
 		} else if mapRule, ok := ruleItem.(map[string]interface{}); ok {
 
-			if len(mapRule) != 0 {
-				for ruleKey, ruleValue := range mapRule {
+			for ruleKey, ruleValue := range mapRule {
 
-					// skipping unit arguments
-					if strings.HasPrefix(ruleKey, ConstPrefixArg) {
-						continue
-					}
+				// skipping unit arguments
+				if strings.HasPrefix(ruleKey, ConstPrefixArg) {
+					continue
+				}
 
-					// case 2.1: in interface{} <- {"$unit": value}
-					if strings.HasPrefix(ruleKey, ConstPrefixUnit) {
-						if unit, present := it.units[strings.TrimPrefix(ruleKey, ConstPrefixUnit)]; present {
-							if out, outErr, stop := applyRuleToUnit(unit, ruleValue); err == nil {
-								if !stop {
-									result, err = it.Check(out, ruleValue)
-								} else {
-									result = utils.InterfaceToBool(out)
-								}
+				// case 2.1: in interface{} <- {"$unit": value}
+				if strings.HasPrefix(ruleKey, ConstPrefixUnit) {
+					if unit, present := it.units[strings.TrimPrefix(ruleKey, ConstPrefixUnit)]; present {
+						if out, outErr, stop := applyRuleToUnit(unit, ruleValue); err == nil {
+							if !stop {
+								result, err = it.Check(out, ruleValue)
 							} else {
-								err = outErr
-								result = false
+								result = utils.InterfaceToBool(out)
 							}
 						} else {
-							err = env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3537c93c-4f22-466a-8c76-da47373a26ba", "unit not exists")
+							err = outErr
 							result = false
 						}
-
-						// case 2.2: in map[string]interface{} <- {"key": value}
-					} else if inAsMap, ok := in.(map[string]interface{}); ok {
-						if inValue, present := inAsMap[ruleKey]; present {
-							result, err = it.Check(inValue, ruleValue)
-						} else {
-							result = false
-						}
-
-						// case 2.3: in InterfaceObject <- {"key": value}
-					} else if inAsObject, ok := in.(models.InterfaceObject); ok {
-						result, err = it.Check(inAsObject.Get(ruleKey), ruleValue)
-
-						// case 2.4: in interface{} <- {"key": value}
 					} else {
-						if ruleKey != ConstPrefixOut {
-							continue
-						}
-						result = utils.Equals(in, ruleValue)
-					}
-
-					if err != nil {
+						err = env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3537c93c-4f22-466a-8c76-da47373a26ba", "unit not exists")
 						result = false
 					}
-					if !result {
-						break
+
+					// case 2.2: in map[string]interface{} <- {"key": value}
+				} else if inAsMap, ok := in.(map[string]interface{}); ok {
+					if inValue, present := inAsMap[ruleKey]; present {
+						result, err = it.Check(inValue, ruleValue)
+					} else {
+						result = false
 					}
+
+					// case 2.3: in InterfaceObject <- {"key": value}
+				} else if inAsObject, ok := in.(models.InterfaceObject); ok {
+					result, err = it.Check(inAsObject.Get(ruleKey), ruleValue)
+
+					// case 2.4: in interface{} <- {"key": value}
+				} else {
+					if ruleKey != ConstPrefixOut {
+						continue
+					}
+					result = utils.Equals(in, ruleValue)
 				}
-			} else {
-				result = true
+
+				if err != nil {
+					result = false
+				}
+				if !result {
+					break
+				}
 			}
+
 			// case 3: in interface{} <- interface{}
 		} else {
 			result = utils.Equals(in, rule)

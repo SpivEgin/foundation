@@ -129,10 +129,10 @@
             /**
              * ---------- VARIABLES DECLARATION -----------
              */
-            var _ANY_ = "*"; // any base type
+            var _ANY_ = "any"; // any base type
             var _UP_ = ">"; // unit prefix
             var _AP_ = "@"; // argument prefix
-            var _OP_ = ":"; // output prefix
+            var _OP_ = "#"; // output prefix
             var _PS_ = "."; // path separator
 
             var json = {};
@@ -140,11 +140,12 @@
             var complexTypes = {};
             var DBTypes = {};
             var units = {};
-
+            var baseTypes = {};
             /**
              * Base types declaration and validation
              */
-            var baseTypes = {
+
+            var baseTypesDecl = {
                 "string":   function(val) {
                     if(val == undefined){
                         val = "";
@@ -244,6 +245,7 @@
             /**
              * applied to Base types
              */
+            baseTypes.baseTypesDict = baseTypesDecl;
             baseTypes.isBaseType = isBaseType;
             baseTypes.isEmpty = isEmpty;
             baseTypes.getBaseTypes = getBaseTypes;
@@ -254,13 +256,15 @@
              * applied to JSON
              */
             $scope.getItem = getItem;
-            $scope.getJsonItem = function(path) {
+            $scope.getJsonItem = getJsonItem
+            function getJsonItem(path) {
                 return getItem(path, $scope.json)
-            };
+            }
             $scope.addItem = addItem;
-            $scope.addJsonItem = function(path, key, type, val) {
+            $scope.addJsonItem = addJsonItem;
+            function addJsonItem(path, key, type, val) {
                 return addItem($scope.json, path, key, type, val);
-            };
+            }
             $scope.removeItem = removeItem;
             $scope.removeJsonItem = function(path, key, val){
                 return removeItem($scope.json, path, key, val);
@@ -388,7 +392,7 @@
              * Returns array of "base" types names
              */
             function getBaseTypes() {
-                return Object.keys(baseTypes);
+                return Object.keys(baseTypes.baseTypesDict);
             }
 
             /**
@@ -436,6 +440,13 @@
                 if(Array.isArray(value)) {
                     return "array";
                 }
+                if(typeof value == "number"){
+                    if(Number.isInteger(value)){
+                        return "int";
+                    } else {
+                        return "float";
+                    }
+                }
 
                 return (typeof value).toLowerCase();
             }
@@ -449,8 +460,14 @@
                     return null;
                 }
                 //type in base types
-                if(type in baseTypes) {
-                    val = baseTypes[type](val);
+                if(type in baseTypes.baseTypesDict) {
+                    val = baseTypes.baseTypesDict[type](val);
+                } else if(type == "number") {
+                    if(Number.isInteger(val)){
+                        val = baseTypes.baseTypesDict["int"](val);
+                    } else {
+                        val = baseTypes.baseTypesDict["float"](val);
+                    }
                 } else {
                     if(isArrayType(type)){
                         type = "array";
@@ -509,7 +526,6 @@
                 }
 
                 // checking if we are reached end of path
-
                 if(path == undefined || path == ""){
                     return type;
                 }
@@ -520,23 +536,22 @@
                 var typeIsArray = isArrayType(type);
                 type = replaceBrackets(type);
 
-                var typeItems = undefined;
+                var typeItems = {};
                 var path0 = path.shift();
                 var pathIsUnit = units.isUnit(path0);
 
                 if(!pathIsUnit && complexTypes.isComplexType(type)) {
                     typeItems = complexTypes.complexTypesDict[type];
-                } else {
+                } else if(pathIsUnit){
                     path0 = units.removeUP(path0);
-                    typeItems = Object.assign({}, units.unitsDict[type]);
+                    Object.assign(typeItems, units.unitsDict[type]);
                     if(baseTypes.isBaseType(type)){
                         Object.assign(typeItems, units.unitsDict[_ANY_]);
                     }
                 }
-
-                if(typeItems == undefined){
-                    return null;
-                }
+//                    if(typeItems == undefined){
+//                        return null;
+//                    }
 
                 if(typeof typeItems == "object") {
                     if (path0 in typeItems) {
@@ -628,7 +643,7 @@
 
                 var workingItem = getItem(path, root);
 
-                if (baseTypes.getTypeOf(workingItem) != "object" && (units.isUnit(key)) || units.isArgument(key) || units.isOutput(key)) {
+                if (baseTypes.getTypeOf(workingItem) != "object" && baseTypes.getTypeOf(workingItem) != "array") {
                     var newType = "object";
 
                     var parentPath = pathToArray(path);
@@ -692,8 +707,9 @@
 
             /**
              * Show dialog - opens the items creation dialog
+             * TODO: remove flag
              */
-            function addItemDialog (path, key, flag){
+            function addItemDialog (path, key, flag){ //flag is if invokes dialog for adding units
                 // Initialization / Validation
                 // ---------------------------
                 if (path == undefined){
@@ -706,6 +722,7 @@
                     key = "";
                 }
 
+                //TODO: new logic
                 var pathToParent, index = path.indexOf(_UP_);
                 if(index != -1){
                     pathToParent = path.substring(0, index);
@@ -713,12 +730,15 @@
                     pathToParent = path;
                 }
 
-                var parentType = getItemType(getItemInfo(pathToParent));
-                if(baseTypes.getTypeOf(parentType) == "object"){
-                    parentType = parentType.type;
-                }
-
                 var parentItem = getItem(path);
+                var parentType = getItemType(getItemInfo(pathToParent));
+
+                if(parentType == undefined){
+                    parentType = baseTypes.getTypeOf(parentItem);
+                }
+//                    if(baseTypes.getTypeOf(parentType) == "object"){
+//                        parentType = parentType.type;
+//                    }
 
                 var showDialog = function() {
                     // Dialog variables preparations before show
@@ -730,14 +750,15 @@
                         showSelectKey: true,
                         showInputType: true,
                         showSelectType: false,
-                        unitFlag: false
+                        unitFlag: false,
+                        baseType: undefined
                     };
 
                     if (isArrayType(parentType)) {
                         dialogObject.showKey = false;
                         dialogObject.key = parentItem.length;
                         if (parentType == "[]Any" || parentType == "array") {
-                            dialogObject.baseTypes = baseTypes.getBaseTypes();
+                            //dialogObject.baseTypes = baseTypes.getBaseTypes();
                             dialogObject.showSelectType = true;
                             dialogObject.showInputType = false;
                         } else {
@@ -777,21 +798,18 @@
                     }
                 };
 
-                if(!units.isUnit(key) && !units.isArgument(key) && !units.isOutput(key)) {
-                    if (!isArrayType(parentType) && !baseTypes.isBaseType(parentType) && parentType != _ANY_) {
-                        if (!complexTypes.isComplexType(parentType)) {
-                            complexTypes.requestTypeInfo(replaceBrackets(parentType), function () {
-                                showDialog();
-                            });
-                        } else {
+                if (!isArrayType(parentType) && !baseTypes.isBaseType(parentType) && parentType != _ANY_) {
+                    if (!complexTypes.isComplexType(parentType)) {
+                        complexTypes.requestTypeInfo(replaceBrackets(parentType), function () {
                             showDialog();
-                        }
+                        });
                     } else {
                         showDialog();
                     }
                 } else {
                     showDialog();
                 }
+
             }
 
             /**
@@ -800,7 +818,7 @@
             function requestUnitsForTypeAny() {
                 $http({
                     method: "GET",
-                    url: "http://localhost:3000/composer/units/*"
+                    url: "http://localhost:3000/composer/units/" + _ANY_
                 }).then(function(response){
                     units.unitsDict = response.data.result;
                 });
@@ -850,7 +868,7 @@
                 }
 
                 if(type == "array"){
-                    return Object.keys(baseTypes);
+                    return Object.keys(baseTypes.baseTypesDict);
                 }
 
                 type = replaceBrackets(type);
@@ -897,9 +915,8 @@
                             v.key = key;
                             if(units.isArgument(key)){
                                 v.label = "\<arg\> - (" + key + ")";
-                            } else if(key == "") {
-                                v.key = _OP_;
-                                v.label = "\<out\> - (" + _OP_ + ")";
+                            } else if(units.isOutput(key)) {
+                                v.label = "\<out\> - (" + key + ")";
                             } else {
                                 v.label = "(" + key + ")";
                             }
@@ -949,45 +966,62 @@
             }
             /**
              * Returns  type and label for corresponding complex type by path and key
+             * TODO: remove flag
              */
-            function getKeyInfo(path, key, val) {
+            function getKeyInfo(path, key, val, flag) { //flag defines where func has called from template
                 if(path == undefined){
                     path = "";
                 }
 
-                var pathToParent, info = {};
+                var label, info = {};
 
-                var index = path.indexOf(_UP_);
-                if(index != -1){
-                    pathToParent = path.substring(0, index);
-                } else {
-                    pathToParent = path;
-                }
-
-                var grandParentItemInfo = getItemInfo(pathToParent, val);
+                var parentPath =pathToArray(path).pop();
                 var parentItemInfo = getItemInfo(path, val);
                 var itemInfo = getItemInfo(path + '.' + key, val);
 
-
+                // if key id unit
                 if(units.isUnit(key)) {
                     info.label = "(" + key + ") - " + getItemLabel(itemInfo[_UP_]);
-                    info.type = getItemType(grandParentItemInfo);
-                    //info.type = "unit";
+                    var item = getJsonItem(path + "." + key);
+                    if(!itemInfo[_AP_] || baseTypes.getTypeOf(item) == "object") {
+                        info.typeLabel = "unit";
+                    }
+                    if(isUnit(parentPath)){
+                        info.type = getItemType(parentItemInfo[_OP_]);
+                    } else {
+                        info.type = getItemType(parentItemInfo);
+                    }
+
+                    //if key is argument
                 } else if (units.isArgument(key)) {
                     info.label = "\<arg\> - (" + key + ")";
-                    info.type = getItemType(parentItemInfo[_AP_]);
-                    if(info.type == _ANY_){
-                        info.type = getItemType(grandParentItemInfo);
+                    info.type = getItemType(parentItemInfo[key]);
+                    if(info.type == _ANY_ && flag){
+                        info.type = baseTypes.getTypeOf(val);
                     }
+
+                    //if key is output
                 } else if (units.isOutput(key)) {
-                    info.label = "\<out\> - (" + key + ")"
-                    info.type = getItemType(parentItemInfo[""]);
-                    if(info.type == _ANY_){
-                        info.type = getItemType(grandParentItemInfo);
+                    info.label = "\<out\> - (" + key + ")";
+                    info.type = getItemType(parentItemInfo[key]);
+                    if(info.type == _ANY_ && flag){
+                        info.type = baseTypes.getTypeOf(val);
                     }
+
+                    // get info for instant of complex and base type
                 } else {
-                    info.label = "(" + key + ") - " + getItemLabel(itemInfo);
+                    label = getItemLabel(itemInfo);
+                    if(label == undefined){
+                        info.label = key;
+                    } else {
+                        info.label = "(" + key + ") - " + label;
+                    }
                     info.type = getItemType(itemInfo);
+                    if(info.type == undefined){
+                        info.type = baseTypes.getTypeOf(val);
+                    } else if(info.type == _ANY_ && flag){
+                        info.type = baseTypes.getTypeOf(val);
+                    }
                 }
 
                 return info;
@@ -1030,6 +1064,7 @@
                 console.log(target.prop('tagName'));
 
             };
+
         }
 
         /**
@@ -1170,7 +1205,8 @@
     <!-- items loop -->
     <li ng-repeat="(key, val) in item track by [key,val,item]">
         <!-- http://stackoverflow.com/questions/16796341/set-angular-scope-variable-in-markup -->
-        {{itemInfo = getKeyInfo(path, key, val);""}}
+        {{itemInfo = getKeyInfo(path, key, val, true);""}}
+        {{itemTypeLabel = itemInfo.typeLabel ? itemInfo.typeLabel : itemInfo.type;""}}
         {{itemType = itemInfo.type;""}}
         {{valueType = baseTypes.getTypeOf(val);""}}
         <div class="value-line">
@@ -1178,10 +1214,7 @@
                         <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
                         <b>{{itemInfo.label}}</b>
                     </span>
-            <!--({{itemType}})-->
-            {{isUnit = units.isUnit(key);""}}
-            <span ng-if="units.isUnit(key)">(unit)</span>
-            <span ng-if="!units.isUnit(key)">({{itemType}})</span>
+            ({{itemTypeLabel}})
 
             <!-- string value -->
                     <span ng-if="valueType == 'string'">
@@ -1189,7 +1222,7 @@
                     </span>
 
             <!-- number value -->
-                    <span ng-if="valueType == 'number'">
+                    <span ng-if="valueType == 'int' || valueType == 'float'">
                         <input class="form-input" type="number" step="0.1" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
                     </span>
 
@@ -1202,7 +1235,7 @@
             <button  class="temp-btn remove-btn" ng-click="removeJsonItem(path, key, val)"><i class="glyphicon glyphicon-trash"></i></button>
 
             <!-- add item button -->
-            <button ng-if="(itemType == 'object' || itemType == 'array' || units.isUnit(key) || !baseTypes.isBaseType(itemType)) && (!units.isArgument(key) && !units.isOutput(key))" class="trigger-modal temp-btn add-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+            <button ng-if="itemType == 'object' || itemType == 'array' || units.isUnit(key) || !baseTypes.isBaseType(itemType)" class="trigger-modal temp-btn add-btn" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
 
             <!-- add unit button -->
             <button ng-if="units.hasUnits(itemType) && !units.isArgument(key) && !units.isOutput(key)" class="trigger-modal temp-btn unit-btn" ng-click="addItemDialog(path, key, 'unit')"><i class="glyphicon glyphicon-indent-left"></i></button>
@@ -1250,22 +1283,23 @@
                 <!-- key input -->
                 <div ng-show="dialog.showKey">
                     <label ng-if="dialog.unitFlag">Unit:</label>
-                    {{unitFlag}}
                     <label ng-if="!dialog.unitFlag">Key:</label>
                     <input  type="text" ng-show="dialog.showInputKey" ng-model="dialog.key" class="form-control" required/>
-                    <select ng-show="dialog.showSelectKey" ng-options="option.label for option in dialog.possibleKeys" ng-model="info" ng-change="dialog.type = getKeyInfo(dialog.path, info.key).type" class="form-control" required></select>
+                    <select ng-show="dialog.showSelectKey" ng-options="option.label for option in dialog.possibleKeys" ng-model="info" ng-change="dialog.keyInfo = getKeyInfo(dialog.path, info.key)" class="form-control" required></select>
                 </div>
 
                 <!-- type selector -->
+                {{dialog.type = dialog.keyInfo ? dialog.keyInfo.typeLabel ? dialog.keyInfo.typeLabel : dialog.keyInfo.type : dialog.type; ""}}
                 <div>
                     <br>
                     <label>Type:</label>
-                    <input ng-show="dialog.showInputType" type="text" ng-model="dialog.type" class="form-control" readonly/>
-                    <select ng-show="dialog.showSelectType" ng-options="option for option in dialog.baseTypes" ng-model="dialog.type" class="form-control" required></select>
+                    <input ng-show="dialog.showInputType && dialog.type != 'any'" type="text" ng-model="dialog.type" class="form-control" readonly/>
+                    <select ng-show="dialog.showSelectType || dialog.type == 'any'" ng-options="option for option in baseTypes.getBaseTypes()" ng-model="dialog.baseType" class="form-control" required></select>
                 </div>
 
+                {{currType = dialog.baseType != undefined ? dialog.baseType : dialog.type; ""}}
                 <!-- value input -->
-                <div ng-switch="dialog.type">
+                <div ng-switch="currType">
                     <br>
                     <label>Value:</label>
 
@@ -1302,7 +1336,7 @@
     <!-- Actions -->
     <div class="panel-footer">
         {{currKey = info.key ? info.key : dialog.key; ""}}
-        <button class="btn btn-default" ng-click="isDialogHidden=true; addJsonItem(dialog.path, currKey, dialog.type, dialog.val)">Add</button>
+        <button class="btn btn-default" ng-click="isDialogHidden=true; addJsonItem(dialog.path, currKey, currType, dialog.val)">Add</button>
         <button class="btn btn-default" ng-click="isDialogHidden=true;">Cancel</button>
     </div>
 </div>

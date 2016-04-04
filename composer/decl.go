@@ -14,7 +14,7 @@ const (
 	ConstPrefixArg  = "@"
 	ConstPrefixOut  = "#"
 
-	ConstTypeAny      = "*"
+	ConstTypeAny      = "any"
 	ConstTypeValidate = "validate"
 
 	ConstErrorModule = "composer"

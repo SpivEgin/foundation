@@ -130,13 +130,14 @@ func initBaseUnits() {
 	})
 
 	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
+
 		return "ok", nil
 	}
 
 	registeredComposer.RegisterUnit(&BasicUnit{
 		Name: "test",
 		Type: map[string]string{
-			ConstPrefixOut:  "bool",
+			ConstPrefixOut:  "string",
 			ConstPrefixUnit: "product",
 			//ConstPrefixArg:  "object",
 			ConstPrefixArg + "sku":  "string",
@@ -159,7 +160,7 @@ func initTest() error {
 			"e": "ArrOfProductsTest",
 		},
 		Type: map[string]string{
-			"a": "int",
+			"a": "any",
 			"b": "float",
 			"c": "string",
 			"d": "Product",
