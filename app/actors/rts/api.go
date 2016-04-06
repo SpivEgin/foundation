@@ -423,7 +423,7 @@ func APIGetBestsellers(context api.InterfaceApplicationContext) (interface{}, er
 		timeZone = utils.InterfaceToString(env.ConfigGetValue(app.ConstConfigPathStoreTimeZone))
 	}
 
-	// get a hours pasted for local day and base from it
+	// get a hours passed for local day and base from it
 	todayTo := time.Now().Truncate(time.Hour).Add(time.Hour) // last hour of current day
 	todayFrom, _ := utils.MakeUTCOffsetTime(todayTo, timeZone)
 	if utils.IsZeroTime(todayFrom) {
@@ -491,7 +491,6 @@ func APIGetBestsellers(context api.InterfaceApplicationContext) (interface{}, er
 		}
 
 		bestsellerItem := make(map[string]interface{})
-
 		bestsellerItem["pid"] = id
 		bestsellerItem["name"] = productInstance.GetName()
 		bestsellerItem["count"] = count
@@ -501,11 +500,12 @@ func APIGetBestsellers(context api.InterfaceApplicationContext) (interface{}, er
 		}
 
 		productsToSort = append(productsToSort, bestsellerItem)
-
 	}
 
+	// sort list of products by sales
 	descending := true    // sort in descending order
 	bestsellerLimit := 12 // limit on returned bestsellers
+	sortedResponse := utils.SortMapByKeys(productsToSort, descending, "count", "name")
 
 	// sort list of products by sales
 	productsSorted := utils.SortMapByKeys(productsToSort, descending, "count", "name")
@@ -517,7 +517,7 @@ func APIGetBestsellers(context api.InterfaceApplicationContext) (interface{}, er
 		bestSellers = productsSorted[:bestsellerLimit]
 	}
 
-	return bestSellers, nil
+	return response, nil
 }
 
 // APIGetVisitsRealtime returns real-time information on current visits
