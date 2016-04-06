@@ -416,8 +416,6 @@ func APIGetSalesDetails(context api.InterfaceApplicationContext) (interface{}, e
 //     possible periods: "today", "yesterday", "week", "month"
 func APIGetBestsellers(context api.InterfaceApplicationContext) (interface{}, error) {
 
-	var productsToSort, bestSellers []map[string]interface{}
-
 	bestsellersRange := utils.InterfaceToString(context.GetRequestArgument("period"))
 
 	timeZone, err := app.GetSessionTimeZone(context.GetSession())
@@ -468,13 +466,19 @@ func APIGetBestsellers(context api.InterfaceApplicationContext) (interface{}, er
 		return nil, env.ErrorDispatch(err)
 	}
 
-	productsSold := make(map[string]int)
+	// map  and arrays to hold sales data
+	productSales := make(map[string]int)
+	var productsToSort, bestSellers []map[string]interface{}
 
+	// count the products sales by product id
 	for _, item := range collectionRecords {
-		productsSold[utils.InterfaceToString(item["product_id"])] = utils.InterfaceToInt(item["count"]) + productsSold[utils.InterfaceToString(item["product_id"])]
+		pid := utils.InterfaceToString(item["product_id"])
+		count := utils.InterfaceToInt(item["count"])
+		productSales[pid] = count + productSales[pid]
 	}
 
-	for id, count := range productsSold {
+	// populate the bestseller data
+	for id, count := range productSales {
 
 		productInstance, err := product.LoadProductByID(id)
 		if err != nil {
@@ -489,12 +493,12 @@ func APIGetBestsellers(context api.InterfaceApplicationContext) (interface{}, er
 		bestsellerItem := make(map[string]interface{})
 
 		bestsellerItem["pid"] = id
+		bestsellerItem["name"] = productInstance.GetName()
+		bestsellerItem["count"] = count
+
 		if productInstance.GetDefaultImage() != "" {
 			bestsellerItem["image"] = mediaPath + productInstance.GetDefaultImage()
 		}
-
-		bestsellerItem["name"] = productInstance.GetName()
-		bestsellerItem["count"] = count
 
 		productsToSort = append(productsToSort, bestsellerItem)
 
@@ -504,13 +508,13 @@ func APIGetBestsellers(context api.InterfaceApplicationContext) (interface{}, er
 	bestsellerLimit := 12 // limit on returned bestsellers
 
 	// sort list of products by sales
-	productsToSort = utils.SortMapByKeys(productsToSort, descending, "count", "name")
+	productsSorted := utils.SortMapByKeys(productsToSort, descending, "count", "name")
 
 	// pass back only bestsellerLimit or less
-	if len(productsToSort) <= bestsellerLimit {
-		bestSellers = productsToSort
+	if len(productsSorted) <= bestsellerLimit {
+		bestSellers = productsSorted
 	} else {
-		bestSellers = productsToSort[:bestsellerLimit]
+		bestSellers = productsSorted[:bestsellerLimit]
 	}
 
 	return bestSellers, nil
