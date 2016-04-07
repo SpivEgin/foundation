@@ -91,14 +91,15 @@ func composerType(context api.InterfaceApplicationContext) (interface{}, error) 
 		if typeInfo == nil {
 			return result, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "24bb5e98-b5de-4d4a-a5dc-cf2573dae3dd", "Type "+typeName+" is not defined")
 		}
-
+		res := make(map[string]interface{})
 		for _, item := range typeInfo.ListItems() {
-			result[item] = map[string]interface{}{
+			res[item] = map[string]interface{}{
 				"label": typeInfo.GetLabel(item),
 				"desc":  typeInfo.GetDescription(item),
 				"type":  typeInfo.GetType(item),
 			}
 		}
+		result[typeName] = res
 	}
 	return result, nil
 }
@@ -168,7 +169,7 @@ func composerUnits(context api.InterfaceApplicationContext) (interface{}, error)
 				unitName := unit.GetName();
 				unitType := unit.GetType(ConstPrefixUnit)
 
-				if unitType == strings.ToLower(typeName) {
+				if unitType == typeName {
 					unitInfo := make(map[string]interface{})
 
 					for _, item := range unit.ListItems() {

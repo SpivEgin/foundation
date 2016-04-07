@@ -13,31 +13,45 @@
             float: right;
         }
 
-        #check-btn {
-            float: left;
+        #editors, #representation {
+            padding: 10px 10px 0px 10px;
+            display: inline-flex;
         }
 
-        #container {
+        .check-btn {
+            margin: 10px 10px
+        }
+
+        .represent {
             width: 900px;
-            margin-left: 10px;
-            padding-left: 5px;
+            margin-right: 10px;
+        }
+        .container {
+            width: 900px;
+            margin-right: 10px;
+            padding: 0px 5px 0px 0px;
             background-color: #f3f6fa;
             background-image: repeating-linear-gradient(180deg, #d9edf7, #d9edf7 30px, #f5f5f5 30px, white 60px);
         }
 
-        #wrapper {
-            padding: 0px;
+        .wrapper {
+            padding-left: 5px;
         }
 
-        ul{
+        h2 {
+            margin-left: 10px;
+        }
+
+        ul {
             list-style: none;
+            margin: 0px;
         }
 
-        li{
+        li {
             height: 100%;
         }
 
-        li.minimized{
+        li.minimized {
             height: 30px;
             overflow-y: hidden;
         }
@@ -99,18 +113,6 @@
             background-color: transparent;
         }
 
-        button.add-btn {
-            margin-right: 5px;
-        }
-
-        button.unit-btn {
-            margin-right: 5px;
-        }
-
-        button.remove-btn {
-            margin-right: 0px;
-        }
-
     </style>
 
     <script type="text/javascript">
@@ -136,7 +138,9 @@
             var _PS_ = "."; // path separator
 
             var json = {};
-            var jsonType = "Test";
+            var jsonAction = {};
+            var jsonType = "DiscountRule";
+            var jsonTypeAction = "DiscountAction";
             var complexTypes = {};
             var DBTypes = {};
             var units = {};
@@ -182,7 +186,9 @@
             };
 
             $scope.json = json;
+            $scope.jsonAction = jsonAction;
             $scope.jsonType = jsonType;
+            $scope.jsonTypeAction = jsonTypeAction;
             $scope.complexTypes = complexTypes;
             $scope.DBTypes = DBTypes;
             $scope.units = units;
@@ -256,7 +262,7 @@
              * applied to JSON
              */
             $scope.getItem = getItem;
-            $scope.getJsonItem = getJsonItem
+            $scope.getJsonItem = getJsonItem;
             function getJsonItem(path) {
                 return getItem(path, $scope.json)
             }
@@ -266,9 +272,10 @@
                 return addItem($scope.json, path, key, type, val);
             }
             $scope.removeItem = removeItem;
-            $scope.removeJsonItem = function(path, key, val){
+            $scope.removeJsonItem = removeJsonItem;
+            function removeJsonItem(path, key, val){
                 return removeItem($scope.json, path, key, val);
-            };
+            }
             $scope.editItem = editItem;
 
             /**
@@ -344,45 +351,34 @@
 
                 promise.then(function (response){
                     var res = response.data.result;
-                    complexTypes.complexTypesDict[type] = res;
-                    return res;
-                }, function(){
-                    return null;
-                }).then(function (res){
-                    var types = [];
-                    for(var key in res){
-                        var itemType = getItemType(res[key]);
-                        if(units.unitsDict[itemType] == undefined &&
-                                types.indexOf(itemType) == -1 &&
-                                !isArrayType(itemType)) {
-                            types.push(itemType);
-                        }
-                    }
-                    //types.join(",");
-
-                    if(types != []){
-                        var promise = $http({
-                            method : "GET",
-                            url : "http://localhost:3000/composer/units/" + types
-                        });
-
-                        promise.then(function(response) {
-                            var types = response.data.result;
-                            for(var type in types){
-                                units.unitsDict[type] = types[type];
-                            }
-                            if(handler != undefined){
-                                try {
-                                    handler();
-                                } catch(e) {}
-                            }
-                        });
-                    } else if(handler != undefined) {
+                    complexTypes.complexTypesDict[type] = res[type];
+                    if(handler != undefined) {
                         try {
                             handler();
                         } catch(e) {}
                     }
+                }, function(){
+                    return null;
+                });
 
+                return promise;
+            }
+
+            function requestUnitInfo(type, handler){
+                var promise = $http({
+                    method : "GET",
+                    url : "http://localhost:3000/composer/units/" + type
+                });
+
+                promise.then(function(response) {
+                    units.unitsDict[type] = response.data.result[type];
+                    if(handler != undefined){
+                        try {
+                            handler();
+                        } catch(e) {}
+                    }
+                }, function(){
+                    return null;
                 });
 
                 return promise;
@@ -520,7 +516,7 @@
             /**
              * Returns type by path
              */
-            function getItemInfo(path, val, type) {
+            function getItemInfo(path, prefix, type) {
                 if (type == undefined) {
                     type = jsonType;
                 }
@@ -545,34 +541,30 @@
                 } else if(pathIsUnit){
                     path0 = units.removeUP(path0);
                     Object.assign(typeItems, units.unitsDict[type]);
-                    if(baseTypes.isBaseType(type)){
+                    if(baseTypes.isBaseType(type)) {
                         Object.assign(typeItems, units.unitsDict[_ANY_]);
                     }
                 }
-//                    if(typeItems == undefined){
-//                        return null;
-//                    }
 
-                if(typeof typeItems == "object") {
-                    if (path0 in typeItems) {
-                        if(!pathIsUnit) {
-                            type = typeItems[path0];
-                        }
-                    } else if(!typeIsArray) {
-                        return null;
-                    }
-
-                    if (path.length > 0) {
-                        return getItemInfo(path.join(_PS_), val, getItemType(type));
-                    }
-
-                    if(pathIsUnit) {
+                if (path0 in typeItems) {
+                    if(!pathIsUnit) {
                         type = typeItems[path0];
+                    } else {
+                        type = typeItems[path0][prefix];
                     }
-                    return type;
+                } else if(!typeIsArray) {
+                    return null;
                 }
 
-                return baseTypes.getTypeOf(val);
+                if (path.length > 0) {
+                    type = getItemType(type);
+                    if(pathIsUnit && (prefix != _OP_ || complexTypes.isComplexType(type))) {
+                        type = typeItems[path0][_OP_];
+                    }
+                    return getItemInfo(path.join(_PS_), prefix, getItemType(type));
+                }
+
+                return type;
             }
 
             /**
@@ -657,11 +649,21 @@
 
                 val = baseTypes.convertToValue(type, val);
 
-                if(key in workingItem){
-                    alert("this key already exist");
-                    $scope.isDialogHidden = false;
+                if(units.unitsDict[type] == undefined && type != "unit"){
+                    requestUnitInfo(type, function() {
+                        addNewItem();
+                    });
                 } else {
-                    workingItem[key] = val;
+                    addNewItem();
+                }
+
+                function addNewItem(){
+                    if(key in workingItem){
+                        alert("this key already exist");
+                        $scope.isDialogHidden = false;
+                    } else {
+                        workingItem[key] = val;
+                    }
                 }
 
             }
@@ -709,7 +711,7 @@
              * Show dialog - opens the items creation dialog
              * TODO: remove flag
              */
-            function addItemDialog (path, key, flag){ //flag is if invokes dialog for adding units
+            function addItemDialog(path, key, flag){ //flag is if invokes dialog for adding units
                 // Initialization / Validation
                 // ---------------------------
                 if (path == undefined){
@@ -722,23 +724,12 @@
                     key = "";
                 }
 
-                //TODO: new logic
-                var pathToParent, index = path.indexOf(_UP_);
-                if(index != -1){
-                    pathToParent = path.substring(0, index);
-                } else {
-                    pathToParent = path;
-                }
-
-                var parentItem = getItem(path);
-                var parentType = getItemType(getItemInfo(pathToParent));
+                var parentItem = getJsonItem(path);
+                var parentType = getItemType(getItemInfo(path, _OP_));
 
                 if(parentType == undefined){
                     parentType = baseTypes.getTypeOf(parentItem);
                 }
-//                    if(baseTypes.getTypeOf(parentType) == "object"){
-//                        parentType = parentType.type;
-//                    }
 
                 var showDialog = function() {
                     // Dialog variables preparations before show
@@ -758,7 +749,6 @@
                         dialogObject.showKey = false;
                         dialogObject.key = parentItem.length;
                         if (parentType == "[]Any" || parentType == "array") {
-                            //dialogObject.baseTypes = baseTypes.getBaseTypes();
                             dialogObject.showSelectType = true;
                             dialogObject.showInputType = false;
                         } else {
@@ -777,7 +767,8 @@
                             dialogObject.unitFlag = true;
                             dialogObject.possibleKeys = getPossibleUnits(parentType);
                         } else {
-                            dialogObject.possibleKeys = getPossibleUnitKeys(parentType, key);
+                            var parentTypeU = getItemType(getItemInfo(path, _UP_));
+                            dialogObject.possibleKeys = getPossibleUnitKeys(parentTypeU, key);
                         }
                     } else {
                         if(flag == "unit") {
@@ -815,15 +806,16 @@
             /**
              * Makes HTTP request to get information about units
              */
-            function requestUnitsForTypeAny() {
+            function requestUnitsForBaseTypes() {
+                var types = [_ANY_, "string", "int", "float", "boolean", "array", "object"];
                 $http({
                     method: "GET",
-                    url: "http://localhost:3000/composer/units/" + _ANY_
+                    url: "http://localhost:3000/composer/units/" + types
                 }).then(function(response){
                     units.unitsDict = response.data.result;
                 });
             }
-            requestUnitsForTypeAny();
+            requestUnitsForBaseTypes();
 
             /**
              * Adds unit prefix
@@ -879,7 +871,13 @@
                         if(key != ""){
                             var v = {};
                             v.key = key;
-                            v.label = "(" + key + ") - " + getItemLabel(item[key]);
+                            var label = getItemLabel(item[key]);
+                            if(label == "") {
+                                v.label = "(" + key + ") - " + key;
+                            } else {
+                                v.label = "(" + key + ") - " + label;
+                            }
+
                             keys.push(v);
                         }
                     }
@@ -958,7 +956,12 @@
                     var unitInfo = typeUnits[unitName][_UP_];
                     var v = {};
                     v.key = units.addUP(unitName);
-                    v.label = "(" + unitName + ") - " + getItemLabel(unitInfo);
+                    var label = getItemLabel(unitInfo);
+                    if(label == ""){
+                        v.label = "(" + unitName + ") - " + unitName;
+                    } else {
+                        v.label = "(" + unitName + ") - " + label;
+                    }
                     keys.push(v);
                 }
 
@@ -969,58 +972,82 @@
              * TODO: remove flag
              */
             function getKeyInfo(path, key, val, flag) { //flag defines where func has called from template
-                if(path == undefined){
+                if(path == undefined) {
                     path = "";
                 }
+                if(key == undefined) {
+                    return null;
+                }
 
-                var label, info = {};
-
-                var parentPath =pathToArray(path).pop();
-                var parentItemInfo = getItemInfo(path, val);
-                var itemInfo = getItemInfo(path + '.' + key, val);
+                var info = {};
+                var parentItemInfo;
+                var itemInfo;
 
                 // if key id unit
                 if(units.isUnit(key)) {
-                    info.label = "(" + key + ") - " + getItemLabel(itemInfo[_UP_]);
-                    var item = getJsonItem(path + "." + key);
-                    if(!itemInfo[_AP_] || baseTypes.getTypeOf(item) == "object") {
-                        info.typeLabel = "unit";
-                    }
-                    if(isUnit(parentPath)){
-                        info.type = getItemType(parentItemInfo[_OP_]);
+                    var parentPath = pathToArray(path).pop();
+
+                    if(units.isUnit(parentPath)) {
+                        parentItemInfo = getItemInfo(path, _OP_);
                     } else {
-                        info.type = getItemType(parentItemInfo);
+                        parentItemInfo = getItemInfo(path, _UP_);
                     }
 
-                    //if key is argument
+                    itemInfo = getItemInfo(path + "." + key, _UP_);
+                    info.label = getItemLabel(itemInfo);
+                    if(info.label == ""){
+                        info.label = key;
+                    }
+
+                    info.type = getItemType(parentItemInfo);
+                    //set base type for any
+                    if(info.type == _ANY_ && flag) {
+                        var t = baseTypes.getTypeOf(val);
+                        if (t != "object") {
+                            info.type = t;
+                        }
+                    }
+
+                    //set type unit
+                    var argsInfo = getItemInfo(path + "." + key, _AP_);
+                    if((baseTypes.getTypeOf(val) == "object" && flag) || !argsInfo){
+                        info.typeLabel = "unit"
+                    }
+
+                    // if key id argument
                 } else if (units.isArgument(key)) {
+                    itemInfo = getItemInfo(path, key);
                     info.label = "\<arg\> - (" + key + ")";
-                    info.type = getItemType(parentItemInfo[key]);
+                    info.type = getItemType(itemInfo);
                     if(info.type == _ANY_ && flag){
                         info.type = baseTypes.getTypeOf(val);
                     }
 
                     //if key is output
                 } else if (units.isOutput(key)) {
+                    itemInfo = getItemInfo(path, key);
                     info.label = "\<out\> - (" + key + ")";
-                    info.type = getItemType(parentItemInfo[key]);
+                    info.type = getItemType(itemInfo);
                     if(info.type == _ANY_ && flag){
                         info.type = baseTypes.getTypeOf(val);
                     }
 
                     // get info for instant of complex and base type
                 } else {
-                    label = getItemLabel(itemInfo);
-                    if(label == undefined){
+                    itemInfo = getItemInfo(path + '.' + key);
+                    info.label = getItemLabel(itemInfo);
+                    if(info.label == ""){
                         info.label = key;
-                    } else {
-                        info.label = "(" + key + ") - " + label;
                     }
+
                     info.type = getItemType(itemInfo);
-                    if(info.type == undefined){
+                    if(info.type == undefined) {
                         info.type = baseTypes.getTypeOf(val);
                     } else if(info.type == _ANY_ && flag){
-                        info.type = baseTypes.getTypeOf(val);
+                        var t = baseTypes.getTypeOf(val);
+                        if(t != "object"){
+                            info.type = t;
+                        }
                     }
                 }
 
@@ -1065,6 +1092,20 @@
 
             };
 
+            $scope.btns = [
+                {btnName: "Show", flag: false},
+                {btnName: "Show", flag: false}
+            ];
+
+            $scope.showJSON = function(btn){
+                if(btn.flag){
+                    btn.flag =  false;
+                    btn.btnName = "Show";
+                } else {
+                    btn.flag = true;
+                    btn.btnName = "Hide";
+                }
+            }
         }
 
         /**
@@ -1210,26 +1251,26 @@
         {{itemType = itemInfo.type;""}}
         {{valueType = baseTypes.getTypeOf(val);""}}
         <div class="value-line">
-                    <span>
-                        <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
-                        <b>{{itemInfo.label}}</b>
-                    </span>
+            <span>
+                <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                <b title="{{key}}">{{itemInfo.label}}</b>
+            </span>
             ({{itemTypeLabel}})
 
             <!-- string value -->
-                    <span ng-if="valueType == 'string'">
-                        <input class="form-input" type="text" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-                    </span>
+            <span ng-if="valueType == 'string'">
+                <input class="form-input" type="text" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+            </span>
 
             <!-- number value -->
-                    <span ng-if="valueType == 'int' || valueType == 'float'">
-                        <input class="form-input" type="number" step="0.1" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-                    </span>
+            <span ng-if="valueType == 'int' || valueType == 'float'">
+                <input class="form-input" type="number" step="0.1" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+            </span>
 
             <!-- boolean value -->
-                    <span ng-if="valueType == 'boolean'">
-                        <input class="form-input-checkbox" type="checkbox" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-                    </span>
+            <span ng-if="valueType == 'boolean'">
+                <input class="form-input-checkbox" type="checkbox" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+            </span>
 
             <!-- remove button -->
             <button  class="temp-btn remove-btn" ng-click="removeJsonItem(path, key, val)"><i class="glyphicon glyphicon-trash"></i></button>
@@ -1247,27 +1288,64 @@
     </li>
 </ul>
 
-<!-- JSON Representation -->
-<pre>{{json |json}}</pre>
-
 <!-- JSON Editor -->
-<div id="container">
-    <ul id="wrapper">
-        <li>
-            <div class="value-line">
-                        <span>
-                            <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
-                            ({{jsonType}})
-                        </span>
+<div id="editors">
+    <div>
+        <h2>Rule</h2>
+        <div class="container">
+            <ul class="wrapper">
+                <li>
+                    <div class="value-line">
+                    <span>
+                        <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                        ({{jsonType}})
+                    </span>
 
-                <!--add item button-->
-                <button class="trigger-modal temp-btn" style="margin-right: 35px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
-            </div>
+                        <!--add item button-->
+                        <button class="trigger-modal temp-btn" style="margin-right: 30px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+                    </div>
 
-            <template get="tree-item" item="json" key="" path=""></template>
-        </li>
-    </ul>
-    <button id="check-btn" class="temp-btn" ng-click="checkAccordance(json)">Check</button>
+                    <template get="tree-item" item="json" key="" path=""></template>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div>
+        <h2>Action</h2>
+        <div class="container">
+            <ul class="wrapper">
+                <li>
+                    <div class="value-line">
+                    <span>
+                        <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                        ({{jsonTypeAction}})
+                    </span>
+
+                        <!--add item button-->
+                        <button class="trigger-modal temp-btn" style="margin-right: 35px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+                    </div>
+
+                    <template get="tree-item" item="json2" key="" path=""></template>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div id="representation">
+    <!-- JSON Representation -->
+    <div class="represent">
+        <button class="check-btn" ng-click="checkAccordance(json)">Save Rule</button>
+        <button class="check-btn" ng-click="showJSON(btns[0])">{{btns[0].btnName}}</button>
+        <pre ng-show="btns[0].flag">{{json |json}}</pre>
+    </div>
+    <!-- JSON2 Representation -->
+    <div class="represent">
+        <button class="check-btn" ng-click="checkAccordance(json)">Save Action</button>
+        <button class="check-btn" ng-click="showJSON(btns[1])">{{btns[1].btnName}}</button>
+        <pre ng-show="btns[1].flag">{{jsonAction |json}}</pre>
+
+    </div>
 </div>
 
 <!-- Create Item Dialog -->
@@ -1304,29 +1382,29 @@
                     <label>Value:</label>
 
                     <!-- string value -->
-                            <span ng-switch-when="string">
-                                <input class="form-control" type="text" ng-model="dialog.val" required/>
-                            </span>
+                    <span ng-switch-when="string">
+                        <input class="form-control" type="text" ng-model="dialog.val" required/>
+                    </span>
 
                     <!-- number value -->
-                            <span ng-switch-when="int">
-                                <input class="form-control" type="number" ng-model="dialog.val" required/>
-                            </span>
+                    <span ng-switch-when="int">
+                        <input class="form-control" type="number" ng-model="dialog.val" required/>
+                    </span>
 
                     <!-- number value -->
-                            <span ng-switch-when="float">
-                                <input class="form-control" type="number" ng-model="dialog.val" required/>
-                            </span>
+                    <span ng-switch-when="float">
+                        <input class="form-control" type="number" ng-model="dialog.val" required/>
+                    </span>
 
                     <!--boolean value -->
-                            <span ng-switch-when="boolean">
-                                <input class="form-input-checkbox" type="checkbox" ng-model="dialog.val"/>
-                            </span>
+                    <span ng-switch-when="boolean">
+                        <input class="form-input-checkbox" type="checkbox" ng-model="dialog.val"/>
+                    </span>
 
                     <!-- default value -->
-                            <span ng-switch-default>
-                                N/A
-                            </span>
+                    <span ng-switch-default>
+                        N/A
+                    </span>
                 </div>
 
             </div>

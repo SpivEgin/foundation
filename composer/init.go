@@ -138,12 +138,12 @@ func initBaseUnits() {
 		Name: "test",
 		Type: map[string]string{
 			ConstPrefixOut:  "string",
-			ConstPrefixUnit: "product",
+			ConstPrefixUnit: "Product",
 			//ConstPrefixArg:  "object",
 			ConstPrefixArg + "sku":  "string",
 			ConstPrefixArg + "price":  "float",
 		},
-		Label:       map[string]string{ConstPrefixUnit: "Test"},
+		Label:       map[string]string{ConstPrefixUnit: ""},
 		Description: map[string]string{ConstPrefixUnit: "Temporary test unit"},
 		Action:      action,
 	})
@@ -157,13 +157,12 @@ func initTest() error {
 			"b": "FloatTest",
 			"c": "StringTest",
 			"d": "ProductTest",
-			"e": "ArrOfProductsTest",
 		},
 		Type: map[string]string{
 			"a": "any",
 			"b": "float",
 			"c": "string",
-			"d": "Product",
+			"d": "Checkout",
 			"e": "[]Product",
 		},
 		Description: map[string]string{
@@ -172,6 +171,101 @@ func initTest() error {
 	}
 
 	registeredComposer.RegisterType(testType)
+
+	testCartType := &BasicType{
+		Name: "Cart",
+		Label: map[string]string{
+			"amount": "Amount",
+			"visitorIsLogin": "Visitor is login",
+		},
+		Type: map[string]string{
+			"amount": "float",
+			"visitorIsLogin": "boolean",
+		},
+		Description: map[string]string{
+			"amount": "Cart amount",
+		},
+	}
+
+	registeredComposer.RegisterType(testCartType)
+
+//	testCheckoutType := &BasicType{
+//		Name: "Checkout",
+//		Label: map[string]string{
+//			"cart": "Cart",
+//			"paymentMethods": "Payment Methods",
+//			"shippingMethods": "Shippin Methods",
+//		},
+//		Type: map[string]string{
+//			"cart": "Cart",
+//			"paymentMethods": "[]Payment",
+//			"shippingMethods": "[]Shippin",
+//		},
+//		Description: map[string]string{
+//			"cart": "current Cart",
+//		},
+//	}
+//
+//	registeredComposer.RegisterType(testCheckoutType)
+//
+//	testVisitorType := &BasicType{
+//		Name: "Visitor",
+//		Label: map[string]string{
+//			"id": "ID",
+//			"name": "Name",
+//			"country": "Country",
+//			"visitorIsLogin": "Visitor is login",
+//		},
+//		Type: map[string]string{
+//			"id": "string",
+//			"name": "string",
+//			"country": "string",
+//			"visitorIsLogin": "boolean",
+//		},
+//		Description: map[string]string{
+//
+//		},
+//	}
+
+//	registeredComposer.RegisterType(testVisitorType)
+
+	testDiscountRule := &BasicType{
+		Name: "DiscountRule",
+		Label: map[string]string{
+			"cart": "Cart",
+			"visitor": "Visitor",
+			"checkout": "Checkout",
+		},
+		Type: map[string]string{
+			"cart": "Cart",
+			"visitor": "Visitor",
+			"checkout": "Checkout",
+		},
+		Description: map[string]string{
+
+		},
+	}
+
+	registeredComposer.RegisterType(testDiscountRule)
+
+	testDiscountAction := &BasicType{
+		Name: "DiscountAction",
+		Label: map[string]string{
+			"cart": "Cart",
+			"visitor": "Visitor",
+			"checkout": "Checkout",
+		},
+		Type: map[string]string{
+			"cart": "Cart",
+			"visitor": "Visitor",
+			"checkout": "Checkout",
+		},
+		Description: map[string]string{
+
+		},
+	}
+
+	registeredComposer.RegisterType(testDiscountAction)
 	return nil
 }
 

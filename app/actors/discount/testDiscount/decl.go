@@ -7,7 +7,8 @@ import (
 // Package global constants
 const (
 	ConstSessionKeyAppliedTestDiscountCodes = "applied_test_discount_codes"
-	//ConstCollectionNameTestDiscount  = "test_discount"
+	ConstConfigPathTestDiscountRule  		= "general.testdiscounts.testDiscount_rule"
+	ConstConfigPathTestDiscountAction       = "general.testdiscounts.testDiscount_action"
 
 	ConstErrorModule = "testDiscount"
 	ConstErrorLevel  = env.ConstErrorLevelActor
