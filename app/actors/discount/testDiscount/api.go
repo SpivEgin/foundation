@@ -9,12 +9,7 @@ import (
 func setupAPI() error {
 	var err error
 
-	err = api.GetRestService().RegisterAPI("testDiscount/setRule", api.ConstRESTOperationCreate, setRule)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
-
-	err = api.GetRestService().RegisterAPI("testDiscount/setAction", api.ConstRESTOperationCreate, setAction)
+	err = api.GetRestService().RegisterAPI("testDiscount/CreateTestDiscount", api.ConstRESTOperationCreate, CreateTestDiscount)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
@@ -22,19 +17,9 @@ func setupAPI() error {
 	return nil
 }
 
-func setRule(context api.InterfaceApplicationContext) (interface{}, error) {
+func CreateTestDiscount(context api.InterfaceApplicationContext) (interface{}, error) {
+	//CalculateDiscount
 
-	result := ""
-
-	return result, nil
+	return "", nil
 }
-
-// APIGetGiftCard return gift card info buy it's code
-func setAction(context api.InterfaceApplicationContext) (interface{}, error) {
-
-	result := ""
-
-	return result, nil
-}
-
 

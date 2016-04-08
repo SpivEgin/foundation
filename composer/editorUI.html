@@ -1061,11 +1061,11 @@
                 var promise = $http({
                     method: "POST",
                     data: json,
-                    url: "http://localhost:3000/composer/check"
+                    url: "http://localhost:3000/testDiscount/CreateTestDiscount"
                 });
 
                 promise.then(function(response){
-                            alert(response.data.result);
+                            alert("Rule was saved");
                         },
                         function(){
                             return null;
@@ -1289,6 +1289,7 @@
 </ul>
 
 <!-- JSON Editor -->
+
 <div id="editors">
     <div>
         <h2>Rule</h2>
@@ -1296,10 +1297,10 @@
             <ul class="wrapper">
                 <li>
                     <div class="value-line">
-                    <span>
-                        <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
-                        ({{jsonType}})
-                    </span>
+                        <span>
+                            <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                            ({{jsonType}})
+                        </span>
 
                         <!--add item button-->
                         <button class="trigger-modal temp-btn" style="margin-right: 30px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
@@ -1316,10 +1317,10 @@
             <ul class="wrapper">
                 <li>
                     <div class="value-line">
-                    <span>
-                        <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
-                        ({{jsonTypeAction}})
-                    </span>
+                        <span>
+                            <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                            ({{jsonTypeAction}})
+                        </span>
 
                         <!--add item button-->
                         <button class="trigger-modal temp-btn" style="margin-right: 35px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
@@ -1335,18 +1336,18 @@
 <div id="representation">
     <!-- JSON Representation -->
     <div class="represent">
-        <button class="check-btn" ng-click="checkAccordance(json)">Save Rule</button>
         <button class="check-btn" ng-click="showJSON(btns[0])">{{btns[0].btnName}}</button>
-        <pre ng-show="btns[0].flag">{{json |json}}</pre>
+        <pre ng-show="btns[0].flag">{{json}}</pre>
     </div>
     <!-- JSON2 Representation -->
     <div class="represent">
-        <button class="check-btn" ng-click="checkAccordance(json)">Save Action</button>
         <button class="check-btn" ng-click="showJSON(btns[1])">{{btns[1].btnName}}</button>
         <pre ng-show="btns[1].flag">{{jsonAction |json}}</pre>
 
     </div>
 </div>
+
+<div><button  style="margin-left: 891px;" class="check-btn" ng-click="checkAccordance(json)">Save</button></div>
 
 <!-- Create Item Dialog -->
 <!--<div id="screen" ng-hide="isDialogHidden"></div>-->

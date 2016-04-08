@@ -11,12 +11,27 @@ func setupConfig() error {
 		return env.ErrorNew(ConstErrorModule, env.ConstErrorLevelStartStop, "15859fac-8fc0-4fbf-a801-b9cacf70d356", "can't obtain config")
 	}
 
-	//config.UnregisterItem(ConstConfigPathTestDiscountRule)
 	err := config.RegisterItem(env.StructConfigItem{
+		Path:        ConstConfigPathTestDiscounts,
+		Value:       nil,
+		Type:        env.ConstConfigTypeGroup,
+		Editor:      "",
+		Options:     nil,
+		Label:       "Test-Discounts",
+		Description: "Test Discounts related options",
+		Image:       "",
+	}, nil)
+
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
+//	config.UnregisterItem(ConstConfigPathTestDiscountRule)
+	err = config.RegisterItem(env.StructConfigItem{
 		Path:        ConstConfigPathTestDiscountRule,
 		Value:       "rule",
 		Type:        env.ConstConfigTypeJSON,
-		Editor:      "JSON_composer",
+		Editor:      "JSON_editor",
 		Options:     nil,
 		Label:       "Rule",
 		Description: "Rule description",
@@ -27,12 +42,12 @@ func setupConfig() error {
 		return env.ErrorDispatch(err)
 	}
 
-	//config.UnregisterItem(ConstConfigPathTestDiscountAction)
+//	config.UnregisterItem(ConstConfigPathTestDiscountAction)
 	err = config.RegisterItem(env.StructConfigItem{
 		Path:        ConstConfigPathTestDiscountAction,
 		Value:       "action",
 		Type:        env.ConstConfigTypeJSON,
-		Editor:      "JSON_composer",
+		Editor:      "JSON_editor",
 		Options:     nil,
 		Label:       "Action",
 		Description: "Action description",

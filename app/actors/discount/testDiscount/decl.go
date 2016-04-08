@@ -7,6 +7,8 @@ import (
 // Package global constants
 const (
 	ConstSessionKeyAppliedTestDiscountCodes = "applied_test_discount_codes"
+
+	ConstConfigPathTestDiscounts			= "general.testdiscounts"
 	ConstConfigPathTestDiscountRule  		= "general.testdiscounts.testDiscount_rule"
 	ConstConfigPathTestDiscountAction       = "general.testdiscounts.testDiscount_action"
 
