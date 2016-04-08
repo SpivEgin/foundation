@@ -96,11 +96,11 @@ func TestLock(t *testing.T) {
 
 func TestSyncSet(t *testing.T) {
 
-	const concurrent = 9999
+	const concurrent = 20
 	finished := make(chan int)
 
 	// Test 1: slice access
-	A := make([][]int, 0, 10)
+	A := make([][]int, 0, 9999)
 
 	routines := concurrent
 	for i:=0; i<routines; i++ {
