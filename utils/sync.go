@@ -33,13 +33,15 @@ func (it *pathItem) Lock() {
 }
 
 func (it *pathItem) Unlock() {
-	if it.locked {
-		it.mutex.Unlock()
-		it.locked = true
+	for x := it.parent; x != nil; x = x.parent {
+		if x.locked {
+			x.mutex.Unlock()
+			x.locked = false
+		}
 	}
 }
 
-func (it *pathItem) Update() {
+func (it *pathItem) Update(newSubject reflect.Value) {
 	stack := make([]*pathItem, 0, 100)
 	locked := make([]*syncMutex, 0, 100)
 
@@ -73,9 +75,20 @@ func (it *pathItem) Update() {
 			locked[i-1].Unlock()
 			locked[i-1] = mutex
 
+			stack[i-1].locked = true
 			stack[i-1].mutex = mutex
 			stack[i-1].parent = stack[i]
 		}
+	}
+
+	// updating the item with new key value
+	switch it.value.Kind() {
+	case reflect.Map:
+		it.value.SetMapIndex(it.key, newSubject)
+
+	case reflect.Slice, reflect.Array:
+		idx := int(it.key.Int())
+		it.value.Index(idx).Set(newSubject)
 	}
 
 	// un-locking locked items
@@ -190,13 +203,13 @@ func SyncSet(subject interface{}, value interface{}, path ...interface{}) error 
 	rSubject = reflect.Indirect(rSubject)
 	rKey := pathItem.key
 
-	mutex := pathItem.mutex
-	if mutex == nil {
-		mutex, err = SyncMutex(rSubject)
+	//mutex := pathItem.mutex
+	//if mutex == nil {
+		mutex, err := SyncMutex(rSubject)
 		if err != nil {
 			return err
 		}
-	}
+	//}
 
 	// new value validation
 	rValue := reflect.ValueOf(value)
@@ -288,14 +301,14 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 	rSubjectType := rSubject.Type()
 
 	// preparing result item
-	result := &pathItem {
+	pathItem := &pathItem {
 		parent: parent,
 		value:  rSubject,
 	}
 
 	// checking for end of path, if so we are done
 	if len(path) == 0 {
-		return result, nil
+		return pathItem, nil
 	}
 
 	// taking mutex for subject
@@ -303,7 +316,7 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 	if err != nil {
 		return nil, err
 	}
-	result.mutex = mutex
+	pathItem.mutex = mutex
 
 	// taking first item from path as key item
 	rKey := reflect.ValueOf(path[0])
@@ -311,10 +324,11 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 		return nil, errors.New("invalid path")
 	}
 	rKeyType := rKey.Type()
-	result.key = rKey
+	pathItem.key = rKey
 
 	newPath := path[1:]
 
+	mutex.Lock()
 	// getting path item from subject based on it's type
 	switch rSubjectKind {
 
@@ -326,7 +340,6 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 		}
 
 		// accessing to subject key item
-		mutex.Lock()
 		rSubjectItem := rSubject.MapIndex(rKey)
 
 		// checking if item is not defined, and we should make new value
@@ -337,9 +350,9 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 			}
 			rSubject.SetMapIndex(rKey, rSubjectItem)
 		}
-		mutex.Unlock()
 
-		return getPathItem(rSubjectItem, newPath, initBlank, result)
+		mutex.Unlock()
+		return getPathItem(rSubjectItem, newPath, initBlank, pathItem)
 
 	case reflect.Slice, reflect.Array:
 		// the key should be integer index
@@ -348,8 +361,6 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 			rKey.Kind().String() + " != Int")
 		}
 		idx := int(rKey.Int())
-
-		mutex.Lock()
 
 		// access items - time critical as locked
 		if rSubject.Len() <= idx {
@@ -397,74 +408,30 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 				rSubject.SetLen(length + 1)
 				rSubject.Index(length).Set(newItem)
 			} else {
-				// The worst scenario! It needs to create a
-				// new memory piece, copy old items into and
-
-				// collecting pathItem stack
-				//stack := make([]*pathItem, 0, 100)
-				//for x := parent; x != nil; x = x.parent {
-				//	stack = append(stack, x)
-				//	x.mutex.Lock()
-				//}
-
 				// new slice creation needed
 				newSubject := reflect.New(rSubjectType).Elem()
 				newSubject.Set(reflect.Append(rSubject, newItem))
 				rSubject.Set(newSubject)
 
-				//for _, x := range stack {
-				//	x.mutex.Unlock()
-				//}
-
-				// updating pathItem references
-				//for i := len(stack)-1; i > 0; i-- {
-				//	switch stack[i].value.Kind() {
-				//	case reflect.Map:
-				//		stack[i-1].value = stack[i].value.MapIndex(stack[i].key)
-				//
-				//	case reflect.Slice, reflect.Array:
-				//		idx := int(stack[i].key.Int())
-				//		stack[i-1].value = stack[i].value.Index(idx)
-				//	}
-				//
-				//	mutex, err := SyncMutex(stack[i-1].value)
-				//	if err != nil {
-				//		mutex.Unlock()
-				//		return nil, err
-				//	}
-				//	stack[i-1].mutex = mutex
-				//	stack[i-1].parent = stack[i]
-				//}
-
 				if parent != nil {
-					parent.Update()
-					parent.mutex.Lock()
-
-					switch parent.value.Kind() {
-					case reflect.Map:
-						parent.value.SetMapIndex(parent.key, newSubject)
-
-					case reflect.Slice, reflect.Array:
-						idx := int(parent.key.Int())
-						parent.value.Index(idx).Set(newSubject)
-					}
-
-					parent.mutex.Unlock()
-					result.parent = parent
+					parent.Update(newSubject)
+					pathItem.parent = parent
 				}
 			}
 
-			result.value = rSubject
+			pathItem.value = rSubject
 
-			result.key = reflect.ValueOf(length)
+			pathItem.key = reflect.ValueOf(length)
 			rSubject = rSubject.Index(length)
 		}
+
 		mutex.Unlock()
-		return getPathItem(rSubject, newPath, initBlank, result)
+		return getPathItem(rSubject, newPath, initBlank, pathItem)
 
 	default:
+		mutex.Unlock()
 		return nil, errors.New("invalid subject, path can not be applied to: " + rSubjectType.String())
 	}
 
-	return result, nil
+	return pathItem, nil
 }

@@ -3,47 +3,48 @@ package utils
 import (
 	"testing"
 	"math/rand"
+	"fmt"
 )
 
-func BenchmarkPtrMapAccess(b *testing.B) {
-	var i uintptr
-	x := make(map[uintptr]int)
-	for i=0; i<999999; i++ {
-		for j:=1; j<rand.Intn(10); j++ {
-			i++
-		}
-		x[i] = 1
-	}
-
-	b.ResetTimer()
-	for i=0; i<999999; i++ {
-		if val, ok := x[i]; ok {
-			x[i-1]=val
-		}
-	}
-}
-
-func BenchmarkInterfaceMapAccess(b *testing.B) {
-	var i int
-	x := make(map[interface{}]int)
-	for i=0; i<999999; i++ {
-		switch i%3 {
-		case 0:
-			x[i] = 1
-		case 1:
-			x[string(i)] = 1
-		case 2:
-			x[float64(i)] = 1
-		}
-	}
-
-	b.ResetTimer()
-	for i=0; i<999999; i++ {
-		if val, ok := x[i]; ok {
-			x[i-1]=val
-		}
-	}
-}
+//func BenchmarkPtrMapAccess(b *testing.B) {
+//	var i uintptr
+//	x := make(map[uintptr]int)
+//	for i=0; i<999999; i++ {
+//		for j:=1; j<rand.Intn(10); j++ {
+//			i++
+//		}
+//		x[i] = 1
+//	}
+//
+//	b.ResetTimer()
+//	for i=0; i<999999; i++ {
+//		if val, ok := x[i]; ok {
+//			x[i-1]=val
+//		}
+//	}
+//}
+//
+//func BenchmarkInterfaceMapAccess(b *testing.B) {
+//	var i int
+//	x := make(map[interface{}]int)
+//	for i=0; i<999999; i++ {
+//		switch i%3 {
+//		case 0:
+//			x[i] = 1
+//		case 1:
+//			x[string(i)] = 1
+//		case 2:
+//			x[float64(i)] = 1
+//		}
+//	}
+//
+//	b.ResetTimer()
+//	for i=0; i<999999; i++ {
+//		if val, ok := x[i]; ok {
+//			x[i-1]=val
+//		}
+//	}
+//}
 
 // TestLock makes massive attack to the same map from different go-routines which should generate
 // "fatal error: concurrent map read and map write", without synchronization
@@ -117,8 +118,13 @@ func TestSyncSet(t *testing.T) {
 		routines--
 	}
 
-	//fmt.Println(A)
-	//return;
+	// validating results
+	for idx, x := range A {
+		if len(x) != 1 || x[0] != 1 {
+			t.Error("unexpected A[", idx, "] =>", x, "!= [1]")
+			return
+		}
+	}
 
 	if len(A) != concurrent || A[concurrent-1][0] != 1 {
 		t.Error("unexpected result:",
@@ -163,5 +169,6 @@ func TestSyncSet(t *testing.T) {
 			", len(B[\"a\"]) =", len(B["a"]),
 			", B[\"a\"][concurrent-1][true] =", B["a"][0][true],
 			", B[\"b\"][0][false] = ", B["b"][0][false])
+		fmt.Println(B)
 	}
 }
