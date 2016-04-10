@@ -22,8 +22,66 @@ type syncMutex struct {
 type pathItem struct {
 	parent *pathItem
 	mutex  *syncMutex
+	locked bool
 	key    reflect.Value
 	value  reflect.Value
+}
+
+func (it *pathItem) Lock() {
+	it.locked = true
+	it.mutex.Lock()
+}
+
+func (it *pathItem) Unlock() {
+	if it.locked {
+		it.mutex.Unlock()
+		it.locked = true
+	}
+}
+
+func (it *pathItem) Update() {
+	stack := make([]*pathItem, 0, 100)
+	locked := make([]*syncMutex, 0, 100)
+
+	// collecting pathItem stack and locking items
+	for x := it.parent; x != nil; x = x.parent {
+		x.mutex.Lock()
+		stack = append(stack, x)
+		locked = append(locked, x.mutex)
+	}
+
+	// updating pathItem references
+	for i := len(stack)-1; i > 0; i-- {
+		oldValue := stack[i-1].value
+
+		switch stack[i].value.Kind() {
+		case reflect.Map:
+			stack[i-1].value = stack[i].value.MapIndex(stack[i].key)
+
+		case reflect.Slice, reflect.Array:
+			idx := int(stack[i].key.Int())
+			stack[i-1].value = stack[i].value.Index(idx)
+		}
+
+		if oldValue != stack[i-1].value {
+			mutex, err := SyncMutex(stack[i - 1].value)
+			if err != nil {
+				panic(err)
+			}
+			mutex.Lock()
+
+			locked[i-1].Unlock()
+			locked[i-1] = mutex
+
+			stack[i-1].mutex = mutex
+			stack[i-1].parent = stack[i]
+		}
+	}
+
+	// un-locking locked items
+	for _, x := range locked {
+		x.Unlock()
+	}
 }
 
 
@@ -126,11 +184,10 @@ func SyncSet(subject interface{}, value interface{}, path ...interface{}) error 
 	kind := rSubject.Kind()
 	if kind != reflect.Ptr && pathItem.parent != nil {
 		pathItem = pathItem.parent
+		rSubject = pathItem.value
 	}
 
 	rSubject = reflect.Indirect(rSubject)
-
-	rSubjectType := rSubject.Type()
 	rKey := pathItem.key
 
 	mutex := pathItem.mutex
@@ -164,30 +221,15 @@ func SyncSet(subject interface{}, value interface{}, path ...interface{}) error 
 	mutex.Lock()
 	switch rSubject.Kind() {
 	case reflect.Map:
-		if !rValueType.AssignableTo(rSubjectType.Elem()) {
-			mutex.Unlock()
-			return errors.New(rValueType.String() + " is unassignable to " + rSubjectType.Elem().String())
-		}
-
 		oldValue := rSubject.MapIndex(rKey)
 		rSubject.SetMapIndex(rKey, funcValue(oldValue, oldValue.Type()))
 
 	case reflect.Slice, reflect.Array:
-		if !rValueType.AssignableTo(rSubjectType.Elem()) {
-			mutex.Unlock()
-			return errors.New(rValueType.String() + " is unassignable to " + rSubjectType.Elem().String())
-		}
-
 		idx := int(rKey.Int())
 		oldValue := rSubject.Index(idx)
 		oldValue.Set(funcValue(oldValue, oldValue.Type()))
 
 	default:
-		if !rValueType.AssignableTo(rSubjectType) {
-			mutex.Unlock()
-			return errors.New(rValueType.String() + " is unassignable to " + rSubjectType.String())
-		}
-
 		rSubject.Set(funcValue(rSubject, rSubject.Type()))
 	}
 	mutex.Unlock()
@@ -355,40 +397,47 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 				rSubject.SetLen(length + 1)
 				rSubject.Index(length).Set(newItem)
 			} else {
+				// The worst scenario! It needs to create a
+				// new memory piece, copy old items into and
+
+				// collecting pathItem stack
+				//stack := make([]*pathItem, 0, 100)
+				//for x := parent; x != nil; x = x.parent {
+				//	stack = append(stack, x)
+				//	x.mutex.Lock()
+				//}
 
 				// new slice creation needed
 				newSubject := reflect.New(rSubjectType).Elem()
 				newSubject.Set(reflect.Append(rSubject, newItem))
-				rSubject = newSubject
+				rSubject.Set(newSubject)
 
-				// collecting pathItem stack
-				stack := make([]*pathItem, 0, 100)
-				for x := parent; x != nil; x = x.parent {
-					stack = append(stack, x)
-				}
+				//for _, x := range stack {
+				//	x.mutex.Unlock()
+				//}
 
 				// updating pathItem references
-				for i := len(stack)-1; i > 0; i-- {
-					switch stack[i].value.Kind() {
-					case reflect.Map:
-						stack[i-1].value = stack[i].value.MapIndex(stack[i].key)
+				//for i := len(stack)-1; i > 0; i-- {
+				//	switch stack[i].value.Kind() {
+				//	case reflect.Map:
+				//		stack[i-1].value = stack[i].value.MapIndex(stack[i].key)
+				//
+				//	case reflect.Slice, reflect.Array:
+				//		idx := int(stack[i].key.Int())
+				//		stack[i-1].value = stack[i].value.Index(idx)
+				//	}
+				//
+				//	mutex, err := SyncMutex(stack[i-1].value)
+				//	if err != nil {
+				//		mutex.Unlock()
+				//		return nil, err
+				//	}
+				//	stack[i-1].mutex = mutex
+				//	stack[i-1].parent = stack[i]
+				//}
 
-					case reflect.Slice, reflect.Array:
-						idx := int(stack[i].key.Int())
-						stack[i-1].value = stack[i].value.Index(idx)
-					}
-
-					mutex, err := SyncMutex(stack[i-1].value)
-					if err != nil {
-						mutex.Unlock()
-						return nil, err
-					}
-					stack[i-1].mutex = mutex
-					stack[i-1].parent = stack[i]
-				}
-
-				if len(stack) > 0 {
-					parent = stack[0]
+				if parent != nil {
+					parent.Update()
 					parent.mutex.Lock()
 
 					switch parent.value.Kind() {
@@ -399,13 +448,13 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, parent
 						idx := int(parent.key.Int())
 						parent.value.Index(idx).Set(newSubject)
 					}
+
 					parent.mutex.Unlock()
 					result.parent = parent
 				}
 			}
 
 			result.value = rSubject
-
 
 			result.key = reflect.ValueOf(length)
 			rSubject = rSubject.Index(length)

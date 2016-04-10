@@ -3,7 +3,6 @@ package utils
 import (
 	"testing"
 	"math/rand"
-	"fmt"
 )
 
 func BenchmarkPtrMapAccess(b *testing.B) {
@@ -96,11 +95,11 @@ func TestLock(t *testing.T) {
 
 func TestSyncSet(t *testing.T) {
 
-	const concurrent = 20
+	const concurrent = 9999
 	finished := make(chan int)
 
 	// Test 1: slice access
-	A := make([][]int, 0, 9999)
+	A := make([][]int, 0, 0)
 
 	routines := concurrent
 	for i:=0; i<routines; i++ {
@@ -118,8 +117,8 @@ func TestSyncSet(t *testing.T) {
 		routines--
 	}
 
-	fmt.Println(A)
-	return;
+	//fmt.Println(A)
+	//return;
 
 	if len(A) != concurrent || A[concurrent-1][0] != 1 {
 		t.Error("unexpected result:",
