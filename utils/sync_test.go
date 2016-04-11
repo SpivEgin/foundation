@@ -46,8 +46,10 @@ import (
 //	}
 //}
 
-// TestLock makes massive attack to the same map from different go-routines which should generate
-// "fatal error: concurrent map read and map write", without synchronization
+// TestSyncSet validates SyncMutex type functionality
+//
+// (massive attack to the map from different go-routines which should generate
+// "fatal error: concurrent map read and map write", without synchronization)
 func TestLock(t *testing.T) {
 	const scatter = 10;
 	x := make(map[int]map[int]float64)
@@ -93,10 +95,10 @@ func TestLock(t *testing.T) {
 	}
 }
 
-
+// TestSyncSet validates SyncSet function
 func TestSyncSet(t *testing.T) {
 
-	const concurrent = 9999
+	const concurrent = 1
 	finished := make(chan int)
 
 	// Test 1: slice access
