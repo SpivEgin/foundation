@@ -19,108 +19,6 @@ type syncMutex struct {
 	mutex sync.Mutex
 }
 
-
-// pathItem represents the stack of (index, value, mutex) collected during path-walk on a tree like type value
-type pathItem struct {
-	parent *pathItem
-	mutex  *syncMutex
-	locked bool
-	key    reflect.Value
-	value  reflect.Value
-}
-
-// Lock is a SyncMutex.Lock() implementation for a pathItem
-// (it uses own it.locked flag to safely handle Lock/Unlock only for a current instance)
-func (it *pathItem) Lock() {
-	if !it.locked {
-		it.locked = true
-		it.mutex.Lock()
-	}
-}
-
-// Unlock is a SyncMutex.Lock() implementation for a pathItem
-// (it uses own it.locked flag to safely handle Lock/Unlock only for a current instance)
-func (it *pathItem) Unlock() {
-	if it.locked {
-		it.mutex.Unlock()
-		it.locked = false
-	}
-}
-
-// LockStack holds the lock for a whole path item stack including self
-func (it *pathItem) LockStack() {
-	for x := it; x != nil; x = x.parent {
-		it.Unlock()
-	}
-}
-
-// UnlockStack releases the locks for a whole path item stack including self
-func (it *pathItem) UnlockStack() {
-	for x := it; x != nil; x = x.parent {
-		it.Unlock()
-	}
-}
-
-// Update refreshes the parent items information. The function going through the stack and updates the values
-// (such functionality is required for the the unlocked slice parents, so while the new slice item created ahed of slice capacity,
-// the copy of slice is made -with such case the parent items information will address unused memory and should be updated )
-func (it *pathItem) Update(newSubject reflect.Value) {
-	stack := make([]*pathItem, 0, 100)
-	wasLocked := make([]*syncMutex, 0, 100)
-
-	// collecting pathItem stack and locking items
-	for x := it.parent; x != nil; x = x.parent {
-		x.mutex.Lock()
-		stack = append(stack, x)
-		wasLocked = append(wasLocked, x.mutex)
-	}
-
-	// updating pathItem references
-	for i := len(stack)-1; i > 0; i-- {
-		oldValue := stack[i-1].value
-
-		switch stack[i].value.Kind() {
-		case reflect.Map:
-			stack[i-1].value = stack[i].value.MapIndex(stack[i].key)
-
-		case reflect.Slice, reflect.Array:
-			idx := int(stack[i].key.Int())
-			stack[i-1].value = stack[i].value.Index(idx)
-		}
-
-		if oldValue != stack[i-1].value {
-			mutex, err := SyncMutex(stack[i-1].value)
-			if err != nil {
-				panic(err)
-			}
-			mutex.Lock()
-
-			wasLocked[i-1].Unlock()
-			wasLocked[i-1] = mutex
-
-			stack[i-1].locked = true
-			stack[i-1].mutex = mutex
-			stack[i-1].parent = stack[i]
-		}
-	}
-
-	// updating the item with new key value
-	switch it.value.Kind() {
-	case reflect.Map:
-		it.value.SetMapIndex(it.key, newSubject)
-
-	case reflect.Slice, reflect.Array:
-		idx := int(it.key.Int())
-		it.value.Index(idx).Set(newSubject)
-	}
-
-	// un-locking locked items
-	for _, x := range wasLocked {
-		x.Unlock()
-	}
-}
-
-
 // Lock holds the lock on a mutex
 func (it *syncMutex) Lock() {
 	it.mutex.Lock()
@@ -212,6 +110,126 @@ func SyncMutex(subject interface{}) (*syncMutex, error) {
 	return mutex, nil
 }
 
+// SyncLock holds mutex on a given subject
+func SyncLock(subject interface{}) error {
+	mutex, err := SyncMutex(subject)
+	if err != nil {
+		return err
+	}
+	mutex.Lock()
+	return nil
+}
+
+// SyncUnlock releases mutex on a given subject
+func SyncUnlock(subject interface{}) error {
+	mutex, err := SyncMutex(subject)
+	if err != nil {
+		return err
+	}
+	mutex.Unlock()
+	return nil
+}
+
+// pathItem represents the stack of (index, value, mutex) collected during path-walk on a tree like type value
+type pathItem struct {
+	parent *pathItem
+	mutex  *syncMutex
+	locked bool
+	key    reflect.Value
+	value  reflect.Value
+}
+
+// Lock is a SyncMutex.Lock() implementation for a pathItem
+// (it uses own it.locked flag to safely handle Lock/Unlock only for a current instance)
+func (it *pathItem) Lock() {
+	if it.mutex != nil && !it.locked {
+		it.locked = true
+		it.mutex.Lock()
+	}
+}
+
+// Unlock is a SyncMutex.Lock() implementation for a pathItem
+// (it uses own it.locked flag to safely handle Lock/Unlock only for a current instance)
+func (it *pathItem) Unlock() {
+	if it.mutex != nil && it.locked {
+		it.mutex.Unlock()
+		it.locked = false
+	}
+}
+
+// LockStack holds the lock for a whole path item stack including self
+func (it *pathItem) LockStack() {
+	for x := it; x != nil; x = x.parent {
+		x.Lock()
+	}
+}
+
+// UnlockStack releases the locks for a whole path item stack including self
+func (it *pathItem) UnlockStack() {
+	for x := it; x != nil; x = x.parent {
+		x.Unlock()
+	}
+}
+
+// Update refreshes the parent items information. The function going through the stack and updates the values
+// (such functionality is required for the the unlocked slice parents, so while the new slice item created ahed of slice capacity,
+// the copy of slice is made -with such case the parent items information will address unused memory and should be updated )
+func (it *pathItem) Update(newSubject reflect.Value) {
+	stack := make([]*pathItem, 0, 100)
+	wasLocked := make([]*syncMutex, 0, 100)
+
+	// collecting pathItem stack and locking items
+	for x := it.parent; x != nil; x = x.parent {
+		x.mutex.Lock()
+		stack = append(stack, x)
+		wasLocked = append(wasLocked, x.mutex)
+	}
+
+	// updating pathItem references
+	for i := len(stack)-1; i > 0; i-- {
+		oldValue := stack[i-1].value
+
+		switch stack[i].value.Kind() {
+		case reflect.Map:
+			stack[i-1].value = stack[i].value.MapIndex(stack[i].key)
+
+		case reflect.Slice, reflect.Array:
+			idx := int(stack[i].key.Int())
+			stack[i-1].value = stack[i].value.Index(idx)
+		}
+
+		if oldValue != stack[i-1].value {
+			mutex, err := SyncMutex(stack[i-1].value)
+			if err != nil {
+				panic(err)
+			}
+			mutex.Lock()
+
+			wasLocked[i-1].Unlock()
+			wasLocked[i-1] = mutex
+
+			stack[i-1].locked = true
+			stack[i-1].mutex = mutex
+			stack[i-1].parent = stack[i]
+		}
+	}
+
+	// updating the item with new key value
+	switch it.value.Kind() {
+	case reflect.Map:
+		it.value.SetMapIndex(it.key, newSubject)
+
+	case reflect.Slice, reflect.Array:
+		idx := int(it.key.Int())
+		it.value.Index(idx).Set(newSubject)
+	}
+
+	// un-locking locked items
+	for _, x := range wasLocked {
+		x.Unlock()
+	}
+}
+
 // SyncSet - synchronized write access to tree like variables
 //   - the value could be a func(oldValue {type}) {type} which would be synchronized called
 //   - the -1 index for a slice means it's extensions for a new element
@@ -229,8 +247,9 @@ func SyncSet(subject interface{}, value interface{}, path ...interface{}) error 
 		return errors.New("invalid subject")
 	}
 
-	kind := rSubject.Kind()
-	if kind != reflect.Ptr && pathItem.parent != nil {
+	// kind := rSubject.Kind()
+	// if kind != reflect.Ptr && pathItem.parent != nil {
+	if pathItem.mutex == nil && pathItem.parent != nil {
 		pathItem.Unlock()
 		pathItem = pathItem.parent
 		rSubject = pathItem.value
@@ -238,14 +257,6 @@ func SyncSet(subject interface{}, value interface{}, path ...interface{}) error 
 
 	rSubject = reflect.Indirect(rSubject)
 	rKey := pathItem.key
-
-	// mutex := pathItem.mutex
-	//if mutex == nil {
-	//	mutex, err := SyncMutex(rSubject)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
 
 	// new value validation
 	rValue := reflect.ValueOf(value)
@@ -267,7 +278,6 @@ func SyncSet(subject interface{}, value interface{}, path ...interface{}) error 
 		return rValue
 	}
 
-	// mutex.Lock()
 	switch rSubject.Kind() {
 	case reflect.Map:
 		oldValue := rSubject.MapIndex(rKey)
@@ -281,7 +291,6 @@ func SyncSet(subject interface{}, value interface{}, path ...interface{}) error 
 	default:
 		rSubject.Set(funcValue(rSubject, rSubject.Type()))
 	}
-	// mutex.Unlock()
 
 	pathItem.UnlockStack()
 	return nil
@@ -342,6 +351,7 @@ func initBlankValue(valueType reflect.Type) (reflect.Value, error) {
 //		  }
 //	- the "parent" element is used for a recursion, should be nil for an initial call
 func getPathItem(subject interface{}, path []interface{}, initBlank bool, lockLevel int, parent *pathItem) (*pathItem, error) {
+	var err error
 
 	// do nothing for nil objects
 	if subject == nil {
@@ -366,18 +376,26 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, lockLe
 	rSubjectKind := rSubject.Kind()
 	rSubjectType := rSubject.Type()
 
-	// taking mutex for subject
-	mutex, err := SyncMutex(rSubject)
-	if err != nil {
-		return nil, err
-	}
-
 	// initializing result item
 	pathItem := &pathItem {
 		parent: parent,
 		value:  rSubject,
-		mutex:  mutex,
+		mutex:  nil,
 	}
+
+	if len(path) == 0 {
+		return pathItem, nil
+	}
+
+	// taking mutex for subject if possible
+	mutex, err := SyncMutex(rSubject)
+	if err != nil {
+		if len(path) != 0 {
+			return nil, err
+		}
+		mutex = nil
+	}
+	pathItem.mutex = mutex
 
 	// locking access to subject
 	pathItem.Lock()
@@ -385,16 +403,11 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, lockLe
 	// we have optional unlock (see "lockLevel" argument)
 	// so this function should decide where to unlock
 	unlock := func() {
-		if lockLevel != -1 {
+		if lockLevel == -1 {
 			return
 		}
 
-		level := 1
-		for x := pathItem; lockLevel > level && x != nil; x = x.parent {
-			level++
-		}
-
-		if lockLevel <= level {
+		if len(path)+1 > lockLevel {
 			pathItem.Unlock()
 		}
 	}
@@ -503,7 +516,9 @@ func getPathItem(subject interface{}, path []interface{}, initBlank bool, lockLe
 				rSubject.Set(newSubject)
 
 				if parent != nil {
-					parent.Update(newSubject)
+					if lockLevel != -1 {
+						parent.Update(newSubject)
+					}
 					pathItem.parent = parent
 				}
 			}

@@ -46,11 +46,13 @@ import (
 //	}
 //}
 
+
 // TestSyncSet validates SyncMutex type functionality
 //
 // (massive attack to the map from different go-routines which should generate
 // "fatal error: concurrent map read and map write", without synchronization)
-func TestLock(t *testing.T) {
+func TestMutex(t *testing.T) {
+	const concurrent = 9999
 	const scatter = 10;
 	x := make(map[int]map[int]float64)
 
@@ -64,8 +66,9 @@ func TestLock(t *testing.T) {
 		}
 	}
 
+	// test on mutex creation
 	finished := make(chan int)
-	routines := 9999
+	routines := concurrent
 	for i:=0; i<routines; i++ {
 		go func(i int) {
 			acts := rand.Intn(999)
@@ -93,12 +96,38 @@ func TestLock(t *testing.T) {
 		<- finished
 		routines--
 	}
+
+	// the similar test with SyncLock / SyncUnlock
+	routines = concurrent
+	for i:=0; i<routines; i++ {
+		go func(i int) {
+			acts := rand.Intn(999)
+			for j:=0; j<acts; j++ {
+				key1 := rand.Intn(scatter)
+				key2 := rand.Intn(scatter)
+
+				SyncLock(x) // synchronization
+
+				oldValue := x[key1][key2]
+				x[key1][key2] = oldValue + rand.Float64()
+
+				SyncUnlock(x) // synchronization
+
+			}
+			finished <- i
+		}(i)
+	}
+
+	for routines > 0 {
+		<- finished
+		routines--
+	}
 }
 
 // TestSyncSet validates SyncSet function
 func TestSyncSet(t *testing.T) {
 
-	const concurrent = 1
+	const concurrent = 9999
 	finished := make(chan int)
 
 	// Test 1: slice access
@@ -120,10 +149,10 @@ func TestSyncSet(t *testing.T) {
 		routines--
 	}
 
-	// validating results
+	// results A validation
 	for idx, x := range A {
 		if len(x) != 1 || x[0] != 1 {
-			t.Error("unexpected A[", idx, "] =>", x, "!= [1]")
+			t.Error("unexpected A[", idx, "] =", x, " should be [1]")
 			return
 		}
 	}
@@ -163,6 +192,7 @@ func TestSyncSet(t *testing.T) {
 		routines--
 	}
 
+	// results B validation
 	if len(B["a"]) != concurrent ||
 		B["a"][concurrent-1][true] != 1 ||
 		B["b"][0][false] != concurrent {
@@ -172,5 +202,26 @@ func TestSyncSet(t *testing.T) {
 			", B[\"a\"][concurrent-1][true] =", B["a"][0][true],
 			", B[\"b\"][0][false] = ", B["b"][0][false])
 		fmt.Println(B)
+	}
+
+	// SyncGet test
+	routines = concurrent
+	for i:=0; i<routines; i++ {
+		go func(i int) {
+			value, err := SyncGet(B, false, "a", i, true)
+			if err != nil {
+				t.Error(err)
+			}
+			if value != 1 {
+				t.Error("unexpected value B[\"a\"][",i,"][true] =", value, " should be 1")
+			}
+
+			finished <- i
+		}(i)
+	}
+
+	for routines > 0 {
+		<- finished
+		routines--
 	}
 }
