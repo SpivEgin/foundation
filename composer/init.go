@@ -175,15 +175,15 @@ func initTest() error {
 	testCartType := &BasicType{
 		Name: "Cart",
 		Label: map[string]string{
-			"amount": "Amount",
+			"cartAmount": "Amount",
 			"visitorIsLogin": "Visitor is login",
 		},
 		Type: map[string]string{
-			"amount": "float",
+			"cartAmount": "float",
 			"visitorIsLogin": "boolean",
 		},
 		Description: map[string]string{
-			"amount": "Cart amount",
+			"cartAmount": "Cart amount",
 		},
 	}
 
@@ -252,14 +252,14 @@ func initTest() error {
 		Name: "DiscountAction",
 		Label: map[string]string{
 			"name": "Name",
-			//"code": "Code",
-			"amount": "Amount",
+			"code": "Code",
+			"amount": "Discount amount",
 			"is_percent": "Is percent",
 			"priority": "Priority",
 		},
 		Type: map[string]string{
 			"name": "string",
-			//"code": "string",
+			"code": "string",
 			"amount": "float",
 			"is_percent": "boolean",
 			"priority": "float",

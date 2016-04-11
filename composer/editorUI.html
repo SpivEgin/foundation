@@ -100,6 +100,13 @@
             z-index: 2;
             position: fixed;
         }
+        .modal {
+            width: 33.333%;
+            top: 20%;
+            left: 33.3333%;
+            z-index: 2;
+            position: fixed;
+        }
 
         .value-line span {
             line-height: 30px;
@@ -119,7 +126,9 @@
         angular
                 .module('JSONEditor', [])
                 .controller('JSONEditor', JSONEditor)
-                .directive('template', template);
+                .directive('template', template)
+                .directive('modalDialog', modalDialog)
+                .directive('editor', editor);
 
         /**
          * THE CONTROLLER
@@ -138,9 +147,7 @@
             var _PS_ = "."; // path separator
 
             var json = {};
-            var jsonAction = {};
-            var jsonType = "DiscountRule";
-            var jsonTypeAction = "DiscountAction";
+            var jsonType = "";
             var complexTypes = {};
             var DBTypes = {};
             var units = {};
@@ -186,9 +193,7 @@
             };
 
             $scope.json = json;
-            $scope.jsonAction = jsonAction;
             $scope.jsonType = jsonType;
-            $scope.jsonTypeAction = jsonTypeAction;
             $scope.complexTypes = complexTypes;
             $scope.DBTypes = DBTypes;
             $scope.units = units;
@@ -289,9 +294,9 @@
             $scope.getPossibleUnits = getPossibleUnits;
 
             /**
-             * (applied to)/checks rule
+             * (applied to)/saves rule and action
              */
-            $scope.checkAccordance = checkAccordance;
+            $scope.save = save;
 
             /**
              *----------------- FUNCTIONS -------------------
@@ -518,7 +523,7 @@
              */
             function getItemInfo(path, prefix, type) {
                 if (type == undefined) {
-                    type = jsonType;
+                    type = $scope.jsonType;
                 }
 
                 // checking if we are reached end of path
@@ -714,6 +719,7 @@
             function addItemDialog(path, key, flag){ //flag is if invokes dialog for adding units
                 // Initialization / Validation
                 // ---------------------------
+
                 if (path == undefined){
                     path = "";
                 }
@@ -971,7 +977,7 @@
              * Returns  type and label for corresponding complex type by path and key
              * TODO: remove flag
              */
-            function getKeyInfo(path, key, val, flag) { //flag defines where func has called from template
+            function getKeyInfo(path, key, val, flag, dialogType) { //flag defines where func has called from template
                 if(path == undefined) {
                     path = "";
                 }
@@ -1055,17 +1061,17 @@
             }
 
             /**
-             * checks accordance between input and rule
+             * Saves rule
              */
-            function checkAccordance(json){
+            function save(json, name){
                 var promise = $http({
                     method: "POST",
                     data: json,
-                    url: "http://localhost:3000/testDiscount/CreateTestDiscount"
+                    url: "http://localhost:3000/testDiscount/CreateTest" + name
                 });
 
                 promise.then(function(response){
-                            alert("Rule was saved");
+                            alert(response.data.result);
                         },
                         function(){
                             return null;
@@ -1092,20 +1098,40 @@
 
             };
 
-            $scope.btns = [
-                {btnName: "Show", flag: false},
-                {btnName: "Show", flag: false}
-            ];
+            $scope.btns = {
+                btnName: "Show",
+                flag: false
+            };
 
             $scope.showJSON = function(btn){
                 if(btn.flag){
-                    btn.flag =  false;
                     btn.btnName = "Show";
+                    btn.flag =  false;
                 } else {
-                    btn.flag = true;
                     btn.btnName = "Hide";
+                    btn.flag = true;
                 }
+            };
+
+            $scope.getDialogType = function(dialogKeyInfo, dialogType){
+                if(dialogKeyInfo){
+                    if(dialogKeyInfo.typeLabel){
+                        return dialogKeyInfo.typeLabel
+                    } else {
+                        return dialogKeyInfo.type
+                    }
+                }
+
+                return dialogType;
+            };
+
+            $scope.getCurrType = function(dialogType, baseType){
+                if(baseType != undefined){
+                    return baseType;
+                }
+                return dialogType;
             }
+
         }
 
         /**
@@ -1235,14 +1261,28 @@
                 }
             }
         }
+
+        function modalDialog() {
+            return {
+                templateUrl: "dialog.html",
+                scope: false
+            }
+        }
+
+        function editor() {
+            return {
+                templateUrl: "editor.html",
+                scope: false
+            }
+        }
+
     </script>
 </head>
-<body ng-app="JSONEditor" ng-controller="JSONEditor">
+<body ng-app="JSONEditor">
 
 <!-- Template for tree item rendering -->
 
 <ul template="tpl" tpl-set="tree-item" ng-if="baseTypes.getTypeOf(item) == 'object' || baseTypes.getTypeOf(item) == 'array'" >
-
     <!-- items loop -->
     <li ng-repeat="(key, val) in item track by [key,val,item]">
         <!-- http://stackoverflow.com/questions/16796341/set-angular-scope-variable-in-markup -->
@@ -1251,26 +1291,26 @@
         {{itemType = itemInfo.type;""}}
         {{valueType = baseTypes.getTypeOf(val);""}}
         <div class="value-line">
-            <span>
-                <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
-                <b title="{{key}}">{{itemInfo.label}}</b>
-            </span>
+                <span>
+                    <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                    <b title="{{key}}">{{itemInfo.label}}</b>
+                </span>
             ({{itemTypeLabel}})
 
             <!-- string value -->
-            <span ng-if="valueType == 'string'">
-                <input class="form-input" type="text" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-            </span>
+                <span ng-if="valueType == 'string'">
+                    <input class="form-input" type="text" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+                </span>
 
             <!-- number value -->
-            <span ng-if="valueType == 'int' || valueType == 'float'">
-                <input class="form-input" type="number" step="0.1" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-            </span>
+                <span ng-if="valueType == 'int' || valueType == 'float'">
+                    <input class="form-input" type="number" step="0.1" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+                </span>
 
             <!-- boolean value -->
-            <span ng-if="valueType == 'boolean'">
-                <input class="form-input-checkbox" type="checkbox" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
-            </span>
+                <span ng-if="valueType == 'boolean'">
+                    <input class="form-input-checkbox" type="checkbox" ng-model="val" ng-change="val = editItem(path, key, itemType, val)"/>
+                </span>
 
             <!-- remove button -->
             <button  class="temp-btn remove-btn" ng-click="removeJsonItem(path, key, val)"><i class="glyphicon glyphicon-trash"></i></button>
@@ -1284,141 +1324,133 @@
         </div>
 
         <!-- recursive template execution for a value -->
-        <template get="tree-item" item="val" key="key" path="{{path + '.' + key}}"></template>
+        <template get="tree-item" item="val" key="key" path="{{path + '.' + key}}" j="j"></template>
     </li>
 </ul>
 
-<!-- JSON Editor -->
+<!-- JSON Editors -->
 
 <div id="editors">
-    <div>
-        <h2>Rule</h2>
-        <div class="container">
-            <ul class="wrapper">
-                <li>
-                    <div class="value-line">
+    <div ng-controller="JSONEditor">
+
+        <h2 ng-init="jsonType = 'DiscountRule'; name = 'Rule'">{{name}}</h2>
+
+        <div editor></div>
+        <div modal-dialog></div>
+    </div>
+
+    <div ng-controller="JSONEditor">
+        <h2 ng-init="jsonType = 'DiscountAction'; name = 'Action'">{{name}}</h2>
+
+        <div editor></div>
+        <div modal-dialog></div>
+
+    </div>
+</div>
+
+<!-- JSON Editor template -->
+<script type="text/ng-template" id="editor.html">
+    <div class="container">
+        <ul class="wrapper">
+            <li>
+                <div class="value-line">
                         <span>
                             <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
                             ({{jsonType}})
                         </span>
 
-                        <!--add item button-->
-                        <button class="trigger-modal temp-btn" style="margin-right: 30px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
-                    </div>
-
-                    <template get="tree-item" item="json" key="" path=""></template>
-                </li>
-            </ul>
-        </div>
+                    <!--add item button-->
+                    <button class="trigger-modal temp-btn" style="margin-right: 30px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
+                </div>
+                <template get="tree-item" item="json" key="" path=""></template>
+            </li>
+        </ul>
     </div>
-    <div>
-        <h2>Action</h2>
-        <div class="container">
-            <ul class="wrapper">
-                <li>
-                    <div class="value-line">
-                        <span>
-                            <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
-                            ({{jsonTypeAction}})
-                        </span>
 
-                        <!--add item button-->
-                        <button class="trigger-modal temp-btn" style="margin-right: 35px;" ng-if="!isInArray(jsonType, ['string', 'boolean', 'number'])" ng-click="addItemDialog(path, key)"><i class="glyphicon glyphicon-plus"></i></button>
-                    </div>
+    <!-- Save button -->
+    <button  class="check-btn" ng-click="save(json, name)">Save {{name}}</button>
 
-                    <template get="tree-item" item="json2" key="" path=""></template>
-                </li>
-            </ul>
-        </div>
-    </div>
-</div>
-
-<div id="representation">
     <!-- JSON Representation -->
     <div class="represent">
-        <button class="check-btn" ng-click="showJSON(btns[0])">{{btns[0].btnName}}</button>
-        <pre ng-show="btns[0].flag">{{json}}</pre>
+        <button class="check-btn" ng-click="showJSON(btns)">{{btns.btnName}}</button>
+        <pre ng-show="btns.flag">{{json | json}}</pre>
     </div>
-    <!-- JSON2 Representation -->
-    <div class="represent">
-        <button class="check-btn" ng-click="showJSON(btns[1])">{{btns[1].btnName}}</button>
-        <pre ng-show="btns[1].flag">{{jsonAction |json}}</pre>
+</script>
 
-    </div>
-</div>
 
-<div><button  style="margin-left: 891px;" class="check-btn" ng-click="checkAccordance(json)">Save</button></div>
+<!-- Create Item Dialog template-->
+<script type="text/ng-template" id="dialog.html">
 
-<!-- Create Item Dialog -->
-<!--<div id="screen" ng-hide="isDialogHidden"></div>-->
-<div id="modal" class="panel panel-default" ng-hide="isDialogHidden">
-    <div class="panel-heading">
-        <p>add to <b>{{dialog.path}}</b></p>
-    </div>
-    <div class="panel-body">
-        <form novalidate name="addItem" class="css-form">
-            <div novalidate class="form-group css-form">
+    <!--<div id="screen" ng-hide="isDialogHidden"></div>-->
+    <div id="modal" class="panel panel-default" ng-hide="isDialogHidden">
+        <div class="panel-heading">
+            <p>add to <b>{{dialog.path}}</b></p>
+        </div>
+        <div class="panel-body">
+            <form novalidate name="addItem" class="css-form">
+                <div novalidate class="form-group css-form">
+                    <!-- key input -->
+                    <div ng-show="dialog.showKey">
+                        <label ng-if="dialog.unitFlag">Unit:</label>
+                        <label ng-if="!dialog.unitFlag">Key:</label>
+                        <input  type="text" ng-show="dialog.showInputKey" ng-model="dialog.key" class="form-control" required/>
+                        <select ng-show="dialog.showSelectKey" ng-options="option.label for option in dialog.possibleKeys" ng-model="info" ng-change="dialog.keyInfo = getKeyInfo(dialog.path, info.key, '', '', dialog.type)" class="form-control" required></select>
+                    </div>
 
-                <!-- key input -->
-                <div ng-show="dialog.showKey">
-                    <label ng-if="dialog.unitFlag">Unit:</label>
-                    <label ng-if="!dialog.unitFlag">Key:</label>
-                    <input  type="text" ng-show="dialog.showInputKey" ng-model="dialog.key" class="form-control" required/>
-                    <select ng-show="dialog.showSelectKey" ng-options="option.label for option in dialog.possibleKeys" ng-model="info" ng-change="dialog.keyInfo = getKeyInfo(dialog.path, info.key)" class="form-control" required></select>
+                    <!-- type selector -->
+                    {{dialogType = getDialogType(dialog.keyInfo, dialog.type); ""}}
+                    <div>
+                        <br>
+                        <label>Type:</label>
+                        <input ng-show="dialog.showInputType && dialogType != 'any'" type="text" ng-model="dialogType" class="form-control" readonly/>
+                        <select ng-show="dialog.showSelectType || dialogType == 'any'" ng-options="option for option in baseTypes.getBaseTypes()" ng-model="dialog.baseType" class="form-control" required></select>
+                    </div>
+
+                    {{currType = getCurrType(dialogType, dialog.baseType); ""}}
+                    <!-- value input -->
+                    <div ng-switch="currType">
+                        <br>
+                        <label>Value:</label>
+
+                        <!-- string value -->
+                            <span ng-switch-when="string">
+                                <input class="form-control" type="text" ng-model="dialog.val" required/>
+                            </span>
+
+                        <!-- number value -->
+                            <span ng-switch-when="int">
+                                <input class="form-control" type="number" ng-model="dialog.val" required/>
+                            </span>
+
+                        <!-- number value -->
+                            <span ng-switch-when="float">
+                                <input class="form-control" type="number" ng-model="dialog.val" required/>
+                            </span>
+
+                        <!--boolean value -->
+                            <span ng-switch-when="boolean">
+                                <input class="form-input-checkbox" type="checkbox" ng-model="dialog.val"/>
+                            </span>
+
+                        <!-- default value -->
+                            <span ng-switch-default>
+                                N/A
+                            </span>
+                    </div>
+
                 </div>
+            </form>
+        </div>
 
-                <!-- type selector -->
-                {{dialog.type = dialog.keyInfo ? dialog.keyInfo.typeLabel ? dialog.keyInfo.typeLabel : dialog.keyInfo.type : dialog.type; ""}}
-                <div>
-                    <br>
-                    <label>Type:</label>
-                    <input ng-show="dialog.showInputType && dialog.type != 'any'" type="text" ng-model="dialog.type" class="form-control" readonly/>
-                    <select ng-show="dialog.showSelectType || dialog.type == 'any'" ng-options="option for option in baseTypes.getBaseTypes()" ng-model="dialog.baseType" class="form-control" required></select>
-                </div>
-
-                {{currType = dialog.baseType != undefined ? dialog.baseType : dialog.type; ""}}
-                <!-- value input -->
-                <div ng-switch="currType">
-                    <br>
-                    <label>Value:</label>
-
-                    <!-- string value -->
-                    <span ng-switch-when="string">
-                        <input class="form-control" type="text" ng-model="dialog.val" required/>
-                    </span>
-
-                    <!-- number value -->
-                    <span ng-switch-when="int">
-                        <input class="form-control" type="number" ng-model="dialog.val" required/>
-                    </span>
-
-                    <!-- number value -->
-                    <span ng-switch-when="float">
-                        <input class="form-control" type="number" ng-model="dialog.val" required/>
-                    </span>
-
-                    <!--boolean value -->
-                    <span ng-switch-when="boolean">
-                        <input class="form-input-checkbox" type="checkbox" ng-model="dialog.val"/>
-                    </span>
-
-                    <!-- default value -->
-                    <span ng-switch-default>
-                        N/A
-                    </span>
-                </div>
-
-            </div>
-        </form>
+        <!-- Actions -->
+        <div class="panel-footer">
+            {{currKey = info.key ? info.key : dialog.key; ""}}
+            <button class="btn btn-default" ng-click="isDialogHidden=true; addJsonItem(dialog.path, currKey, currType, dialog.val)">Add</button>
+            <button class="btn btn-default" ng-click="isDialogHidden=true;">Cancel</button>
+        </div>
     </div>
 
-    <!-- Actions -->
-    <div class="panel-footer">
-        {{currKey = info.key ? info.key : dialog.key; ""}}
-        <button class="btn btn-default" ng-click="isDialogHidden=true; addJsonItem(dialog.path, currKey, currType, dialog.val)">Add</button>
-        <button class="btn btn-default" ng-click="isDialogHidden=true;">Cancel</button>
-    </div>
-</div>
+</script>
 
 </body>
 

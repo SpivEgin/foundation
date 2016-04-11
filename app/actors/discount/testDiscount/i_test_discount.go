@@ -4,7 +4,6 @@ import (
 	"github.com/ottemo/foundation/app/models/checkout"
 	"github.com/ottemo/foundation/composer"
 	"github.com/ottemo/foundation/env"
-	"fmt"
 )
 
 // GetName returns name of current discount implementation
@@ -24,7 +23,7 @@ func (it *DefaultTestDiscount) CalculateDiscount(checkoutInstance checkout.Inter
 	// checking
 	in := map[string]interface{}{
 		"cart": map[string]interface{}{
-			"amount": checkoutInstance.GetGrandTotal(),
+			"cartAmount": checkoutInstance.GetGrandTotal(),
 			"visitorIsLogin": checkoutInstance.GetVisitor() != nil,
 		},
 	}
@@ -38,14 +37,13 @@ func (it *DefaultTestDiscount) CalculateDiscount(checkoutInstance checkout.Inter
 		env.LogError(err)
 	}
 
-	fmt.Printf("action: (%T)%v", action, action)
 	if check {
 		result = append(result, checkout.StructDiscount{
-			Name:      action["Name"].(string),
-			Code:      action["Code"].(string),
-			Amount:    action["Amount"].(float64),
-			IsPercent: action["IsPercent"].(bool),
-			Priority:  action["Priority"].(float64),
+			Name:      action["name"].(string),
+			Code:      action["code"].(string),
+			Amount:    action["amount"].(float64),
+			IsPercent: action["is_percent"].(bool),
+			Priority:  action["priority"].(float64),
 		})
 	}
 	return result

@@ -9,7 +9,12 @@ import (
 func setupAPI() error {
 	var err error
 
-	err = api.GetRestService().RegisterAPI("testDiscount/CreateTestDiscount", api.ConstRESTOperationCreate, CreateTestDiscount)
+	err = api.GetRestService().RegisterAPI("testDiscount/CreateTestRule", api.ConstRESTOperationCreate, CreateTestRule)
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
+	err = api.GetRestService().RegisterAPI("testDiscount/CreateTestAction", api.ConstRESTOperationCreate, CreateTestAction)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
@@ -17,9 +22,35 @@ func setupAPI() error {
 	return nil
 }
 
-func CreateTestDiscount(context api.InterfaceApplicationContext) (interface{}, error) {
-	//CalculateDiscount
+func CreateTestRule(context api.InterfaceApplicationContext) (interface{}, error) {
+	config := env.GetConfig()
 
-	return "", nil
+	var setValue interface{}
+
+	setValue = context.GetRequestContent()
+	configPath := ConstConfigPathTestDiscountRule
+
+	err := config.SetValue(configPath, setValue)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	return "rule was saved successfully", nil
+}
+
+func CreateTestAction(context api.InterfaceApplicationContext) (interface{}, error) {
+	config := env.GetConfig()
+
+	var setValue interface{}
+
+	setValue = context.GetRequestContent()
+	configPath := ConstConfigPathTestDiscountAction
+
+	err := config.SetValue(configPath, setValue)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	return "action was saved successfully", nil
 }
 
