@@ -6,6 +6,7 @@
 
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" >
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.2/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.0rc1/angular-route.min.js"></script>
 
 
     <style>
@@ -13,7 +14,7 @@
             float: right;
         }
 
-        #editors, #representation {
+        #editors {
             padding: 10px 10px 0px 10px;
             display: inline-flex;
         }
@@ -51,9 +52,17 @@
             height: 100%;
         }
 
+        li.tree-item {
+            padding-left: 20px;
+        }
+
         li.minimized {
             height: 30px;
             overflow-y: hidden;
+        }
+
+        .arrow {
+            margin-left: -18px;
         }
 
         .css-form input.ng-invalid.ng-touched {
@@ -100,13 +109,6 @@
             z-index: 2;
             position: fixed;
         }
-        .modal {
-            width: 33.333%;
-            top: 20%;
-            left: 33.3333%;
-            z-index: 2;
-            position: fixed;
-        }
 
         .value-line span {
             line-height: 30px;
@@ -124,11 +126,28 @@
 
     <script type="text/javascript">
         angular
-                .module('JSONEditor', [])
-                .controller('JSONEditor', JSONEditor)
-                .directive('template', template)
-                .directive('modalDialog', modalDialog)
-                .directive('editor', editor);
+                .module("JSONEditor", ["ngRoute"])
+                //                .config(["$stateProvider", function ($stateProvider) {
+                //
+                //                    $stateProvider.state("getDataBeforeStartApp", {
+                //                        abstract: true,
+                //                        url: "",
+                //                        template: '<h1>Kukusiki</h1>',
+                //                        resolve: {
+                //                            getDataBeforeStartApp: function ($http) {
+                //                                // $http returns a promise for the url data
+                //                                return $http({
+                //                                    method: "GET",
+                //                                    url: "http://localhost:3000/testDiscount/GetConfigForTestDiscount"
+                //                                })
+                //                            }
+                //                        }
+                //                    })
+                //                }])
+                .controller("JSONEditor", JSONEditor)
+                .directive("template", template)
+                .directive("modalDialog", modalDialog)
+                .directive("editor", editor);
 
         /**
          * THE CONTROLLER
@@ -136,12 +155,11 @@
 
         JSONEditor.$inject = ["$scope", "$http"];
         function JSONEditor($scope, $http){
-
             /**
              * ---------- VARIABLES DECLARATION -----------
              */
             var _ANY_ = "any"; // any base type
-            var _UP_ = ">"; // unit prefix
+            var _UP_ = "*"; // unit prefix
             var _AP_ = "@"; // argument prefix
             var _OP_ = "#"; // output prefix
             var _PS_ = "."; // path separator
@@ -1085,7 +1103,7 @@
                 e.stopPropagation();
 
                 var target = angular.element(e.target);
-                target.toggleClass('glyphicon-chevron-right glyphicon-chevron-down');
+                target.toggleClass('glyphicon-triangle-right glyphicon-triangle-bottom');
 
                 while(target.parent()){
                     if (target.parent().prop('tagName') === 'LI'){
@@ -1284,7 +1302,7 @@
 
 <ul template="tpl" tpl-set="tree-item" ng-if="baseTypes.getTypeOf(item) == 'object' || baseTypes.getTypeOf(item) == 'array'" >
     <!-- items loop -->
-    <li ng-repeat="(key, val) in item track by [key,val,item]">
+    <li class="tree-item" ng-repeat="(key, val) in item track by [key,val,item]">
         <!-- http://stackoverflow.com/questions/16796341/set-angular-scope-variable-in-markup -->
         {{itemInfo = getKeyInfo(path, key, val, true);""}}
         {{itemTypeLabel = itemInfo.typeLabel ? itemInfo.typeLabel : itemInfo.type;""}}
@@ -1292,7 +1310,7 @@
         {{valueType = baseTypes.getTypeOf(val);""}}
         <div class="value-line">
                 <span>
-                    <i ng-if="valueType == 'object' || valueType == 'array'" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                    <i ng-if="valueType == 'object' || valueType == 'array'" class='arrow glyphicon glyphicon-triangle-bottom' ng-click="roll($event)"></i>
                     <b title="{{key}}">{{itemInfo.label}}</b>
                 </span>
             ({{itemTypeLabel}})
@@ -1355,7 +1373,7 @@
             <li>
                 <div class="value-line">
                         <span>
-                            <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-chevron-down' ng-click="roll($event)"></i>
+                            <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])" class='glyphicon glyphicon-triangle-bottom' ng-click="roll($event)"></i>
                             ({{jsonType}})
                         </span>
 

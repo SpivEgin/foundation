@@ -26,7 +26,6 @@ func setupConfig() error {
 		return env.ErrorDispatch(err)
 	}
 
-//	config.UnregisterItem(ConstConfigPathTestDiscountRule)
 	err = config.RegisterItem(env.StructConfigItem{
 		Path:        ConstConfigPathTestDiscountRule,
 		Value:       "rule",
@@ -42,7 +41,6 @@ func setupConfig() error {
 		return env.ErrorDispatch(err)
 	}
 
-//	config.UnregisterItem(ConstConfigPathTestDiscountAction)
 	err = config.RegisterItem(env.StructConfigItem{
 		Path:        ConstConfigPathTestDiscountAction,
 		Value:       "action",

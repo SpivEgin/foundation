@@ -19,6 +19,11 @@ func setupAPI() error {
 		return env.ErrorDispatch(err)
 	}
 
+	err = api.GetRestService().RegisterAPI("testDiscount/GetConfigForTestDiscount", api.ConstRESTOperationGet, GetConfigForTestDiscount)
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
 	return nil
 }
 
@@ -52,5 +57,16 @@ func CreateTestAction(context api.InterfaceApplicationContext) (interface{}, err
 	}
 
 	return "action was saved successfully", nil
+}
+
+func GetConfigForTestDiscount(context api.InterfaceApplicationContext) (interface{}, error) {
+	result := make(map[string]interface{})
+
+	config := env.GetConfig()
+
+	result["rule"] = config.GetValue(ConstConfigPathTestDiscountRule)
+	result["action"] = config.GetValue(ConstConfigPathTestDiscountAction)
+
+	return result, nil
 }
 
