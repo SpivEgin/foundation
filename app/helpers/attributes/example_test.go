@@ -8,6 +8,10 @@ import (
 	"fmt"
 )
 
+// -----------------------
+// SampleModel declaration
+// -----------------------
+
 type SampleModel struct {
 	*ModelExternalAttributes
 }
@@ -28,6 +32,10 @@ func (it *SampleModel) New() (models.InterfaceModel, error) {
 
 	return newInstance, err
 }
+
+// --------------------------
+// SampleDelegate declaration
+// --------------------------
 
 type SampleDelegate struct {
 	instance interface{}
@@ -102,6 +110,10 @@ func (it *SampleDelegate) GetAttributesInfo() []models.StructAttributeInfo {
 	}
 }
 
+
+// -----
+// Tests
+// -----
 func TestLock(t *testing.T) {
 	if err := ExampleExternalAttributes(); err != nil {
 		t.Error(err)
@@ -115,7 +127,7 @@ func ExampleExternalAttributes() error {
 		return err
 	}
 
-	modelEA, ok  := modelInstance.(models.InterfaceExternalAttributes)
+	modelEA, ok := modelInstance.(models.InterfaceExternalAttributes)
 	if !ok {
 		return errors.New("InterfaceExternalAttributes not impelemented")
 	}
