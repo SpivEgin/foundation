@@ -287,7 +287,6 @@ func SyncSet(subject interface{}, value interface{}, path ...interface{}) error 
 		idx := int(rKey.Int())
 		oldValue := rSubject.Index(idx)
 		oldValue.Set(funcValue(oldValue, oldValue.Type()))
-
 	default:
 		rSubject.Set(funcValue(rSubject, rSubject.Type()))
 	}

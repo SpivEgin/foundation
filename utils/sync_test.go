@@ -47,7 +47,7 @@ import (
 //}
 
 
-// TestSyncSet validates SyncMutex type functionality
+// TestMutex validates SyncMutex type functionality
 //
 // (massive attack to the map from different go-routines which should generate
 // "fatal error: concurrent map read and map write", without synchronization)

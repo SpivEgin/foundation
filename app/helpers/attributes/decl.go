@@ -25,16 +25,12 @@ var (
 	// modelCustomAttributes is a per model attribute information storage (map[model][attribute])
 	modelCustomAttributes   = make(map[string]map[string]models.StructAttributeInfo)
 
-	// modelExternalAttributes is a per model external attribute information (map[model][attribute] => info)
-	modelExternalAttributes = make(map[string]map[string]models.StructAttributeInfo)
-
-	// modelExternalDelegates is a per model attribute delegate mapping (map[model][attribute] => delegate)
-	modelExternalDelegates  = make(map[string]map[string]interface{})
+	// modelExternalAttributes is a per model external attribute information (map[model][attribute] => delegate)
+	modelExternalAttributes = make(map[string]map[string]models.InterfaceAttributesDelegate)
 
 	// the mutexes to synchronize access on global variables
 	modelCustomAttributesMutex   sync.Mutex
 	modelExternalAttributesMutex sync.Mutex
-	modelExternalDelegatesMutex  sync.Mutex
 )
 
 // ModelCustomAttributes type represents a set of attributes which could be modified (edited/added/removed) dynamically.
@@ -51,7 +47,7 @@ type ModelCustomAttributes struct {
 // which supposing at least InterfaceObject methods delegation, but also could delegate InterfaceStorable if the methods
 // are implemented in delegate instance.
 //
-// General schema:
+// Workflow diagram:
 //                    Proxy of Object/Storable interface methods:
 //                         Get(), Set(), ListAttributes(),
 //     +---------------+     FromHashMap(), ToHashMap(),     +------------------+
@@ -65,17 +61,17 @@ type ModelCustomAttributes struct {
 //             |                         | |                          |      |
 //             |               +---------v-v--------------+           |      |
 //             +---------------> *ModelExternalAttributes +-----------+      |
-// Embedded attribute pointer  +----+---------------------+    Model.New()   |
-// instantized on Model.New()       |                                        |
+// Embedded attribute pointer  +----+---------------------+  Delegate.New()  | Registering delegate
+// instantiated on Model.New()      |                                        | on embed type method
 //                                  +->GetInstance()                         |
 //                                  |                                        |
-//                                  +->AddDelegate() <-----------------------+
-//                                  +->RemoveDelegate()       Registering delegate
-//                                  |                         on model embed method
-//                                  +->ListDelegates()
+//                                  +->AddExternalAttributes() <-------------+
+//                                  +->RemoveExternalAttributes()
+//                                  |
+//                                  +->ListExternalAttributesDelegates()
 //
 type ModelExternalAttributes struct {
 	model     string
 	instance  interface{}
-	delegates []models.interface{}
+	delegates map[string]models.InterfaceAttributesDelegate
 }

@@ -13,6 +13,11 @@ import (
 // -----------------------
 
 type SampleModel struct {
+	i string
+	l string
+	d bool
+	s bool
+
 	*ModelExternalAttributes
 }
 
@@ -28,7 +33,7 @@ func (it *SampleModel) New() (models.InterfaceModel, error) {
 	var err error
 
 	newInstance := new(SampleModel)
-	newInstance.ModelExternalAttributes, err =  ExternalAttributes(newInstance)
+	newInstance.ModelExternalAttributes, err = ExternalAttributes(newInstance)
 
 	return newInstance, err
 }
@@ -43,7 +48,11 @@ type SampleDelegate struct {
 	b float64
 }
 
-func (it *SampleDelegate) New(instance interface{}) (interface{}, error) {
+func (it *SampleDelegate) GetPriority() float64 {
+	return 1
+}
+
+func (it *SampleDelegate) New(instance interface{}) (models.InterfaceAttributesDelegate, error) {
 	return &SampleDelegate{instance: instance}, nil
 }
 
@@ -67,20 +76,24 @@ func (it *SampleDelegate) Set(attribute string, value interface{}) error {
 	return nil
 }
 
-func (it *SampleDelegate) FromHashMap(hashMap map[string]interface{}) error {
-	for attribute, value := range hashMap {
-		if attribute == "a" || attribute == "b" {
-			it.Set(attribute, value)
-		}
-	}
+func (it *SampleDelegate) Load(id string) error {
+	it.instance.(*SampleModel).l = id
 	return nil
 }
 
-func (it *SampleDelegate) ToHashMap() map[string]interface{} {
-	return map[string]interface{} {
-		"a": it.a,
-		"b": it.b,
-	}
+func (it *SampleDelegate) Delete() error {
+	it.instance.(*SampleModel).d = true
+	return nil
+}
+
+func (it *SampleDelegate) Save() error {
+	it.instance.(*SampleModel).s = true
+	return nil
+}
+
+func (it *SampleDelegate) SetID(newID string) error {
+	it.instance.(*SampleModel).i = newID
+	return nil
 }
 
 func (it *SampleDelegate) GetAttributesInfo() []models.StructAttributeInfo {
@@ -133,9 +146,7 @@ func ExampleExternalAttributes() error {
 	}
 
 	delegate := new(SampleDelegate)
-	for _, attributeInfo := range delegate.GetAttributesInfo() {
-		modelEA.AddExternalAttribute(attributeInfo, delegate)
-	}
+	modelEA.AddExternalAttributes(delegate)
 
 	// testing result: setting "a", "b" attributes to SampleModel instances and getting them back
 	var obj1, obj2 models.InterfaceObject
@@ -177,6 +188,28 @@ func ExampleExternalAttributes() error {
 			"obj2.a=", obj2.Get("a"), ", ",
 			"obj2.b=", obj2.Get("b"),
 		))
+	}
+
+	if obj1, ok := obj1.(models.InterfaceStorable); ok {
+		obj1.Load("1")
+		obj1.Save()
+		obj1.Delete()
+		obj1.SetID("10")
+	} else {
+		return errors.New("models.InterfaceStorable not implemented")
+	}
+
+	if obj1, ok := obj1.(*SampleModel); ok {
+		if !obj1.d || !obj1.s || obj1.l != "1" || obj1.i != "10" {
+			return errors.New(fmt.Sprint("incorrect get values: " +
+				"obj1.l=", obj1.l, ", ",
+				"obj1.s=", obj1.s, ", ",
+				"obj1.d=", obj1.d, ", ",
+				"obj1.i=", obj1.i,
+			))
+		}
+	} else {
+		return errors.New("(*SampleModel) conversion error")
 	}
 
 	return nil
