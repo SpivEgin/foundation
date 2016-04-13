@@ -50,8 +50,32 @@ type ModelCustomAttributes struct {
 // ModelExternalAttributes type represents a set of attributes managed by "external" package (outside of model package)
 // which supposing at least InterfaceObject methods delegation, but also could delegate InterfaceStorable if the methods
 // are implemented in delegate instance.
+//
+// General schema:
+//                    Proxy of Object/Storable interface methods:
+//                         Get(), Set(), ListAttributes(),
+//     +---------------+     FromHashMap(), ToHashMap(),     +------------------+
+//     | Model Package |  GetId(), Load(), Save(), Delete()  | External package |
+//     |               |                                     |                  |
+//     |   +-------+   |                                     |   +----------+   |
+//     |   | Model <---------------------+ +---------------------> Delegate |   |
+//     |   +---+---+   |  model-helper   | | helper-delegate |   +----^-----+   |
+//     |       |       |     proxy       | |     proxy       |        |         |
+//     +---------------+                 | |                 +---------------+--+
+//             |                         | |                          |      |
+//             |               +---------v-v--------------+           |      |
+//             +---------------> *ModelExternalAttributes +-----------+      |
+// Embedded attribute pointer  +----+---------------------+    Model.New()   |
+// instantized on Model.New()       |                                        |
+//                                  +->GetInstance()                         |
+//                                  |                                        |
+//                                  +->AddDelegate() <-----------------------+
+//                                  +->RemoveDelegate()       Registering delegate
+//                                  |                         on model embed method
+//                                  +->ListDelegates()
+//
 type ModelExternalAttributes struct {
 	model     string
 	instance  interface{}
-	delegates map[string]interface{}
+	delegates []models.interface{}
 }

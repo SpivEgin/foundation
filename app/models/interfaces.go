@@ -78,7 +78,7 @@ type InterfaceCustomAttributes interface {
 type InterfaceExternalAttributes interface {
 	GetInstance() interface{}
 
-	AddExternalAttribute(newAttribute StructAttributeInfo, delegate interface{}) error
+	AddDelegate(newAttribute StructAttributeInfo, delegate interface{}) error
 	RemoveExternalAttribute(attributeName string) error
 	ListExternalAttributes() []string
 }
