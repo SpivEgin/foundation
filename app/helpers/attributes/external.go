@@ -1,8 +1,26 @@
 package attributes
+
 import (
 	"github.com/ottemo/foundation/app/models"
 	"github.com/ottemo/foundation/env"
 )
+
+// perDelegateAttributes returns new map where the attributes are grouped by delegate
+// (as one delegate could serve couple attributes we should instantiate and notify on that delegate only once
+// that grouping by delegate helps to solve this task)
+func groupByDelegate(input map[string]models.InterfaceAttributesDelegate) map[models.InterfaceAttributesDelegate][]string {
+	perDelegateGroup := make(map[models.InterfaceAttributesDelegate][]string)
+
+	for attribute, delegate := range input {
+		if _, present := perDelegateGroup[delegate]; present {
+			perDelegateGroup[delegate] = append(perDelegateGroup[delegate], attribute)
+		} else {
+			perDelegateGroup[delegate] = []string{attribute}
+		}
+	}
+
+	return perDelegateGroup
+}
 
 // ExternalAttributes type implements:
 // 	- InterfaceExternalAttributes
@@ -28,17 +46,21 @@ func ExternalAttributes(instance interface{}) (*ModelExternalAttributes, error) 
 	newInstance.model = modelName
 	newInstance.delegates = make(map[string]models.InterfaceAttributesDelegate)
 
-	// instantiating delegates for instance
 	modelExternalAttributesMutex.Lock()
-	for attribute, delegate := range modelExternalAttributes[modelName] {
+	perDelegateGroup := groupByDelegate(modelExternalAttributes[modelName])
+	modelExternalAttributesMutex.Unlock()
+
+	// instantiating delegates for instance
+	for delegate, attributes := range perDelegateGroup {
 		delegateInstance, err := delegate.New(instance)
 		if err != nil {
 			env.ErrorDispatch(err)
-		} else {
+		}
+
+		for _, attribute := range attributes {
 			newInstance.delegates[attribute] = delegateInstance
 		}
 	}
-	modelExternalAttributesMutex.Unlock()
 
 	return newInstance, nil
 }
@@ -76,11 +98,8 @@ func (it *ModelExternalAttributes) AddExternalAttributes(delegate models.Interfa
 			modelExternalAttributes[modelName] = make(map[string]models.InterfaceAttributesDelegate)
 		}
 
-		oldDelegate, present := modelExternalAttributes[modelName][attributeName]
-		if present {
-			if delegate.GetPriority() <= oldDelegate.GetPriority() {
-				modelExternalAttributes[modelName][attributeName] = delegate
-			}
+		if _, present := modelExternalAttributes[modelName][attributeName]; present {
+			modelExternalAttributes[modelName][attributeName] = delegate
 		} else {
 			modelExternalAttributes[modelName][attributeName] = delegate
 		}
@@ -247,7 +266,7 @@ func (it *ModelExternalAttributes) GetID() string {
 
 // SetID proxies method to external attribute delegates
 func (it *ModelExternalAttributes) SetID(id string) error {
-	for _, delegate := range it.delegates {
+	for delegate := range groupByDelegate(it.delegates) {
 		if delegate, ok := delegate.(interface{ SetID(newID string) error }); ok {
 			if err := delegate.SetID(id); err != nil {
 				return env.ErrorDispatch(err)
@@ -259,7 +278,7 @@ func (it *ModelExternalAttributes) SetID(id string) error {
 
 // Load proxies method to external attribute delegates
 func (it *ModelExternalAttributes) Load(id string) error {
-	for _, delegate := range it.delegates {
+	for delegate := range groupByDelegate(it.delegates) {
 		if delegate, ok := delegate.(interface{ Load(loadID string) error }); ok {
 			if err := delegate.Load(id); err != nil {
 				return env.ErrorDispatch(err)
@@ -271,7 +290,7 @@ func (it *ModelExternalAttributes) Load(id string) error {
 
 // Delete proxies method to external attribute delegates
 func (it *ModelExternalAttributes) Delete() error {
-	for _, delegate := range it.delegates {
+	for delegate := range groupByDelegate(it.delegates) {
 		if delegate, ok := delegate.(interface{ Delete() error }); ok {
 			if err := delegate.Delete(); err != nil {
 				return env.ErrorDispatch(err)
@@ -283,7 +302,7 @@ func (it *ModelExternalAttributes) Delete() error {
 
 // Save proxies method to external attribute delegates
 func (it *ModelExternalAttributes) Save() error {
-	for _, delegate := range it.delegates {
+	for delegate := range groupByDelegate(it.delegates) {
 		if delegate, ok := delegate.(interface{ Save() error }); ok {
 			if err := delegate.Save(); err != nil {
 				return env.ErrorDispatch(err)
@@ -292,4 +311,3 @@ func (it *ModelExternalAttributes) Save() error {
 	}
 	return nil
 }
-

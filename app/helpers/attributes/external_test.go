@@ -3,7 +3,6 @@ package attributes
 import (
 	"github.com/ottemo/foundation/app/models"
 	"github.com/ottemo/foundation/utils"
-	"testing"
 	"errors"
 	"fmt"
 )
@@ -12,6 +11,10 @@ import (
 // SampleModel declaration
 // -----------------------
 
+// SampleModel type implements InterfaceModel only interface, so it does not
+// have any attribute at the beginning, it even don't have InterfaceObject and
+// InterfaceStorable methods implementation, however they are available via
+// embed ModelExternalAttributes type
 type SampleModel struct {
 	i string
 	l string
@@ -21,14 +24,17 @@ type SampleModel struct {
 	*ModelExternalAttributes
 }
 
+// GetModelName returns model name
 func (it *SampleModel) GetModelName() string {
 	return "Example"
 }
 
+// GetImplementationName returns model implementation name
 func (it *SampleModel) GetImplementationName() string {
 	return "ExampleObject"
 }
 
+// New constructor for a new instance
 func (it *SampleModel) New() (models.InterfaceModel, error) {
 	var err error
 
@@ -38,24 +44,25 @@ func (it *SampleModel) New() (models.InterfaceModel, error) {
 	return newInstance, err
 }
 
-// --------------------------
-// SampleDelegate declaration
-// --------------------------
+// --------------------
+// Delegate declaration
+// --------------------
 
+// SampleDelegate type implements InterfaceAttributesDelegate and have handles
+// on InterfaceStorable methods which should have call-back on model method call
+// in order to test it we are pushing the callback status to model instance
 type SampleDelegate struct {
 	instance interface{}
 	a string
 	b float64
 }
 
-func (it *SampleDelegate) GetPriority() float64 {
-	return 1
-}
-
+// New instantiates delegate
 func (it *SampleDelegate) New(instance interface{}) (models.InterfaceAttributesDelegate, error) {
 	return &SampleDelegate{instance: instance}, nil
 }
 
+// Get is a getter for external attributes
 func (it *SampleDelegate) Get(attribute string) interface{} {
 	switch attribute {
 	case "a":
@@ -66,6 +73,7 @@ func (it *SampleDelegate) Get(attribute string) interface{} {
 	return nil
 }
 
+// Set is a setter for external attributes
 func (it *SampleDelegate) Set(attribute string, value interface{}) error {
 	switch attribute {
 	case "a":
@@ -76,26 +84,31 @@ func (it *SampleDelegate) Set(attribute string, value interface{}) error {
 	return nil
 }
 
+// Load is a modelInstance.Load() method handler for external attributes
 func (it *SampleDelegate) Load(id string) error {
 	it.instance.(*SampleModel).l = id
 	return nil
 }
 
+// Delete is a modelInstance.Delete() method handler for external attributes
 func (it *SampleDelegate) Delete() error {
 	it.instance.(*SampleModel).d = true
 	return nil
 }
 
+// Save is a modelInstance.Save() method handler for external attributes
 func (it *SampleDelegate) Save() error {
 	it.instance.(*SampleModel).s = true
 	return nil
 }
 
+// SetID is a modelInstance.SetID() method handler for external attributes
 func (it *SampleDelegate) SetID(newID string) error {
 	it.instance.(*SampleModel).i = newID
 	return nil
 }
 
+// GetAttributesInfo is a specification of external attributes
 func (it *SampleDelegate) GetAttributesInfo() []models.StructAttributeInfo {
 	return []models.StructAttributeInfo{
 		models.StructAttributeInfo{
@@ -123,26 +136,17 @@ func (it *SampleDelegate) GetAttributesInfo() []models.StructAttributeInfo {
 	}
 }
 
-
-// -----
-// Tests
-// -----
-func TestLock(t *testing.T) {
-	if err := ExampleExternalAttributes(); err != nil {
-		t.Error(err)
-	}
-}
-
-func ExampleExternalAttributes() error {
+// ExampleExternalAttributes creates 2 instances of SampleModel
+func ExampleExternalAttributes() {
 	// registering SampleDelegate for SampleModel on attributes "a" and "b"
 	modelInstance, err := new(SampleModel).New()
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	modelEA, ok := modelInstance.(models.InterfaceExternalAttributes)
 	if !ok {
-		return errors.New("InterfaceExternalAttributes not impelemented")
+		panic(errors.New("InterfaceExternalAttributes not impelemented"))
 	}
 
 	delegate := new(SampleDelegate)
@@ -152,42 +156,42 @@ func ExampleExternalAttributes() error {
 	var obj1, obj2 models.InterfaceObject
 	if x, err := modelInstance.New(); err == nil {
 		if obj1, ok = x.(models.InterfaceObject); !ok {
-			return errors.New("InterfaceObject not impelemented")
+			panic(errors.New("InterfaceObject not impelemented"))
 		}
 	} else {
-		return err
+		panic(err)
 	}
 
 	if x, err := modelInstance.New(); err == nil {
 		if obj2, ok = x.(models.InterfaceObject); !ok {
-			return errors.New("InterfaceObject not impelemented")
+			panic(errors.New("InterfaceObject not impelemented"))
 		}
 	} else {
-		return err
+		panic(err)
 	}
 
 
 	if err = obj1.Set("a", "object1"); err != nil {
-		return err
+		panic(err)
 	}
 	if err = obj2.Set("a", "object2"); err != nil {
-		return err
+		panic(err)
 	}
 	if err = obj1.Set("b", 1.2); err != nil {
-		return err
+		panic(err)
 	}
 	if err = obj2.Set("b", 3.3); err != nil {
-		return err
+		panic(err)
 	}
 
 	if obj1.Get("a") != "object1" || obj1.Get("b") != 1.2 ||
 	   obj2.Get("a") != "object2" || obj2.Get("b") != 3.3 {
-		return errors.New(fmt.Sprint("incorrect get values: " +
+		panic(errors.New(fmt.Sprint("incorrect get values: " +
 			"obj1.a=", obj1.Get("a"), ", ",
 			"obj1.b=", obj1.Get("b"), ", ",
 			"obj2.a=", obj2.Get("a"), ", ",
 			"obj2.b=", obj2.Get("b"),
-		))
+		)))
 	}
 
 	if obj1, ok := obj1.(models.InterfaceStorable); ok {
@@ -196,22 +200,19 @@ func ExampleExternalAttributes() error {
 		obj1.Delete()
 		obj1.SetID("10")
 	} else {
-		return errors.New("models.InterfaceStorable not implemented")
+		panic(errors.New("models.InterfaceStorable not implemented"))
 	}
 
 	if obj1, ok := obj1.(*SampleModel); ok {
 		if !obj1.d || !obj1.s || obj1.l != "1" || obj1.i != "10" {
-			return errors.New(fmt.Sprint("incorrect get values: " +
+			panic(errors.New(fmt.Sprint("incorrect get values: " +
 				"obj1.l=", obj1.l, ", ",
 				"obj1.s=", obj1.s, ", ",
 				"obj1.d=", obj1.d, ", ",
 				"obj1.i=", obj1.i,
-			))
+			)))
 		}
 	} else {
-		return errors.New("(*SampleModel) conversion error")
+		panic(errors.New("(*SampleModel) conversion error"))
 	}
-
-	return nil
 }
-

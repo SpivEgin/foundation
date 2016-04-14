@@ -48,28 +48,28 @@ type ModelCustomAttributes struct {
 // are implemented in delegate instance.
 //
 // Workflow diagram:
-//                    Proxy of Object/Storable interface methods:
-//                         Get(), Set(), ListAttributes(),
-//     +---------------+     FromHashMap(), ToHashMap(),     +------------------+
-//     | Model Package |  GetId(), Load(), Save(), Delete()  | External package |
-//     |               |                                     |                  |
-//     |   +-------+   |                                     |   +----------+   |
-//     |   | Model <---------------------+ +---------------------> Delegate |   |
-//     |   +---+---+   |  model-helper   | | helper-delegate |   +----^-----+   |
-//     |       |       |     proxy       | |     proxy       |        |         |
-//     +---------------+                 | |                 +---------------+--+
-//             |                         | |                          |      |
-//             |               +---------v-v--------------+           |      |
-//             +---------------> *ModelExternalAttributes +-----------+      |
-// Embedded attribute pointer  +----+---------------------+  Delegate.New()  | Registering delegate
-// instantiated on Model.New()      |                                        | on embed type method
-//                                  +->GetInstance()                         |
-//                                  |                                        |
-//                                  +->AddExternalAttributes() <-------------+
-//                                  +->RemoveExternalAttributes()
-//                                  |
-//                                  +->ListExternalAttributesDelegates()
-//
+//                    helper makes proxy for Object/Storable interface methods:
+//                                 Get(), Set(), ListAttributes(),
+//           +---------------+       FromHashMap(), ToHashMap(),       +------------------+
+//           | Model Package |    GetId(), Load(), Sate(), Delete()    | External package |
+//           |               |                                         |                  |
+//           |   +-------+   |                                         |   +----------+   |
+//     +---------> Model <---------------------+ +-------------------------> Delegate |   |
+//     |     |   +---+---+   |   model-helper  | |   helper-delegate   |   +----^-----+   |
+//     |     |       |       |    proxy call   | |      proxy call     |        |         |
+//     |     +-------|-------+                 | |                     +--------|---+-----+
+//     |             |                         | |                              |   |
+//     |             |   instance    +---------v-v--------------+               |   |
+//     |             +---------------> *ModelExternalAttributes ----------------+   |
+//     |   Model.New() instantiates  +-- -+---------------------+   Delegate.New()  |  Registering delegate
+//     |   ExternalAttributes helper      |                         instantiates    |  for a specific model
+//     |   which transfers instance       |                           delegate      |
+//     +----------------------------------+-GetInstance()                           |
+//        helper have reference to model  |                                         |
+//                                        +-AddExternalAttributes() <---------------+
+//                                        +-RemoveExternalAttributes()
+//                                        |
+//                                        +-ListExternalAttributes()
 type ModelExternalAttributes struct {
 	model     string
 	instance  interface{}

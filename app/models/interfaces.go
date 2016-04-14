@@ -74,15 +74,13 @@ type InterfaceCustomAttributes interface {
 	EditAttribute(attributeName string, attributeValues StructAttributeInfo) error
 }
 
-// InterfaceModelDelegate is a minimal interface to delegate object
+// InterfaceModelDelegate is a minimal interface for object attribute delegate
 type InterfaceAttributesDelegate interface{
 	New(instance interface{}) (InterfaceAttributesDelegate, error)
 
 	Get(attribute string) interface{}
 	Set(attribute string, value interface{}) error
 	GetAttributesInfo() []StructAttributeInfo
-
-	GetPriority() float64
 }
 
 // InterfaceExternalAttributes represents interface to access business layer implementation object external attributes
