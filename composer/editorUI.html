@@ -10,15 +10,24 @@
     <script type="text/javascript">
 
         // General Constants
-        var
-        var _ANY_ = "any"; // any base type
-        var _UP_ = "*"; // unit prefix
-        var _AP_ = "@"; // argument prefix
-        var _OP_ = "#"; // output prefix
-        var _PS_ = "."; // path separator
+        var API_SERVER_URL = "http://localhost:3000";
+        var PATH_SEPARATOR = ".";
+
+        PATH_SEPARATOR.split = function (path) {
+            return path.toString()
+                    .replace(new RegExp("^[" + PATH_SEPARATOR + "]+"), "")
+                    .replace(new RegExp("[" + PATH_SEPARATOR + "]+$"), "")
+                    .split(PATH_SEPARATOR);
+        };
 
         // Global variables
         var Types = {
+            UNIT_PREFIX: "*",
+            UNIT_ARG_PREFIX: "@",
+            UNIT_OUT_PREFIX: "#",
+
+            ARRAY_PREFIX: "[]",
+
             basic: {
                 "string": function (val) {
                     if (val == undefined) {
@@ -73,46 +82,92 @@
                 return Object.keys(this.units);
             },
 
+            isBasic: function(typeName) {
+                return typeName in this.listBasic();
+            },
+            isComplex: function(typeName) {
+                return typeName in this.listComplex();
+            },
+            isUnit: function(typeName) {
+                typeName = typeName.toString();
+                if (typeName.startsWith(this.UNIT_PREFIX)) {
+                    typeName = typeName.slice(this.UNIT_PREFIX.length);
+                    return typeName in this.listUnits();
+                }
+                return false;
+            },
 
-            isBasic: function(type) {
-                return type in this.listComplex();
-            },
-            isComplex: function(type) {
-                return type in this.listComplex();
-            },
-            isUnit: function(type) {
-                return type in this.listUnits();
+            isAny: function(typeName) {
+                return typeName == "any" || typeName == "*";
             },
 
-            requestComplexInfo: function(type) {
+            isArray: function(typeName) {
+                typeName = typeName.toString();
+                if (typeName.indexOf(this.ARRAY_PREFIX) == 0 || typeName == "array") {
+                    return true;
+                }
+                return false;
+            },
+
+            arrayType: function(typeName) {
+                typeName = typeName.toString();
+                return typeName.slice(this.ARRAY_PREFIX.length);
+            },
+
+            kind: function(typeName) {
+                typeName = typeName.toString();
+                if (typeName.startsWith(this.UNIT_PREFIX)) {
+                    return "unit";
+                } else if (this.isAny(typeName)) {
+                    return "any";
+                } else if (this.isBasic(typeName)) {
+                    return "basic";
+                } else {
+                    return "complex";
+                }
+            },
+
+            requestComplex: function(typeName) {
                 return $http({
-                        method: "GET",
-                        url: "http://localhost:3000/composer/type/" + type
+                        url: API_SERVER_URL + "/composer/type/" + typeName,
+                        method: "GET"
                     }).then(function (response) {
                         var res = response.data.result;
                         this.complex[type] = res[type];
-                    });
+                        });
             },
 
+            requestUnitInfo: function(typeName) {
+                return $http({
+                        url: API_SERVER_URL + "composer/units/" + typeName,
+                        method: "GET"
+                    }).then(function (response) {
+                        var res = response.data.result;
+                        this.complex[type] = res[type];
+                        });
+            },
 
-            getItemType: function (path, prefix, type) {
-                if (type == undefined) {
-                    type = $scope.jsonType;
+            resolvePath: function(path, inType) {
+                // arguments validation
+                if (startType == undefined) {
+                    return undefined;
                 }
 
-                // checking if we are reached end of path
                 if (path == undefined || path == "") {
-                    return type;
+                    return inType;
                 }
 
-                path = pathToArray(path);
+                // path processing
+                var pathArray = PATH_SEPARATOR.split(path);
 
-                // arrays have the same type for each item
-                var typeIsArray = isArrayType(type);
-                type = replaceBrackets(type);
+
+                var isArray = this.isArray(inType);
+                if (isArray) {
+                    inType = this.arrayType(inType);
+                }
 
                 var typeItems = {};
-                var path0 = path.shift();
+                var path0 = pathArray.shift();
                 var pathIsUnit = units.isUnit(path0);
 
                 if (!pathIsUnit && complexTypes.isComplexType(type)) {
@@ -131,16 +186,16 @@
                     } else {
                         type = typeItems[path0][prefix];
                     }
-                } else if (!typeIsArray) {
+                } else if (!isArray) {
                     return null;
                 }
 
-                if (path.length > 0) {
+                if (pathArray.length > 0) {
                     type = getItemType(type);
                     if (pathIsUnit && (prefix != _OP_ || complexTypes.isComplexType(type))) {
                         type = typeItems[path0][_OP_];
                     }
-                    return getItemInfo(path.join(_PS_), prefix, getItemType(type));
+                    return getItemInfo(pathArray.join(_PS_), prefix, getItemType(type));
                 }
 
                 return type;
