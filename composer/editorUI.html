@@ -8,23 +8,159 @@
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.2/angular.min.js"></script>
 
     <script type="text/javascript">
+
+        // General Constants
+        var
+        var _ANY_ = "any"; // any base type
+        var _UP_ = "*"; // unit prefix
+        var _AP_ = "@"; // argument prefix
+        var _OP_ = "#"; // output prefix
+        var _PS_ = "."; // path separator
+
+        // Global variables
+        var Types = {
+            basic: {
+                "string": function (val) {
+                    if (val == undefined) {
+                        val = "";
+                    }
+                    return val.toString();
+                },
+
+                "int": function (val) {
+                    if (val == undefined) {
+                        val = 0;
+                    }
+                    return parseInt(val);
+                },
+
+                "float": function (val) {
+                    if (val == undefined) {
+                        val = 0;
+                    }
+                    return parseFloat(val);
+                },
+
+                "boolean": function (val) {
+                    return val ? true : false;
+                },
+
+                "array": function (val) {
+                    if (!Array.isArray(val)) {
+                        val = [];
+                    }
+                    return val;
+                },
+
+                "object": function (val) {
+                    if (baseTypes.getTypeOf(val) != "object") {
+                        val = {};
+                    }
+                    return val;
+                }
+            },
+            complex: {},
+            units: {},
+            db: {},
+
+            listBasic: function() {
+                return Object.keys(this.complex);
+            },
+            listComplex: function() {
+                return Object.keys(this.complex);
+            },
+            listUnits: function() {
+                return Object.keys(this.units);
+            },
+
+
+            isBasic: function(type) {
+                return type in this.listComplex();
+            },
+            isComplex: function(type) {
+                return type in this.listComplex();
+            },
+            isUnit: function(type) {
+                return type in this.listUnits();
+            },
+
+            requestComplexInfo: function(type) {
+                return $http({
+                        method: "GET",
+                        url: "http://localhost:3000/composer/type/" + type
+                    }).then(function (response) {
+                        var res = response.data.result;
+                        this.complex[type] = res[type];
+                    });
+            },
+
+
+            getItemType: function (path, prefix, type) {
+                if (type == undefined) {
+                    type = $scope.jsonType;
+                }
+
+                // checking if we are reached end of path
+                if (path == undefined || path == "") {
+                    return type;
+                }
+
+                path = pathToArray(path);
+
+                // arrays have the same type for each item
+                var typeIsArray = isArrayType(type);
+                type = replaceBrackets(type);
+
+                var typeItems = {};
+                var path0 = path.shift();
+                var pathIsUnit = units.isUnit(path0);
+
+                if (!pathIsUnit && complexTypes.isComplexType(type)) {
+                    typeItems = complexTypes.complexTypesDict[type];
+                } else if (pathIsUnit) {
+                    path0 = units.removeUP(path0);
+                    Object.assign(typeItems, units.unitsDict[type]);
+                    if (baseTypes.isBaseType(type)) {
+                        Object.assign(typeItems, units.unitsDict[_ANY_]);
+                    }
+                }
+
+                if (path0 in typeItems) {
+                    if (!pathIsUnit) {
+                        type = typeItems[path0];
+                    } else {
+                        type = typeItems[path0][prefix];
+                    }
+                } else if (!typeIsArray) {
+                    return null;
+                }
+
+                if (path.length > 0) {
+                    type = getItemType(type);
+                    if (pathIsUnit && (prefix != _OP_ || complexTypes.isComplexType(type))) {
+                        type = typeItems[path0][_OP_];
+                    }
+                    return getItemInfo(path.join(_PS_), prefix, getItemType(type));
+                }
+
+                return type;
+            }
+        };
+
+        var JSON = {
+            data: {},
+            type: null,
+            types: Types,
+
+        }
+
+
         var module = angular.module("DiscountEditor", []);
 
         module.controller("JSONEditor", ["$scope", "$http", function ($scope, $http) {
 
-            // Controller Constants
-            var _ANY_ = "any"; // any base type
-            var _UP_ = "*"; // unit prefix
-            var _AP_ = "@"; // argument prefix
-            var _OP_ = "#"; // output prefix
-            var _PS_ = "."; // path separator
-
-            // Controller variables
             var json = {};
             var jsonType = "";
-            var complexTypes = {};
-            var DBTypes = {};
-            var units = {};
 
             var baseTypes = ["string", "int", "float", "boolean", "array", "object"];
 
@@ -1332,7 +1468,7 @@
             </div>
 
             <!-- recursive template execution for a value -->
-            <template get="tree-item" item="val" key="key" path="{{path + '.' + key}}" j="j"></template>
+            <template get="tree-item" item="val" key="key" path="{{path + '.' + key}}"></template>
         </li>
     </ul>
 
@@ -1344,8 +1480,9 @@
             <li>
                 <div class="value-line">
                         <span>
-                            <i ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])"
-                               class='glyphicon glyphicon-triangle-bottom' ng-click="roll($event)"></i>
+                            <i class='glyphicon glyphicon-triangle-bottom'
+                               ng-if="!isInArray(jsonType, ['string', 'boolean', 'int', 'float'])"
+                               ng-click="roll($event)"></i>
                             ({{jsonType}})
                         </span>
 
