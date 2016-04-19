@@ -9,12 +9,7 @@
 
     <script type="text/javascript">
 
-        var API_SERVER_URL = "http://localhost:3000";
 
-        var UNIT_PREFIX = "*";
-        var UNIT_ARG_PREFIX = "@";
-        var UNIT_OUT_PREFIX = "#";
-        var ARRAY_PREFIX = "[]";
 
         var PATH_SEPARATOR = "/";
 
@@ -146,6 +141,14 @@
 
         module.service("$composer", ["$http", "$q", function ($http, $q) {
             var service = {
+                API_SERVER_URL: "http://localhost:3000",
+
+                ARRAY_PREFIX: "[]",
+
+                UNIT_PREFIX: "*",
+                UNIT_ARG_PREFIX: "@",
+                UNIT_OUT_PREFIX: "#",
+
                 basic: ["string", "int", "float", "boolean", "array", "object"],
                 types: {},
                 units: {},
@@ -154,13 +157,20 @@
                     return typeName in service.basic;
                 },
 
+                isUnit: function (typeName) {
+                    if (typeName.indexOf(this.UNIT_PREFIX) == 0) {
+                        return true;
+                    }
+                    return false;
+                },
+
                 isAny: function (typeName) {
                     return typeName == "any" || typeName == "*";
                 },
 
                 isArray: function (typeName) {
                     typeName = typeName.toString();
-                    if (typeName.indexOf(ARRAY_PREFIX) == 0 || typeName == "array") {
+                    if (typeName.indexOf(this.ARRAY_PREFIX) == 0 || typeName == "array") {
                         return true;
                     }
                     return false;
@@ -168,7 +178,7 @@
 
                 arrayType: function (typeName) {
                     typeName = typeName.toString();
-                    return typeName.slice(ARRAY_PREFIX.length);
+                    return typeName.slice(this.ARRAY_PREFIX.length);
                 },
 
                 type: function (typeName) {
@@ -177,7 +187,7 @@
                     }
 
                     return $http({
-                        url: API_SERVER_URL + "/composer/type/" + typeName,
+                        url: this.API_SERVER_URL + "/composer/type/" + typeName,
                         method: "GET"
                     }).then(function (response) {
 
@@ -201,7 +211,7 @@
                     }
 
                     return $http({
-                        url: API_SERVER_URL + "composer/unit/" + unitName,
+                        url: this.API_SERVER_URL + "composer/unit/" + unitName,
                         method: "GET"
                     }).then(function (response) {
                         if (response.data.error != null) {
@@ -216,9 +226,72 @@
             return service;
         }]);
 
-        module.controller("ComposerEditor", ["$scope", "$q", "$composer", function ($scope, $q, $composer) {
-            var controller = {
+        module.controller("ComposeElement", ["$scope", "$q", "$composer", function ($scope, $q, $composer) {
+            var ComposerElement = {
+                reset: function(data) {
+                    // checking argument
+                    if (data != undefined) {
+                        $scope.data = data;
+                    }
+
+                    // extracting values
+                    if ($scope.data != undefined && typeof $scope.data == "object") {
+                        for (field in ["value", "path", "root", "parent", "type"]) {
+                            if (field in $scope.data) {
+                                $scope[field] = $scope.data[field];
+                            }
+                        }
+                    }
+
+                    $scope.ready   = false;
+                    $scope.isUnit  = false;
+                    $scope.isBasic = false;
+                    $scope.isRoot  = false;
+                    $scope.canLoop = false;
+
+                    // path validation
+                    $scope.path = this.pathArray(this.path);
+                    if ($scope.path.length == 0){
+                        $scope.root = $scope.value;
+                        $scope.parent = null;
+
+                        $scope.isRoot = true;
+                    }
+
+                    // value validation
+                    if ($scope.value == undefined) {
+                        $scope.value = {};
+                    }
+
+                    if (typeof $scope.type != "string" || $scope.type == ""){
+                        $scope.type = "object";
+                    }
+
+                    var kind = typeof $scope.value;
+                    if (kind == "object" || kind == "array") {
+                        $scope.canLoop = true;
+                    }
+
+                    // requesting type information
+                    if (!$composer.isBasic($scope.type)) {
+                        $scope.isBasic = true;
+                        if ($composer.isUnit($scope.type)) {
+                            $scope.isUnit = true;
+                            $scope.info = $composer.unit($scope.type);
+                        } else {
+                            $scope.info = $composer.type($scope.type);
+                        }
+                    }
+
+                    // waiting for results
+                    $q.when(this.items).then(function() {
+                        $scope.ready = true;
+                    });
+                },
+
                 pathArray: function (path) {
+                    path = path || $scope.path;
+
                     if (Array.isArray(path)) {
                         return path;
                     }
@@ -232,74 +305,37 @@
                             .split(PATH_SEPARATOR);
                 },
 
-                isRoot: function (path) {
-                    path = this.pathArray(path);
-                    return path.length == 0;
-                },
-
-                isUnit: function (item) {
-                    if (item.indexOf(UNIT_PREFIX) == 0) {
-                        return true;
-                    }
-                    return false;
-                },
-
-                hasItems: function (typeName) {
-                    return true;
-                },
-
-                hasUnits: function (typeName) {
-                    return true;
-                },
-
-                itemLoop: function (value, path) {
-                    // trick to make top element
-                    if (path == undefined) {
-                        return {"": value};
-                    }
-
-                    // iterable value types
-                    if (typeof value == "object" || Array.isArray(value)) {
-                        return value;
-                    }
-
-                    return [];
-                },
-
-                itemLabel: function (typeName, item) {
-                    return item;
-                },
-
-                itemDescription: function (typeName, item) {
-                    return "";
-                },
-
-                itemType: function (typeName, item) {
-                    if (item == undefined || item == "") {
-                        return typeName;
-                    }
-                    return "object";
-//                    return $q.when(typeName).then(function (typeName) {
-//                        $composer.type(typeName).then(function (typeInfo) {
-//                            if (item in typeInfo) {
-//                                return typeInfo[item];
-//                            }
-//                            return "object";
-//                        });
-//                    });
-                },
-
-                itemPath: function (path, item) {
+                itemData: function (item) {
                     var result = this.pathArray(path);
                     if (typeof item == "string" || item != "") {
                         result.push(item);
                     }
-                    return result;
+
+                    var newPath = [];
+                    for(x in $scope.path) {
+                        newPath.push(x);
+                    }
+
+                    return {
+                        path:  newPath,
+                        root:  $scope.root,
+                        parent:$scope.value,
+                        value: $scope.value[item],
+
+                        label: $scope.info[item].label,
+                        type:  $scope.info[item].type,
+                        description: $scope.info[item].description
+                    };
                 },
 
                 canCollapse: function (value) {
-                    return (typeof value == "object" && Object.keys(value).length > 0) ||
-                            (Array.isArray(value) && value.length > 0);
+                    value = value || $scope.value;
+
+                    if ((typeof value == "object" && Object.keys(value).length > 0) ||
+                        (Array.isArray(value) && value.length > 0)) {
+                        return true;
+                    }
+                    return false;
                 },
 
                 collapse: function (event) {
@@ -307,30 +343,24 @@
                     element.toggleClass('glyphicon-triangle-right glyphicon-triangle-bottom');
 
                     for (var i = 0; i < 10; i++) {
-                        if (element.hasClass('composer-element-item')) {
+                        if (element.hasClass('compose-element-item')) {
                             element.toggleClass('minified');
                             break;
                         }
                         element = element.parent();
                     }
-                },
-
-                canLoop: function (value, item) {
-                    var kind = typeof value;
-                    return kind == "object" || kind == "array";
-                },
-            };
-            angular.extend($scope, controller);
-
-            $scope.json = {
-                "visitor": {
-                    "first_name": "test"
                 }
             };
 
+            angular.merge($scope, ComposerElement);
+            $scope.reset();
         }]);
 
 
+        module.controller("DiscountEditor", ["$scope", function ($scope) {
+            $scope.rule = {'visitor': {'first_name': 'test'}};
+            $scope.ruleType = "DiscountRule";
+        }]);
     </script>
 
     <style>
@@ -357,27 +387,27 @@
             background-image: repeating-linear-gradient(180deg, #d9edf7, #d9edf7 30px, #f5f5f5 30px, white 60px);
         }
 
-        .composer-element {
+        .compose-element {
             list-style: none;
             margin: 0;
             padding-left: 20px;
         }
 
-        .composer-element-item {
+        .compose-element-item {
             line-height: 30px;
         }
 
-        .composer-element-item .minified {
+        .compose-element-item .minified {
             height: 30px;
             overflow-y: hidden;
         }
 
-        .composer-item-line {
+        .compose-item-line {
             height: 30px;
             line-height: 30px;
         }
 
-        .composer-item-line button {
+        .compose-item-line button {
             float: right;
             box-sizing: border-box;
             height: 30px;
@@ -386,17 +416,9 @@
             background-color: transparent;
         }
 
-        input.form-input {
+        .compose-item-line input {
             width: 100px;
             border: none;
-            display: inline;
-            height: 30px;
-            padding: 5px;
-            background-color: transparent;
-        }
-
-        input.form-control, select.form-control {
-            width: 150px;
             display: inline;
             height: 30px;
             padding: 5px;
@@ -408,14 +430,11 @@
 <body ng-app="DiscountEditor">
 
 <!-- Composer Editor tree item template -->
-<ul class="composer-element" template="tpl" tpl-set="composer-item">
-    <li class="composer-element-item"
-        ng-repeat="(it, itVal) in itemLoop(item, path) track by [item, it, itVal]">
+<ul class="compose-element" template="tpl" tpl-set="compose-element" ng-controller="ComposeElement">
+    <li class="compose-item">
+        <div class="compose-item-line" ng-if="ready">
 
-        <div class="composer-item-line"
-             ng-init="itType = itemType(type, it); itPath = itemPath(type, it)">
-
-            <span class="composer-item-icon" ng-switch="canCollapse(itVal)">
+            <span class="compose-item-icon" ng-switch="canCollapse">
                 <i class="glyphicon glyphicon-triangle-bottom"
                    ng-switch-when="true"
                    ng-click="collapse($event)"></i>
@@ -424,52 +443,50 @@
                    ng-switch-default>&nbsp;</i>
             </span>
 
-            <span class="composer-item-label">
-                <b title="{{itemDescription(type, it)}}">{{itemLabel(type, it)}}</b>
-                ({{itType}})
+            <span class="compose-item-label">
+                <b title="{{description}}">{{label}}</b>({{type}})
             </span>
 
-            <span class="composer-item-editor" ng-switch="type">
-                <input class="form-input"
-                       type="text"
+            <span class="compose-item-editor" ng-switch="type">
+                <input type="text"
                        ng-switch-when="string"
-                       ng-model="itVal"
-                       ng-change="editItem(itPath, itVal)"/>
+                       ng-model="value"
+                       ng-change="edit(value)"/>
 
-                <input class="form-input"
-                       type="number"
+                <input type="number"
                        step="0.1"
                        ng-switch-when="number"
-                       ng-model="itVal"
-                       ng-change="editItem(itPath, itVal)"/>
+                       ng-model="value"
+                       ng-change="edit(value)"/>
 
-                <input class="form-input-checkbox"
-                       type="checkbox"
+                <input type="checkbox"
                        ng-switch-when="boolean"
-                       ng-model="itVal"
-                       ng-change="editItem(itPath, itVal)"/>
+                       ng-model="value"
+                       ng-change="edit(value)"/>
             </span>
 
-            <button ng-if="!isRoot(path)" ng-click="removeItem(itPath)">
+            <button ng-if="!isRoot" ng-click="removeItem()">
                 <i class="glyphicon glyphicon-trash"></i>
             </button>
 
-            <button ng-if="hasItems(itType)" ng-click="addItemDialog(itPath)">
+            <button ng-if="hasItems" ng-click="addItemDialog()">
                 <i class="glyphicon glyphicon-plus"></i>
             </button>
 
-            <button ng-if="hasUnits(itType)" ng-click="addUnitDialog(itPath)">
+            <button ng-if="hasUnits" ng-click="addUnitDialog()">
                 <i class="glyphicon glyphicon-indent-left"></i>
             </button>
         </div>
 
-        <template get="composer-item" item="itVal" type="itType" path="itPath"></template>
+        <template get="compose-element" data="itemData(key)"
+                  ng-if="canLoop"
+                  ng-repeat="(key, keyValue) in value"></template>
     </li>
 </ul>
 
-<!-- Composer Editor -->
-<div class="container" ng-controller="ComposerEditor">
-    <template get="composer-item" item="json" type="'DiscountRule'"></template>
+<!-- Discount Editor-->
+<div class="container" ng-controller="DiscountEditor">
+    <template get="compose-element" value="rule" type="ruleType"></template>
 </div>
 
 </body>
