@@ -32,7 +32,7 @@ func setupAPI() error {
 		return env.ErrorDispatch(err)
 	}
 
-	err = api.GetRestService().RegisterAPI("composer/db-types", api.ConstRESTOperationGet, composerDBTypes)
+	err = api.GetRestService().RegisterAPI("composer/aliases", api.ConstRESTOperationGet, composerAliases)
 	if err != nil {
 		return env.ErrorDispatch(err)
 	}
@@ -104,29 +104,19 @@ func composerType(context api.InterfaceApplicationContext) (interface{}, error) 
 	return result, nil
 }
 
-func composerDBTypes(context api.InterfaceApplicationContext) (interface{}, error) {
+func composerAliases(context api.InterfaceApplicationContext) (interface{}, error) {
 
-	result := make(map[string]interface{})
-	composer := GetComposer()
-
-	for _, goType := range []string{
-		utils.ConstDataTypeID,
-		utils.ConstDataTypeBoolean,
-		utils.ConstDataTypeVarchar,
-		utils.ConstDataTypeText,
-		utils.ConstDataTypeDecimal,
-		utils.ConstDataTypeMoney,
-		utils.ConstDataTypeDatetime,
-		utils.ConstDataTypeJSON,
-	} {
-		typeInfo := composer.GetType(goType)
-		for _, item := range typeInfo.ListItems() {
-			result[item] = map[string]interface{}{
-				"label": typeInfo.GetLabel(item),
-				"desc":  typeInfo.GetDescription(item),
-				"type":  typeInfo.GetType(item),
-			}
-		}
+	result := map[string]string{
+		utils.ConstDataTypeID:       "string",
+		utils.ConstDataTypeBoolean:  "boolean",
+		utils.ConstDataTypeVarchar:  "string",
+		utils.ConstDataTypeText:     "string",
+		utils.ConstDataTypeInteger:  "int",
+		utils.ConstDataTypeDecimal:  "float",
+		utils.ConstDataTypeMoney:    "float",
+		utils.ConstDataTypeFloat:    "float",
+		utils.ConstDataTypeDatetime: "string",
+		utils.ConstDataTypeJSON:     "object",
 	}
 
 	return result, nil

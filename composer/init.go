@@ -21,7 +21,7 @@ func init() {
 	app.OnAppStart(initModelTypes)
 	initBaseUnits()
 	initTest()
-	initBaseTypes()
+	initGoTypes()
 }
 
 func initBaseUnits() {
@@ -273,17 +273,17 @@ func initTest() error {
 	return nil
 }
 
-func initBaseTypes() error {
+func initGoTypes() error {
 
 	for goType, jsonType := range map[string]string{
-		utils.ConstDataTypeID:      "string",
-		utils.ConstDataTypeBoolean: "boolean",
-		utils.ConstDataTypeVarchar: "string",
-		utils.ConstDataTypeText:    "string",
-		//utils.ConstDataTypeInteger:  "int",
-		utils.ConstDataTypeDecimal: "float",
-		utils.ConstDataTypeMoney:   "float",
-		//utils.ConstDataTypeFloat:    "float",
+		utils.ConstDataTypeID:       "string",
+		utils.ConstDataTypeBoolean:  "boolean",
+		utils.ConstDataTypeVarchar:  "string",
+		utils.ConstDataTypeText:     "string",
+		utils.ConstDataTypeInteger:  "int",
+		utils.ConstDataTypeDecimal:  "float",
+		utils.ConstDataTypeMoney:    "float",
+		utils.ConstDataTypeFloat:    "float",
 		utils.ConstDataTypeDatetime: "string",
 		utils.ConstDataTypeJSON:     "object",
 	} {
