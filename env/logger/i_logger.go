@@ -5,9 +5,16 @@ import (
 	"fmt"
 	"os"
 	"time"
+	"regexp"
 
 	"github.com/ottemo/foundation/env"
 )
+
+// REGEXP_CREDIT_CARD_CVC Regexp to find cvc group
+const REGEXP_CREDIT_CARD_CVC = regexp.MustCompile(`"cvc":"\d{3}"`)
+
+// REGEXP_CREDIT_CARD_NUMBER Regexp to find cc number group
+const REGEXP_CREDIT_CARD_NUMBER = regexp.MustCompile(`("cc":.+"number":")(\d+)(\d{4})(".+})`)
 
 // Log is a general case logging function
 func (it *DefaultLogger) Log(storage string, prefix string, msg string) {
@@ -18,10 +25,9 @@ func (it *DefaultLogger) Log(storage string, prefix string, msg string) {
 		fmt.Println(message)
 		return
 	}
+	defer logFile.Close()
 
-	logFile.Write([]byte(message))
-
-	logFile.Close()
+	logFile.Write([]byte(cleanCreditCardNumber(message)))
 }
 
 // LogError makes error log
@@ -50,8 +56,19 @@ func (it *DefaultLogger) LogEvent(fields env.LogFields, eventName string) {
 	if err != nil {
 		fmt.Println(err)
 	}
+	f.Write([]byte(cleanCreditCardNumber(convertByteArrToString(msg))))
+}
 
-	f.Write(msg)
+
+// return cleaned from credit card number given log msg, so we don't log customer's credit cards
+func cleanCreditCardNumber(msg string) string {
+	res := REGEXP_CREDIT_CARD_CVC.ReplaceAllString(msg, `"cvc":"123"`)
+
+	return REGEXP_CREDIT_CARD_NUMBER.ReplaceAllString(res, `$1$3$4`)
+}
+
+func convertByteArrToString(byteArr []byte) string {
+	return string(byteArr[:])
 }
 
 func logstashFormatter(fields env.LogFields, eventName string) ([]byte, error) {
