@@ -11,8 +11,13 @@
       <stringProp name="TestPlan.user_define_classpath"></stringProp>
     </TestPlan>
     <hashTree>
-      <Arguments guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+      <Arguments guiclass="ArgumentsPanel" testclass="Arguments" testname="Set Base values" enabled="true">
         <collectionProp name="Arguments.arguments">
+          <elementProp name="BASE_URL1" elementType="Argument">
+            <stringProp name="Argument.name">BASE_URL1</stringProp>
+            <stringProp name="Argument.value">https://api.karigran.com</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
           <elementProp name="BASE_URL" elementType="Argument">
             <stringProp name="Argument.name">BASE_URL</stringProp>
             <stringProp name="Argument.value">http://192.168.56.101:3000</stringProp>
@@ -133,7 +138,7 @@ var visitorsList = [
 vars.putObject(&quot;VISITORS&quot;, visitorsList);</stringProp>
       </BSFPreProcessor>
       <hashTree/>
-      <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="Define Addresses" enabled="true">
+      <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="Define Addresses" enabled="false">
         <stringProp name="scriptLanguage">javascript</stringProp>
         <stringProp name="parameters"></stringProp>
         <stringProp name="filename"></stringProp>
@@ -2081,6 +2086,15 @@ if (response[&quot;error&quot;] != null) {
           <boolProp name="CookieManager.clearEachIteration">false</boolProp>
         </CookieManager>
         <hashTree/>
+        <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
+          <collectionProp name="HeaderManager.headers">
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Content-Type</stringProp>
+              <stringProp name="Header.value">application/json</stringProp>
+            </elementProp>
+          </collectionProp>
+        </HeaderManager>
+        <hashTree/>
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get products" enabled="true">
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments"/>
@@ -2101,15 +2115,6 @@ if (response[&quot;error&quot;] != null) {
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
           <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="get products handler" enabled="true">
             <stringProp name="scriptLanguage">javascript</stringProp>
             <stringProp name="parameters"></stringProp>
@@ -2117,7 +2122,7 @@ if (response[&quot;error&quot;] != null) {
             <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
 
 if (response[&quot;error&quot;] == null) {
-	var productsList = JSON.stringify(response[&quot;result&quot;]);
+	var productsList = response[&quot;result&quot;];
 	vars.putObject(&quot;products&quot;, productsList);
 	// ${__threadNum}
 }
@@ -2136,7 +2141,7 @@ if (response[&quot;error&quot;] != null) {
           </BSFPostProcessor>
           <hashTree/>
         </hashTree>
-        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Add random products to cart" enabled="true">
+        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Add prodcuts" enabled="false">
           <boolProp name="LoopController.continue_forever">true</boolProp>
           <stringProp name="LoopController.loops">2</stringProp>
         </LoopController>
@@ -2161,15 +2166,6 @@ if (response[&quot;error&quot;] != null) {
             <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
           </HTTPSamplerProxy>
           <hashTree>
-            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
-              <collectionProp name="HeaderManager.headers">
-                <elementProp name="" elementType="Header">
-                  <stringProp name="Header.name">Content-Type</stringProp>
-                  <stringProp name="Header.value">application/json</stringProp>
-                </elementProp>
-              </collectionProp>
-            </HeaderManager>
-            <hashTree/>
             <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="find one random" enabled="true">
               <stringProp name="scriptLanguage">javascript</stringProp>
               <stringProp name="parameters"></stringProp>
@@ -2177,10 +2173,10 @@ if (response[&quot;error&quot;] != null) {
               <stringProp name="script">function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-var productsList = JSON.parse(vars.get(&quot;products&quot;));
+var productsList = vars.getObject(&quot;products&quot;);
 var product = productsList[getRandomInt(0, productsList.length-1)];
-vars.putObject(&quot;product_id&quot;, product[&quot;ID&quot;]);
-vars.putObject(&quot;product&quot;, JSON.stringify(product));</stringProp>
+vars.put(&quot;product_id&quot;, product[&quot;ID&quot;]);
+vars.putObject(&quot;product&quot;, product);</stringProp>
             </BSFPreProcessor>
             <hashTree/>
             <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save product handler" enabled="true">
@@ -2190,11 +2186,79 @@ vars.putObject(&quot;product&quot;, JSON.stringify(product));</stringProp>
               <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
 
 if (response[&quot;error&quot;] == null) {
-	var product = JSON.stringify(response[&quot;result&quot;]);
+	var product = response[&quot;result&quot;];
 	vars.putObject(&quot;product&quot;, product);
 	// ${__threadNum}
 }
 </stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;random product, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+          </hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get product stock" enabled="true">
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+            <stringProp name="HTTPSampler.domain"></stringProp>
+            <stringProp name="HTTPSampler.port"></stringProp>
+            <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+            <stringProp name="HTTPSampler.response_timeout"></stringProp>
+            <stringProp name="HTTPSampler.protocol"></stringProp>
+            <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+            <stringProp name="HTTPSampler.path">${BASE_URL}/stock/${product_id}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+            <boolProp name="HTTPSampler.monitor">false</boolProp>
+            <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save stock records for product" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var stock = response[&quot;result&quot;];
+
+	// [{&quot;options&quot;{}, &quot;qty&quot;:2}]
+	vars.putObject(&quot;product&quot;, stock);
+	// ${__threadNum}
+}
+
+
+function compare (a,b){
+	if (a==b) return true;
+	if ((a==null || b == null) &amp;&amp; (a != null || b != null)) return false
+	var type = typeof a;
+	if (type != typeof b) return false;
+	switch (type){
+		case &quot;object&quot;:
+			for (var key in a){
+				if (a[key] != b[key]) return false
+			}
+			break;
+		default:
+			return a==b;
+	}
+	return true;
+}
+/*&quot;result&quot;:[{&quot;_id&quot;:&quot;576259f11cd872caff3511d5&quot;,&quot;options&quot;:{},&quot;product_id&quot;:&quot;54cf601bdbf86339467d346d&quot;,&quot;qty&quot;:-6},{&quot;_id&quot;:&quot;576259f195409cef0333f5ac&quot;,&quot;options&quot;:{&quot;Size&quot;:&quot;Large&quot;},&quot;product_id&quot;:&quot;54cf601bdbf86339467d346d&quot;,&quot;qty&quot;:20},{&quot;_id&quot;:&quot;576259f1c7e2abec8c6dce0e&quot;,&quot;options&quot;:{&quot;Size&quot;:&quot;Medium&quot;},&quot;product_id&quot;:&quot;54cf601bdbf86339467d346d&quot;,&quot;qty&quot;:10},{&quot;_id&quot;:&quot;576259f1c51717f1dc402997&quot;,&quot;options&quot;:{&quot;Picture&quot;:&quot;Cat&quot;},&quot;product_id&quot;:&quot;54cf601bdbf86339467d346d&quot;,&quot;qty&quot;:2},{&quot;_id&quot;:&quot;576259f19cab17a215899d2c&quot;,&quot;options&quot;:{&quot;Picture&quot;:&quot;Men&quot;},&quot;product_id&quot;:&quot;54cf601bdbf86339467d346d&quot;,&quot;qty&quot;:4},{&quot;_id&quot;:&quot;576259f1a5e874aab09a3b8b&quot;,&quot;options&quot;:{&quot;Picture&quot;:&quot;Dog&quot;,&quot;Size&quot;:&quot;Small&quot;},&quot;product_id&quot;:&quot;54cf601bdbf86339467d346d&quot;,&quot;qty&quot;:0}]}
+ * 
+ */</stringProp>
             </BSFPostProcessor>
             <hashTree/>
             <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
@@ -2236,15 +2300,6 @@ if (response[&quot;error&quot;] != null) {
             <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
           </HTTPSamplerProxy>
           <hashTree>
-            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
-              <collectionProp name="HeaderManager.headers">
-                <elementProp name="" elementType="Header">
-                  <stringProp name="Header.name">Content-Type</stringProp>
-                  <stringProp name="Header.value">application/json</stringProp>
-                </elementProp>
-              </collectionProp>
-            </HeaderManager>
-            <hashTree/>
             <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="build options" enabled="true">
               <stringProp name="scriptLanguage">javascript</stringProp>
               <stringProp name="parameters"></stringProp>
@@ -2287,18 +2342,19 @@ function getOptions(product) {
 	return result;
 }
 
-// executed before assign as there can be isse 
-if (!vars.get(&quot;product&quot;)) {
-	var productsList = JSON.parse(vars.get(&quot;products&quot;));
+// executed before assign as there can be issue 
+if (!vars.getObject(&quot;product&quot;)) {
+	var productsList = vars.getObject(&quot;products&quot;);
 	var product = productsList[getRandomInt(0, productsList.length)];
-	vars.putObject(&quot;product_id&quot;, product[&quot;ID&quot;]);
-	vars.putObject(&quot;product&quot;, JSON.stringify(product));
+	vars.put(&quot;product_id&quot;, product[&quot;ID&quot;]);
+	vars.putObject(&quot;product&quot;, product);
 }
 
-var product = JSON.parse(vars.get(&quot;product&quot;));
+var product = vars.getObject(&quot;product&quot;) || {};
 var options = getOptions(product);
+// OUT.println(JSON.stringify(options));
 
-vars.putObject(&quot;qty&quot;, JSON.stringify(2));
+vars.putObject(&quot;qty&quot;, JSON.stringify(1));
 vars.putObject(&quot;options&quot;, JSON.stringify(options));</stringProp>
             </BSFPreProcessor>
             <hashTree/>
@@ -2310,11 +2366,382 @@ vars.putObject(&quot;options&quot;, JSON.stringify(options));</stringProp>
 
 if (response[&quot;error&quot;] != null) {
 	OUT.println(&quot;add to cart, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
-}</stringProp>
+}
+</stringProp>
             </BSFPostProcessor>
             <hashTree/>
           </hashTree>
         </hashTree>
+        <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="init while values" enabled="true">
+          <stringProp name="scriptLanguage">javascript</stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="script">vars.put(&quot;continue&quot;, true);
+vars.put(&quot;cart_products&quot;, 0);
+vars.put(&quot;iteration&quot;, 0);</stringProp>
+        </BSFSampler>
+        <hashTree/>
+        <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="Add products to cart" enabled="true">
+          <stringProp name="WhileController.condition">${continue}</stringProp>
+        </WhileController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get random product" enabled="true">
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+            <stringProp name="HTTPSampler.domain"></stringProp>
+            <stringProp name="HTTPSampler.port"></stringProp>
+            <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+            <stringProp name="HTTPSampler.response_timeout"></stringProp>
+            <stringProp name="HTTPSampler.protocol"></stringProp>
+            <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+            <stringProp name="HTTPSampler.path">${BASE_URL}/product/${product_id}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+            <boolProp name="HTTPSampler.monitor">false</boolProp>
+            <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="find one random" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+var productsList = vars.getObject(&quot;products&quot;);
+var product = productsList[getRandomInt(0, productsList.length-1)];
+vars.put(&quot;product_id&quot;, product[&quot;ID&quot;]);
+vars.putObject(&quot;product&quot;, product);</stringProp>
+            </BSFPreProcessor>
+            <hashTree/>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save product handler" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var product = response[&quot;result&quot;];
+	vars.putObject(&quot;product&quot;, product);
+
+	var qty = product[&quot;qty&quot;];
+	if (qty != null) {
+		vars.put(&quot;qty&quot;, qty);
+	}
+
+	vars.put(&quot;inStock&quot;, qty &gt; 0);
+	// ${__threadNum}
+}
+</stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;random product, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+          </hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get product stock" enabled="true">
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+            <stringProp name="HTTPSampler.domain"></stringProp>
+            <stringProp name="HTTPSampler.port"></stringProp>
+            <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+            <stringProp name="HTTPSampler.response_timeout"></stringProp>
+            <stringProp name="HTTPSampler.protocol"></stringProp>
+            <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+            <stringProp name="HTTPSampler.path">${BASE_URL}/stock/${product_id}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+            <boolProp name="HTTPSampler.monitor">false</boolProp>
+            <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save stock records for product" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var stock = response[&quot;result&quot;];
+	vars.putObject(&quot;stock&quot;, stock);
+	// ${__threadNum}
+}</stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;product stock, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+          </hashTree>
+          <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If product is in stock" enabled="true">
+            <stringProp name="IfController.condition">${inStock}</stringProp>
+            <boolProp name="IfController.evaluateAll">false</boolProp>
+          </IfController>
+          <hashTree>
+            <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="init while values" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">vars.put(&quot;product_add&quot;, true);
+vars.put(&quot;iteration1&quot;, 0);</stringProp>
+            </BSFSampler>
+            <hashTree/>
+            <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="Try to add product with different options" enabled="true">
+              <stringProp name="WhileController.condition">${product_add}</stringProp>
+            </WhileController>
+            <hashTree>
+              <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Add to cart" enabled="true">
+                <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+                <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+                  <collectionProp name="Arguments.arguments">
+                    <elementProp name="" elementType="HTTPArgument">
+                      <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                      <stringProp name="Argument.value">${options}</stringProp>
+                      <stringProp name="Argument.metadata">=</stringProp>
+                    </elementProp>
+                  </collectionProp>
+                </elementProp>
+                <stringProp name="HTTPSampler.domain"></stringProp>
+                <stringProp name="HTTPSampler.port"></stringProp>
+                <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+                <stringProp name="HTTPSampler.response_timeout"></stringProp>
+                <stringProp name="HTTPSampler.protocol"></stringProp>
+                <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+                <stringProp name="HTTPSampler.path">${BASE_URL}/cart/item?pid=${product_id}&amp;qty=${qty}</stringProp>
+                <stringProp name="HTTPSampler.method">POST</stringProp>
+                <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+                <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+                <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+                <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+                <boolProp name="HTTPSampler.monitor">false</boolProp>
+                <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+              </HTTPSamplerProxy>
+              <hashTree>
+                <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="build options" enabled="true">
+                  <stringProp name="scriptLanguage">javascript</stringProp>
+                  <stringProp name="parameters"></stringProp>
+                  <stringProp name="filename"></stringProp>
+                  <stringProp name="script">var product = vars.getObject(&quot;product&quot;) || {};
+
+//OUT.println(JSON.stringify(product));
+// executed before assign as there can be issue
+if (!vars.getObject(&quot;product&quot;)) {
+	var productsList = vars.getObject(&quot;products&quot;);
+	var product = productsList[getRandomInt(0, productsList.length)];
+	vars.put(&quot;product_id&quot;, product[&quot;ID&quot;]);
+	vars.putObject(&quot;product&quot;, product);
+}
+
+var options = getOptions(product);
+//OUT.println(JSON.stringify(options));
+var stock = vars.getObject(&quot;stock&quot;); // [{&quot;options&quot;{}, &quot;qty&quot;:2}]
+// handle qty selection value to be in range of available in stock
+vars.putObject(&quot;qty&quot;, JSON.stringify(1));
+vars.putObject(&quot;options&quot;, JSON.stringify(options));
+
+function getOptions(product) {
+	var result = {};
+	if (!product){	OUT.println(&quot;product not passed&quot;); return result;	}
+	var options = product[&quot;options&quot;] || {};
+	//OUT.println(JSON.stringify(options));
+	for (var optionName in options) {
+		var option = options[optionName] || {};
+		// this will trigger to make options only for required and with 50% for not required
+		if (!option[&quot;required&quot;] &amp;&amp; Math.random() &gt;= 0.5) {continue;}
+
+		var optionValue = &quot;&quot;;
+		switch (option[&quot;type&quot;]){
+			case &quot;field&quot;: 
+			optionValue = &quot;dummyText&quot;;
+			case &quot;date&quot;:
+			optionValue = new Date().toJSON() || &quot;dummyDate&quot;;
+			case &quot;select&quot;:
+			optionValue = randomKey(option[&quot;options&quot;] || {}) || &quot;dummyProperty&quot;;
+			case &quot;multi_select&quot;:
+			optionValue = randomKey(option[&quot;options&quot;] || {}) || &quot;dummyProperty&quot;;
+			case &quot;radio&quot;:
+			optionValue = randomKey(option[&quot;options&quot;] || {}) || &quot;dummyProperty&quot;;
+		}
+		result[optionName] = optionValue;
+	}
+	
+	return result;
+}
+function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randomProperty (obj) {
+    var keys = Object.keys(obj);
+    return obj[keys[ keys.length * Math.random() &lt;&lt; 0]];
+}
+function randomKey (obj) {
+    var keys = Object.keys(obj);
+    return keys[keys.length * Math.random() &lt;&lt; 0];
+}
+
+function compare (a,b){
+	if (a==b) return true;
+	if ((a==null || b == null) &amp;&amp; (a != null || b != null)) return false
+	var type = typeof a;
+	if (type != typeof b) return false;
+	switch (type){
+		case &quot;object&quot;:
+			for (var key in a){
+				if (a[key] != b[key]) return false
+			}
+			break;
+		default:
+			return a==b;
+	}
+	return true;
+}</stringProp>
+                </BSFPreProcessor>
+                <hashTree/>
+                <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="add to cart handler" enabled="true">
+                  <stringProp name="scriptLanguage">javascript</stringProp>
+                  <stringProp name="parameters"></stringProp>
+                  <stringProp name="filename"></stringProp>
+                  <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	// no need to print a lot of such messages as they are pretty common to aapear
+	//OUT.println(&quot;add to cart, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+} else {
+	var productInCart = parseInt(vars.get(&quot;cart_products&quot;));
+	vars.put(&quot;cart_products&quot;, productInCart+1);
+	vars.put(&quot;product_add&quot;, false);
+}
+</stringProp>
+                </BSFPostProcessor>
+                <hashTree/>
+              </hashTree>
+              <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="iteration controller" enabled="true">
+                <stringProp name="scriptLanguage">javascript</stringProp>
+                <stringProp name="parameters"></stringProp>
+                <stringProp name="filename"></stringProp>
+                <stringProp name="script">var i = parseInt(vars.get(&quot;iteration1&quot;)) || 0;
+vars.put(&quot;iteration1&quot;, ++i);
+if (i &gt;= 10) {
+	vars.put(&quot;product_add&quot;, false);	
+}
+//OUT.println(&quot;Products options: &quot;+i);</stringProp>
+              </BSFSampler>
+              <hashTree/>
+            </hashTree>
+          </hashTree>
+          <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="iteration controller" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var requiredProductsNum = 2;
+var iterationsLimit = 20;
+
+var i = parseInt(vars.get(&quot;iteration&quot;)) || 0;
+var productInCart = parseInt(vars.get(&quot;cart_products&quot;));
+vars.put(&quot;iteration&quot;, ++i);
+
+if (productInCart &gt;= requiredProductsNum || i &gt;= 100) {
+	vars.put(&quot;continue&quot;, false);
+	SampleResult.setSuccessful(true);
+	if (i &gt; iterationsLimit) {
+		OUT.println(&quot;Reached the limit of tries, products added: &quot;+ productInCart);
+		if (productInCart == 0) {
+			SampleResult.setSuccessful(false);
+		}
+	}
+} else {
+	vars.put(&quot;continue&quot;, true);
+}
+
+SampleResult.setResponseMessage(&quot;Looking for product in stock: &quot;+i);
+SampleResult.setResponseCode(&quot;Looking for product in stock: &quot;+i);
+
+//OUT.println(&quot;Sampler skip: &quot;+i + &quot;, products: &quot;+ productInCart);</stringProp>
+          </BSFSampler>
+          <hashTree/>
+        </hashTree>
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>false</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <threadCounts>true</threadCounts>
+            </value>
+          </objProp>
+          <objProp>
+            <name></name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>false</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <threadCounts>true</threadCounts>
+            </value>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
       </hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Address" enabled="false">
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
@@ -2805,7 +3232,7 @@ if (response[&quot;error&quot;] != null) {
           <boolProp name="LoopController.continue_forever">false</boolProp>
           <stringProp name="LoopController.loops">1</stringProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">100</stringProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
         <stringProp name="ThreadGroup.ramp_time">1</stringProp>
         <longProp name="ThreadGroup.start_time">1463741444000</longProp>
         <longProp name="ThreadGroup.end_time">1463741444000</longProp>
@@ -2854,17 +3281,7 @@ if (response[&quot;error&quot;] != null) {
           <boolProp name="HTTPSampler.monitor">false</boolProp>
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
-        <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-        </hashTree>
+        <hashTree/>
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Register" enabled="true">
           <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
@@ -2892,15 +3309,6 @@ if (response[&quot;error&quot;] != null) {
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
           <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="generate random visitor" enabled="true">
             <stringProp name="scriptLanguage">javascript</stringProp>
             <stringProp name="parameters"></stringProp>
@@ -2935,7 +3343,7 @@ var visitor = {
 };
 vars.putObject(&quot;email&quot;, email);
 vars.putObject(&quot;password&quot;, password);
-vars.putObject(&quot;visitor&quot;, JSON.stringify(visitor));
+vars.putObject(&quot;visitor&quot;, visitor);
 vars.putObject(&quot;jsonData&quot;, JSON.stringify(visitor));
 // {&quot;email&quot;: &quot;${email}&quot;,&quot;password&quot;: &quot;${password}&quot;,&quot;fname&quot;: &quot;${fname}&quot;,&quot;lname&quot;: &quot;${lname}&quot;}
 // {&quot;facebook_id&quot;:&quot;&quot;,&quot;google_id&quot;:&quot;&quot;,&quot;email&quot;:&quot;b@i.ua&quot;,&quot;fname&quot;:&quot;A&quot;,&quot;lname&quot;:&quot;B&quot;,&quot;password&quot;:&quot;123123123&quot;}
@@ -2950,10 +3358,10 @@ vars.putObject(&quot;jsonData&quot;, JSON.stringify(visitor));
 
 if (response[&quot;error&quot;] == null) {
 	var visitorSaved = response[&quot;result&quot;];
-	vars.putObject(&quot;visitorS&quot;, JSON.stringify(visitorSaved));
+	vars.putObject(&quot;visitorS&quot;, visitorSaved);
 
 	var visitorID = visitorSaved[&quot;_id&quot;] || visitorSaved[&quot;id&quot;];
-	vars.putObject(&quot;visitor_id&quot;, visitorID);
+	vars.put(&quot;visitor_id&quot;, visitorID);
 }</stringProp>
           </BSFPostProcessor>
           <hashTree/>
@@ -2989,15 +3397,6 @@ if (response[&quot;error&quot;] != null) {
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
           <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
             <stringProp name="scriptLanguage">javascript</stringProp>
             <stringProp name="parameters"></stringProp>
@@ -3016,7 +3415,7 @@ if (response[&quot;error&quot;] != null) {
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;email&quot;: &quot;${email}&quot;,&quot;password&quot;: &quot;${password}&quot;}</stringProp>
+                <stringProp name="Argument.value">${jsonData}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
@@ -3037,15 +3436,6 @@ if (response[&quot;error&quot;] != null) {
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
           <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
             <stringProp name="scriptLanguage">javascript</stringProp>
             <stringProp name="parameters"></stringProp>
@@ -3113,58 +3503,13 @@ if (response[&quot;error&quot;] != null) {
           </BSFPostProcessor>
           <hashTree/>
         </hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get products" enabled="true">
-          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
-            <collectionProp name="Arguments.arguments"/>
-          </elementProp>
-          <stringProp name="HTTPSampler.domain"></stringProp>
-          <stringProp name="HTTPSampler.port"></stringProp>
-          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
-          <stringProp name="HTTPSampler.response_timeout"></stringProp>
-          <stringProp name="HTTPSampler.protocol"></stringProp>
-          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-          <stringProp name="HTTPSampler.path">${BASE_URL}/products</stringProp>
-          <stringProp name="HTTPSampler.method">GET</stringProp>
-          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-          <boolProp name="HTTPSampler.monitor">false</boolProp>
-          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
-        </HTTPSamplerProxy>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Add to cart products" enabled="true">
+          <stringProp name="TestPlan.comments">this if is more like module group</stringProp>
+          <stringProp name="IfController.condition">&quot;true&quot;</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp>
+        </IfController>
         <hashTree>
-          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="get products handler" enabled="true">
-            <stringProp name="scriptLanguage">javascript</stringProp>
-            <stringProp name="parameters"></stringProp>
-            <stringProp name="filename"></stringProp>
-            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
-
-if (response[&quot;error&quot;] == null) {
-	var productsList = JSON.stringify(response[&quot;result&quot;]);
-	vars.putObject(&quot;products&quot;, productsList);
-	// ${__threadNum}
-}
-</stringProp>
-          </BSFPostProcessor>
-          <hashTree/>
-          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
-            <stringProp name="scriptLanguage">javascript</stringProp>
-            <stringProp name="parameters"></stringProp>
-            <stringProp name="filename"></stringProp>
-            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
-
-if (response[&quot;error&quot;] != null) {
-	OUT.println(&quot;get prodcuts, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
-}</stringProp>
-          </BSFPostProcessor>
-          <hashTree/>
-        </hashTree>
-        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
-          <boolProp name="LoopController.continue_forever">true</boolProp>
-          <stringProp name="LoopController.loops">3</stringProp>
-        </LoopController>
-        <hashTree>
-          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get random product" enabled="true">
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get products" enabled="true">
             <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
               <collectionProp name="Arguments.arguments"/>
             </elementProp>
@@ -3174,7 +3519,7 @@ if (response[&quot;error&quot;] != null) {
             <stringProp name="HTTPSampler.response_timeout"></stringProp>
             <stringProp name="HTTPSampler.protocol"></stringProp>
             <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-            <stringProp name="HTTPSampler.path">${BASE_URL}/product/${product_id}</stringProp>
+            <stringProp name="HTTPSampler.path">${BASE_URL}/products</stringProp>
             <stringProp name="HTTPSampler.method">GET</stringProp>
             <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
             <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
@@ -3184,28 +3529,15 @@ if (response[&quot;error&quot;] != null) {
             <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
           </HTTPSamplerProxy>
           <hashTree>
-            <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="find one random" enabled="true">
-              <stringProp name="scriptLanguage">javascript</stringProp>
-              <stringProp name="parameters"></stringProp>
-              <stringProp name="filename"></stringProp>
-              <stringProp name="script">function getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-var productsList = JSON.parse(vars.get(&quot;products&quot;));
-var product = productsList[getRandomInt(0, productsList.length-1)];
-vars.putObject(&quot;product_id&quot;, product[&quot;ID&quot;]);
-vars.putObject(&quot;product&quot;, JSON.stringify(product));</stringProp>
-            </BSFPreProcessor>
-            <hashTree/>
-            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save product handler" enabled="true">
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="get products handler" enabled="true">
               <stringProp name="scriptLanguage">javascript</stringProp>
               <stringProp name="parameters"></stringProp>
               <stringProp name="filename"></stringProp>
               <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
 
 if (response[&quot;error&quot;] == null) {
-	var product = JSON.stringify(response[&quot;result&quot;]);
-	vars.putObject(&quot;product&quot;, product);
+	var productsList = response[&quot;result&quot;];
+	vars.putObject(&quot;products&quot;, productsList);
 	// ${__threadNum}
 }
 </stringProp>
@@ -3218,56 +3550,206 @@ if (response[&quot;error&quot;] == null) {
               <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
 
 if (response[&quot;error&quot;] != null) {
-	OUT.println(&quot;random product, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+	OUT.println(&quot;get prodcuts, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
 }</stringProp>
             </BSFPostProcessor>
             <hashTree/>
           </hashTree>
-          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Add to cart" enabled="true">
-            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
-            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
-              <collectionProp name="Arguments.arguments">
-                <elementProp name="" elementType="HTTPArgument">
-                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                  <stringProp name="Argument.value">${options}</stringProp>
-                  <stringProp name="Argument.metadata">=</stringProp>
-                </elementProp>
-              </collectionProp>
-            </elementProp>
-            <stringProp name="HTTPSampler.domain"></stringProp>
-            <stringProp name="HTTPSampler.port"></stringProp>
-            <stringProp name="HTTPSampler.connect_timeout"></stringProp>
-            <stringProp name="HTTPSampler.response_timeout"></stringProp>
-            <stringProp name="HTTPSampler.protocol"></stringProp>
-            <stringProp name="HTTPSampler.contentEncoding"></stringProp>
-            <stringProp name="HTTPSampler.path">${BASE_URL}/cart/item?pid=${product_id}&amp;qty=${qty}</stringProp>
-            <stringProp name="HTTPSampler.method">POST</stringProp>
-            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
-            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
-            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
-            <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
-            <boolProp name="HTTPSampler.monitor">false</boolProp>
-            <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
-          </HTTPSamplerProxy>
+          <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="init while values" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">vars.put(&quot;continue&quot;, true);
+vars.put(&quot;cart_products&quot;, 0);
+vars.put(&quot;iteration&quot;, 0);</stringProp>
+          </BSFSampler>
+          <hashTree/>
+          <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="Add products to cart" enabled="true">
+            <stringProp name="WhileController.condition">${continue}</stringProp>
+          </WhileController>
           <hashTree>
-            <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="build options" enabled="true">
-              <stringProp name="scriptLanguage">javascript</stringProp>
-              <stringProp name="parameters"></stringProp>
-              <stringProp name="filename"></stringProp>
-              <stringProp name="script">function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
-function randomProperty (obj) {
-    var keys = Object.keys(obj);
-    return obj[keys[ keys.length * Math.random() &lt;&lt; 0]];
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get random product" enabled="true">
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+                <collectionProp name="Arguments.arguments"/>
+              </elementProp>
+              <stringProp name="HTTPSampler.domain"></stringProp>
+              <stringProp name="HTTPSampler.port"></stringProp>
+              <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+              <stringProp name="HTTPSampler.response_timeout"></stringProp>
+              <stringProp name="HTTPSampler.protocol"></stringProp>
+              <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+              <stringProp name="HTTPSampler.path">${BASE_URL}/product/${product_id}</stringProp>
+              <stringProp name="HTTPSampler.method">GET</stringProp>
+              <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+              <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+              <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+              <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+              <boolProp name="HTTPSampler.monitor">false</boolProp>
+              <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="find one random" enabled="true">
+                <stringProp name="scriptLanguage">javascript</stringProp>
+                <stringProp name="parameters"></stringProp>
+                <stringProp name="filename"></stringProp>
+                <stringProp name="script">function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
-function randomKey (obj) {
-    var keys = Object.keys(obj);
-    return keys[keys.length * Math.random() &lt;&lt; 0];
+var productsList = vars.getObject(&quot;products&quot;);
+var product = productsList[getRandomInt(0, productsList.length-1)];
+vars.put(&quot;product_id&quot;, product[&quot;ID&quot;]);
+vars.putObject(&quot;product&quot;, product);</stringProp>
+              </BSFPreProcessor>
+              <hashTree/>
+              <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save product handler" enabled="true">
+                <stringProp name="scriptLanguage">javascript</stringProp>
+                <stringProp name="parameters"></stringProp>
+                <stringProp name="filename"></stringProp>
+                <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var product = response[&quot;result&quot;];
+	vars.putObject(&quot;product&quot;, product);
+
+	var qty = product[&quot;qty&quot;];
+	if (qty != null) {
+		vars.put(&quot;qty&quot;, qty);
+	}
+
+	vars.put(&quot;inStock&quot;, qty &gt; 0);
+	// ${__threadNum}
 }
+</stringProp>
+              </BSFPostProcessor>
+              <hashTree/>
+              <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+                <stringProp name="scriptLanguage">javascript</stringProp>
+                <stringProp name="parameters"></stringProp>
+                <stringProp name="filename"></stringProp>
+                <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;random product, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+              </BSFPostProcessor>
+              <hashTree/>
+            </hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get product stock" enabled="true">
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+                <collectionProp name="Arguments.arguments"/>
+              </elementProp>
+              <stringProp name="HTTPSampler.domain"></stringProp>
+              <stringProp name="HTTPSampler.port"></stringProp>
+              <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+              <stringProp name="HTTPSampler.response_timeout"></stringProp>
+              <stringProp name="HTTPSampler.protocol"></stringProp>
+              <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+              <stringProp name="HTTPSampler.path">${BASE_URL}/stock/${product_id}</stringProp>
+              <stringProp name="HTTPSampler.method">GET</stringProp>
+              <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+              <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+              <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+              <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+              <boolProp name="HTTPSampler.monitor">false</boolProp>
+              <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+            </HTTPSamplerProxy>
+            <hashTree>
+              <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save stock records for product" enabled="true">
+                <stringProp name="scriptLanguage">javascript</stringProp>
+                <stringProp name="parameters"></stringProp>
+                <stringProp name="filename"></stringProp>
+                <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var stock = response[&quot;result&quot;];
+	vars.putObject(&quot;stock&quot;, stock);
+	// ${__threadNum}
+}</stringProp>
+              </BSFPostProcessor>
+              <hashTree/>
+              <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+                <stringProp name="scriptLanguage">javascript</stringProp>
+                <stringProp name="parameters"></stringProp>
+                <stringProp name="filename"></stringProp>
+                <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;product stock, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+              </BSFPostProcessor>
+              <hashTree/>
+            </hashTree>
+            <IfController guiclass="IfControllerPanel" testclass="IfController" testname="If product is in stock" enabled="true">
+              <stringProp name="IfController.condition">${inStock}</stringProp>
+              <boolProp name="IfController.evaluateAll">false</boolProp>
+            </IfController>
+            <hashTree>
+              <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="init while values" enabled="true">
+                <stringProp name="scriptLanguage">javascript</stringProp>
+                <stringProp name="parameters"></stringProp>
+                <stringProp name="filename"></stringProp>
+                <stringProp name="script">vars.put(&quot;product_add&quot;, true);
+vars.put(&quot;iteration1&quot;, 0);</stringProp>
+              </BSFSampler>
+              <hashTree/>
+              <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="Try to add product with different options" enabled="true">
+                <stringProp name="WhileController.condition">${product_add}</stringProp>
+              </WhileController>
+              <hashTree>
+                <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Add to cart" enabled="true">
+                  <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+                  <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+                    <collectionProp name="Arguments.arguments">
+                      <elementProp name="" elementType="HTTPArgument">
+                        <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                        <stringProp name="Argument.value">${options}</stringProp>
+                        <stringProp name="Argument.metadata">=</stringProp>
+                      </elementProp>
+                    </collectionProp>
+                  </elementProp>
+                  <stringProp name="HTTPSampler.domain"></stringProp>
+                  <stringProp name="HTTPSampler.port"></stringProp>
+                  <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+                  <stringProp name="HTTPSampler.response_timeout"></stringProp>
+                  <stringProp name="HTTPSampler.protocol"></stringProp>
+                  <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+                  <stringProp name="HTTPSampler.path">${BASE_URL}/cart/item?pid=${product_id}&amp;qty=${qty}</stringProp>
+                  <stringProp name="HTTPSampler.method">POST</stringProp>
+                  <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+                  <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+                  <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+                  <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+                  <boolProp name="HTTPSampler.monitor">false</boolProp>
+                  <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+                </HTTPSamplerProxy>
+                <hashTree>
+                  <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="build options" enabled="true">
+                    <stringProp name="scriptLanguage">javascript</stringProp>
+                    <stringProp name="parameters"></stringProp>
+                    <stringProp name="filename"></stringProp>
+                    <stringProp name="script">var product = vars.getObject(&quot;product&quot;) || {};
+
+//OUT.println(JSON.stringify(product));
+// executed before assign as there can be issue
+if (!vars.getObject(&quot;product&quot;)) {
+	var productsList = vars.getObject(&quot;products&quot;);
+	var product = productsList[getRandomInt(0, productsList.length)];
+	vars.put(&quot;product_id&quot;, product[&quot;ID&quot;]);
+	vars.putObject(&quot;product&quot;, product);
+}
+
+var options = getOptions(product);
+//OUT.println(JSON.stringify(options));
+var stock = vars.getObject(&quot;stock&quot;); // [{&quot;options&quot;{}, &quot;qty&quot;:2}]
+// handle qty selection value to be in range of available in stock
+vars.putObject(&quot;qty&quot;, JSON.stringify(1));
+vars.putObject(&quot;options&quot;, JSON.stringify(options));
 
 function getOptions(product) {
 	var result = {};
 	if (!product){	OUT.println(&quot;product not passed&quot;); return result;	}
 	var options = product[&quot;options&quot;] || {};
+	//OUT.println(JSON.stringify(options));
 	for (var optionName in options) {
 		var option = options[optionName] || {};
 		// this will trigger to make options only for required and with 50% for not required
@@ -3291,33 +3773,95 @@ function getOptions(product) {
 	
 	return result;
 }
-
-// executed before assign as there can be isse 
-if (!vars.get(&quot;product&quot;)) {
-	var productsList = JSON.parse(vars.get(&quot;products&quot;));
-	var product = productsList[getRandomInt(0, productsList.length)];
-	vars.putObject(&quot;product_id&quot;, product[&quot;ID&quot;]);
-	vars.putObject(&quot;product&quot;, JSON.stringify(product));
+function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randomProperty (obj) {
+    var keys = Object.keys(obj);
+    return obj[keys[ keys.length * Math.random() &lt;&lt; 0]];
+}
+function randomKey (obj) {
+    var keys = Object.keys(obj);
+    return keys[keys.length * Math.random() &lt;&lt; 0];
 }
 
-var product = JSON.parse(vars.get(&quot;product&quot;));
-var options = getOptions(product);
+function compare (a,b){
+	if (a==b) return true;
+	if ((a==null || b == null) &amp;&amp; (a != null || b != null)) return false
+	var type = typeof a;
+	if (type != typeof b) return false;
+	switch (type){
+		case &quot;object&quot;:
+			for (var key in a){
+				if (a[key] != b[key]) return false
+			}
+			break;
+		default:
+			return a==b;
+	}
+	return true;
+}</stringProp>
+                  </BSFPreProcessor>
+                  <hashTree/>
+                  <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="add to cart handler" enabled="true">
+                    <stringProp name="scriptLanguage">javascript</stringProp>
+                    <stringProp name="parameters"></stringProp>
+                    <stringProp name="filename"></stringProp>
+                    <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
 
-vars.putObject(&quot;qty&quot;, JSON.stringify(2));
-vars.putObject(&quot;options&quot;, JSON.stringify(options));</stringProp>
-            </BSFPreProcessor>
-            <hashTree/>
-            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="add to cart handler" enabled="true">
+if (response[&quot;error&quot;] != null) {
+	// no need to print a lot of such messages as they are pretty common to aapear
+	//OUT.println(&quot;add to cart, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+} else {
+	var productInCart = parseInt(vars.get(&quot;cart_products&quot;));
+	vars.put(&quot;cart_products&quot;, productInCart+1);
+	vars.put(&quot;product_add&quot;, false);
+}
+</stringProp>
+                  </BSFPostProcessor>
+                  <hashTree/>
+                </hashTree>
+                <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="iteration controller" enabled="true">
+                  <stringProp name="scriptLanguage">javascript</stringProp>
+                  <stringProp name="parameters"></stringProp>
+                  <stringProp name="filename"></stringProp>
+                  <stringProp name="script">var i = parseInt(vars.get(&quot;iteration1&quot;)) || 0;
+vars.put(&quot;iteration1&quot;, ++i);
+if (i &gt;= 10) {
+	vars.put(&quot;product_add&quot;, false);	
+}
+//OUT.println(&quot;Products options: &quot;+i);</stringProp>
+                </BSFSampler>
+                <hashTree/>
+              </hashTree>
+            </hashTree>
+            <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="iteration controller" enabled="true">
               <stringProp name="scriptLanguage">javascript</stringProp>
               <stringProp name="parameters"></stringProp>
               <stringProp name="filename"></stringProp>
-              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+              <stringProp name="script">var requiredProductsNum = 2;
+var iterationsLimit = 20;
 
-if (response[&quot;error&quot;] != null) {
-	OUT.println(&quot;add to cart, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+var i = parseInt(vars.get(&quot;iteration&quot;)) || 0;
+var productInCart = parseInt(vars.get(&quot;cart_products&quot;));
+vars.put(&quot;iteration&quot;, ++i);
+
+if (productInCart &gt;= requiredProductsNum || i &gt;= 100) {
+	vars.put(&quot;continue&quot;, false);
+	SampleResult.setSuccessful(true);
+	if (i &gt; iterationsLimit) {
+		OUT.println(&quot;Reached the limit of tries, products added: &quot;+ productInCart);
+		if (productInCart == 0) {
+			SampleResult.setSuccessful(false);
+		}
+	}
+} else {
+	vars.put(&quot;continue&quot;, true);
 }
-</stringProp>
-            </BSFPostProcessor>
+
+SampleResult.setResponseMessage(&quot;Looking for product in stock: &quot;+i);
+SampleResult.setResponseCode(&quot;Looking for product in stock: &quot;+i);
+
+//OUT.println(&quot;Sampler skip: &quot;+i + &quot;, products: &quot;+ productInCart);</stringProp>
+            </BSFSampler>
             <hashTree/>
           </hashTree>
         </hashTree>
@@ -3340,28 +3884,18 @@ if (response[&quot;error&quot;] != null) {
           <boolProp name="HTTPSampler.monitor">false</boolProp>
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
-        <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-        </hashTree>
+        <hashTree/>
         <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="select addresses (onestep)" enabled="true">
           <stringProp name="scriptLanguage">javascript</stringProp>
           <stringProp name="parameters"></stringProp>
           <stringProp name="filename"></stringProp>
-          <stringProp name="script">var address = JSON.parse(vars.getObject(&quot;address&quot;));
+          <stringProp name="script">var address = vars.getObject(&quot;address&quot;);
 var requiredKeys = [&quot;country&quot;, &quot;state&quot;, &quot;zip_code&quot;, &quot;address_line1&quot;, &quot;first_name&quot;, &quot;last_name&quot;];
 if (address == null) {
 	var addresses = vars.getObject(&quot;ADDRESSES&quot;);
-	var address = addresses[Math.floor((Math.random() * addresses.length))];
+	var address = addresses ? addresses[Math.floor((Math.random() * addresses.length))] : {};
 	
-	var visitor = JSON.parse(vars.getObject(&quot;visitorS&quot;));
+	var visitor = vars.getObject(&quot;visitorS&quot;);
 	
 	if (visitor != null &amp;&amp; visitor.length &gt; 0) {
 		address[&quot;visitor_id&quot;] = visitor[&quot;_id&quot;];
@@ -3381,12 +3915,12 @@ for (var i = 0; i &lt; requiredKeys.length; i++){
 	}
 }
 
-vars.putObject(&quot;address&quot;, JSON.stringify(address));
-var checkout = JSON.parse(vars.getObject(&quot;checkout&quot;)) || {};
+vars.putObject(&quot;address&quot;, address);
+var checkout = vars.getObject(&quot;checkout&quot;) || {};
 
 checkout[&quot;shipping_address&quot;] = address;
 checkout[&quot;billing_address&quot;] = address;
-vars.putObject(&quot;checkout&quot;, JSON.stringify(checkout));</stringProp>
+vars.putObject(&quot;checkout&quot;, checkout);</stringProp>
         </BSFSampler>
         <hashTree/>
         <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="select shipping method  (onestep)" enabled="true">
@@ -3409,15 +3943,6 @@ vars.putObject(&quot;checkout&quot;, JSON.stringify(checkout));</stringProp>
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
           <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="handle shipping method selection" enabled="true">
             <stringProp name="scriptLanguage">javascript</stringProp>
             <stringProp name="parameters"></stringProp>
@@ -3426,7 +3951,7 @@ vars.putObject(&quot;checkout&quot;, JSON.stringify(checkout));</stringProp>
 
 if (response[&quot;error&quot;] == null) {
 	var shippingMethods = response[&quot;result&quot;];
-	vars.putObject(&quot;shippingMethods&quot;, JSON.stringify(shippingMethods));
+	vars.putObject(&quot;shippingMethods&quot;, shippingMethods);
 
 	// select shipping method and assign it to checkout
 	var selectedShipping = &quot;flat_rate&quot;;
@@ -3453,11 +3978,11 @@ if (response[&quot;error&quot;] == null) {
 		}
 	}
 	
-	var checkout = JSON.parse(vars.getObject(&quot;checkout&quot;)) || {};
+	var checkout = vars.getObject(&quot;checkout&quot;) || {};
 	
 	checkout[&quot;shipping_method&quot;] = selectedShipping;
 	checkout[&quot;shipping_rate&quot;] = selectedShippingRate;
-	vars.putObject(&quot;checkout&quot;, JSON.stringify(checkout));
+	vars.putObject(&quot;checkout&quot;, checkout);
 }</stringProp>
           </BSFPostProcessor>
           <hashTree/>
@@ -3493,15 +4018,6 @@ if (response[&quot;error&quot;] != null) {
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
           <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="handle payment selection" enabled="true">
             <stringProp name="scriptLanguage">javascript</stringProp>
             <stringProp name="parameters"></stringProp>
@@ -3511,7 +4027,7 @@ if (response[&quot;error&quot;] != null) {
 if (response[&quot;error&quot;] == null) {
 	var paymentMethods = response[&quot;result&quot;];
 	
-	vars.putObject(&quot;paymentMethods&quot;, JSON.stringify(paymentMethods));
+	vars.putObject(&quot;paymentMethods&quot;, paymentMethods);
 
 	// select shipping method and assign it to checkout
 	var selectedPayment = &quot;checkmo&quot;;
@@ -3538,7 +4054,7 @@ if (response[&quot;error&quot;] == null) {
 	
 	// OUT.println(&quot;3 &quot;+selectedPayment);
 	
-	var checkout = JSON.parse(vars.getObject(&quot;checkout&quot;)) || {};
+	var checkout = vars.getObject(&quot;checkout&quot;) || {};
 	if (ccPayment) {
 		// add cc to checkout
 		// &quot;cc&quot;:{&quot;type&quot;:&quot;VI&quot;, &quot;number&quot;:&quot;4111111111111111&quot;, &quot;expire_month&quot;:&quot;12&quot;, &quot;expire_year&quot;:&quot;2016&quot;}
@@ -3552,7 +4068,7 @@ if (response[&quot;error&quot;] == null) {
 	}
 	
 	checkout[&quot;payment_method&quot;] = selectedPayment;
-	vars.putObject(&quot;checkout&quot;, JSON.stringify(checkout));
+	vars.putObject(&quot;checkout&quot;, checkout);
 	//OUT.println(JSON.stringify(checkout));
 }
 // &quot;[{&quot;Name&quot;:&quot;Zero Amount Payment&quot;,&quot;Code&quot;:&quot;zeropay&quot;,&quot;Type&quot;:&quot;simple&quot;,&quot;Tokenable&quot;:false},{&quot;Name&quot;:&quot;Authorize.Net (Direct Post)&quot;,&quot;Code&quot;:&quot;authorizeNetDPM&quot;,&quot;Type&quot;:&quot;post_cc&quot;,&quot;Tokenable&quot;:false},{&quot;Name&quot;:&quot;Check/Money Order&quot;,&quot;Code&quot;:&quot;checkmo&quot;,&quot;Type&quot;:&quot;simple&quot;,&quot;Tokenable&quot;:false},{&quot;Name&quot;:&quot;PayPal&quot;,&quot;Code&quot;:&quot;paypal_express&quot;,&quot;Type&quot;:&quot;remote&quot;,&quot;Tokenable&quot;:false},{&quot;Name&quot;:&quot;Credit Card Direct Payment&quot;,&quot;Code&quot;:&quot;paypal_payflow&quot;,&quot;Type&quot;:&quot;cc&quot;,&quot;Tokenable&quot;:true}]&quot;</stringProp>
@@ -3598,20 +4114,11 @@ if (response[&quot;error&quot;] != null) {
           <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
-            <collectionProp name="HeaderManager.headers">
-              <elementProp name="" elementType="Header">
-                <stringProp name="Header.name">Content-Type</stringProp>
-                <stringProp name="Header.value">application/json</stringProp>
-              </elementProp>
-            </collectionProp>
-          </HeaderManager>
-          <hashTree/>
-          <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="BSF PreProcessor" enabled="true">
+          <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="put cehckout to json data" enabled="true">
             <stringProp name="scriptLanguage">javascript</stringProp>
             <stringProp name="parameters"></stringProp>
             <stringProp name="filename"></stringProp>
-            <stringProp name="script">vars.putObject(&quot;jsonData&quot;, vars.getObject(&quot;checkout&quot;));
+            <stringProp name="script">vars.putObject(&quot;jsonData&quot;, JSON.stringify(vars.getObject(&quot;checkout&quot;)));
 
 
 /*
@@ -3623,7 +4130,7 @@ if (response[&quot;error&quot;] != null) {
  */</stringProp>
           </BSFPreProcessor>
           <hashTree/>
-          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="BSF PostProcessor" enabled="true">
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="handle checkout post" enabled="true">
             <stringProp name="scriptLanguage">javascript</stringProp>
             <stringProp name="parameters"></stringProp>
             <stringProp name="filename"></stringProp>
@@ -3766,6 +4273,954 @@ if (response[&quot;error&quot;] != null) {
               <bytes>true</bytes>
               <threadCounts>true</threadCounts>
             </value>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+        <ResultCollector guiclass="StatGraphVisualizer" testclass="ResultCollector" testname="Aggregate Graph" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>false</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <threadCounts>true</threadCounts>
+            </value>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Configurable process" enabled="false">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">1</stringProp>
+        </elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <longProp name="ThreadGroup.start_time">1463741444000</longProp>
+        <longProp name="ThreadGroup.end_time">1463741444000</longProp>
+        <boolProp name="ThreadGroup.scheduler">false</boolProp>
+        <stringProp name="ThreadGroup.duration"></stringProp>
+        <stringProp name="ThreadGroup.delay"></stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="Init config values" enabled="true">
+          <stringProp name="scriptLanguage">javascript</stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="script">
+
+var config = {
+	base_URL: &quot;http://192.168.56.101:3000&quot;
+};
+
+config.visitor = {
+	registered: false,
+	first_name: &quot;Jon&quot;,
+	last_name: &quot;Chen&quot;,
+	email: &quot;JonChen@example.com&quot;,
+	password: &quot;ABC123@abcd&quot;,
+	address: {
+		first_name: &quot;Jon&quot;,
+		last_name: &quot;Chen&quot;,
+		country: &quot;US&quot;,
+		state: &quot;GA&quot;,
+		zip_code: &quot;30144&quot;,
+		city: &quot;Kennesaw&quot;,
+		address_line1: &quot;4255 Wade Green Rd&quot;,
+		address_line2: &quot;#110&quot;,
+		phone:&quot;123&quot;
+	}
+};
+
+config.cart = {
+	add_products: true,
+	products: [
+		{
+			id: &quot;5511ff1cd4a2560a1400000e&quot;,
+			qty: 1,
+			options : {&quot;Subscription&quot;:&quot;Just Once&quot;,&quot;Scent&quot;:&quot;The KG System with Rose Hydrating Tonic&quot;}
+		},
+		{	
+			id: &quot;5511ff1cd4a2560a1400000e&quot;,
+			qty: 2,
+			options: {&quot;Subscription&quot;:&quot;Just Once&quot;,&quot;Scent&quot;:&quot;The KG System with Lavender Hydrating Tonic&quot;,&quot;Gift Wrap&quot;:[&quot;Gift Wrap&quot;]}	
+		}
+	]
+};
+
+config.checkout = {
+	shipping_method: &quot;flat_rate&quot;,
+	shipping_rate: &quot;default&quot;,
+	payment_method: &quot;checkmo&quot;
+};
+
+vars.putObject(&quot;config&quot;, config);
+//OUT.println(&quot;config: &quot;+JSON.stringify(config));
+
+// collect simple flags to top level
+vars.put(&quot;BASE_URL&quot;, config.base_URL);
+vars.put(&quot;is_registered&quot;, config.visitor.registered);
+vars.put(&quot;email&quot;, config.visitor.email);
+vars.put(&quot;password&quot;, config.visitor.password);
+
+
+</stringProp>
+        </BSFPreProcessor>
+        <hashTree/>
+        <CookieManager guiclass="CookiePanel" testclass="CookieManager" testname="HTTP Cookie Manager" enabled="true">
+          <collectionProp name="CookieManager.cookies"/>
+          <boolProp name="CookieManager.clearEachIteration">false</boolProp>
+        </CookieManager>
+        <hashTree/>
+        <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="set json" enabled="true">
+          <collectionProp name="HeaderManager.headers">
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Content-Type</stringProp>
+              <stringProp name="Header.value">application/json</stringProp>
+            </elementProp>
+          </collectionProp>
+        </HeaderManager>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="rts visit" enabled="false">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">{path: &quot;test-page-1&quot;, referrer: &quot;loolge.com&quot;}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/rts/visit</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Register" enabled="false">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">${jsonData}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/visitors/register</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="generate random visitor" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">function getRandomInt(min, max) {return Math.floor(Math.random() * (max - min + 1)) + min;}
+function getPass(length) {	if (!length) {		length = 8;	}
+	var charset = &quot;abcdefghijklnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789&quot;,
+	n = charset.length
+	result = &quot;&quot;;
+	for (var i = 0; i &lt; length; i++) {
+		result += charset.charAt(n*Math.random()&lt;&lt;0);
+	}
+    return result;
+}
+
+var domains=[&quot;@example.com&quot;, &quot;@example.org&quot;, &quot;@example.net&quot;]
+var names=[&quot;Mack&quot;, &quot;Carlo&quot;, &quot;Luke&quot;, &quot;Isidra&quot;, &quot;Kathline&quot;, &quot;Alonso&quot;, &quot;Wenona&quot;, &quot;Lovetta&quot;, &quot;Yasuko&quot;, &quot;Kathlyn&quot;, &quot;Wei&quot;, &quot;Manuel&quot;, &quot;Maxine&quot;, &quot;Nikia&quot;, &quot;Charita&quot;, &quot;Derick&quot;, &quot;Miesha&quot;, &quot;Vertie&quot;, &quot;Stanford&quot;, &quot;Giuseppe&quot;, &quot;Eldridge&quot;, &quot;Cheree&quot;, &quot;Yolanda&quot;, &quot;Christeen&quot;, &quot;Olive&quot;, &quot;Lavona&quot;, &quot;Shaniqua&quot;, &quot;Rosio&quot;, &quot;Pandora&quot;, &quot;Claris&quot;, &quot;Jose&quot;, &quot;Willis&quot;, &quot;Lady&quot;, &quot;Natacha&quot;, &quot;Cristi&quot;, &quot;Gary&quot;, &quot;Jeanene&quot;, &quot;Esta&quot;, &quot;Delena&quot;, &quot;Suzi&quot;, &quot;Angelique&quot;, &quot;Hyon&quot;, &quot;Shera&quot;, &quot;Malinda&quot;, &quot;Florinda&quot;, &quot;Carry&quot;, &quot;Caroline&quot;, &quot;Evangeline&quot;, &quot;Jeanett&quot;, &quot;Judy&quot;, &quot;Kelley&quot;, &quot;Kimbery&quot;, &quot;Sherwood&quot;, &quot;Christin&quot;, &quot;Felix&quot;, &quot;Collin&quot;, &quot;Makeda&quot;, &quot;Melani&quot;, &quot;Chau&quot;, &quot;Eleni&quot;, &quot;Senaida&quot;, &quot;Jolynn&quot;, &quot;Candace&quot;, &quot;Myrtice&quot;, &quot;Delana&quot;, &quot;Lynell&quot;, &quot;Dave&quot;, &quot;Wan&quot;, &quot;Angelia&quot;, &quot;Leena&quot;, &quot;Stephane&quot;, &quot;Lekisha&quot;, &quot;Carlene&quot;, &quot;Alice&quot;, &quot;Merideth&quot;, &quot;Antony&quot;, &quot;Ginger&quot;, &quot;Jennie&quot;, &quot;Kimber&quot;, &quot;Ai&quot;, &quot;Ladawn&quot;, &quot;Deandrea&quot;, &quot;Alyssa&quot;, &quot;Sommer&quot;, &quot;Mitchel&quot;, &quot;Kesha&quot;, &quot;Dalene&quot;, &quot;Cody&quot;, &quot;Errol&quot;, &quot;Christen&quot;, &quot;Carman&quot;, &quot;Kaye&quot;, &quot;Maximina&quot;, &quot;Alverta&quot;, &quot;Delinda&quot;, &quot;Lurlene&quot;, &quot;Almeda&quot;, &quot;Adelaide&quot;];
+var lastNames=[&quot;Moorhouse&quot;, &quot;Casella&quot;, &quot;Leaman&quot;, &quot;Infante&quot;, &quot;Kang&quot;, &quot;Andreotti&quot;, &quot;Weatherspoon&quot;, &quot;Leicht&quot;, &quot;Yowell&quot;, &quot;Kanode&quot;, &quot;Waag&quot;, &quot;Maya&quot;, &quot;Michalik&quot;, &quot;Natera&quot;, &quot;Cueva&quot;, &quot;Delarosa&quot;, &quot;Macey&quot;, &quot;Volpe&quot;, &quot;Staller&quot;, &quot;Gin&quot;, &quot;Espiritu&quot;, &quot;Chivers&quot;, &quot;Yankey&quot;, &quot;Carpenter&quot;, &quot;Okafor&quot;, &quot;Landsman&quot;, &quot;Sheen&quot;, &quot;Rosenfeld&quot;, &quot;Prine&quot;, &quot;Carstensen&quot;, &quot;Jiang&quot;, &quot;Warner&quot;, &quot;Lanterman&quot;, &quot;Nowicki&quot;, &quot;Chittenden&quot;, &quot;Gash&quot;, &quot;Jimerson&quot;, &quot;Edgecomb&quot;, &quot;Demaris&quot;, &quot;Sevigny&quot;, &quot;Ayon&quot;, &quot;Hennis&quot;, &quot;Sapienza&quot;, &quot;Manwaring&quot;, &quot;Faul&quot;, &quot;Crooms&quot;, &quot;Casey&quot;, &quot;Eskridge&quot;, &quot;Julian&quot;, &quot;Jacobsen&quot;, &quot;Knopp&quot;, &quot;Kruger&quot;, &quot;Stoops&quot;, &quot;Conley&quot;, &quot;Fordyce&quot;, &quot;Croce&quot;, &quot;Mccarley&quot;, &quot;Mckeon&quot;, &quot;Check&quot;, &quot;Evitt&quot;, &quot;Schumacher&quot;, &quot;Jacko&quot;, &quot;Catto&quot;, &quot;Mayor&quot;, &quot;Daum&quot;, &quot;Linde&quot;, &quot;Nauman&quot;, &quot;Dempster&quot;, &quot;Wynn&quot;, &quot;Sperry&quot;, &quot;Alvey&quot;, &quot;Larock&quot;, &quot;Stimson&quot;, &quot;Leveque&quot;, &quot;Cassel&quot;, &quot;Abalos&quot;, &quot;Myerson&quot;, &quot;Abe&quot;, &quot;Gillock&quot;, &quot;Jessop&quot;, &quot;Kendra&quot;, &quot;Arebalo&quot;, &quot;Lipinski&quot;, &quot;Doody&quot;, &quot;Acker&quot;, &quot;Schuch&quot;, &quot;Masser&quot;, &quot;Kopecky&quot;, &quot;Devore&quot;, &quot;Cannady&quot;, &quot;Egnor&quot;, &quot;Celestine&quot;, &quot;Cogburn&quot;, &quot;Kissel&quot;, &quot;Mccarron&quot;, &quot;Ables&quot;, &quot;Denney&quot;, &quot;Loh&quot;, &quot;Audette&quot;, &quot;Angers&quot;];
+
+var n = names.length;
+var fname = names[n*Math.random()&lt;&lt;0];
+n = lastNames.length;
+var lname = names[n*Math.random()&lt;&lt;0];
+n = 999;
+var email = fname + lname + (n*Math.random()&lt;&lt;0) + domains[0];
+var password = getPass();
+var visitor = {
+	&quot;fname&quot;: fname,
+	&quot;lname&quot;: lname,
+	&quot;email&quot;: email,
+	&quot;password&quot;: password
+};
+vars.putObject(&quot;email&quot;, email);
+vars.putObject(&quot;password&quot;, password);
+vars.putObject(&quot;visitor&quot;, visitor);
+vars.putObject(&quot;jsonData&quot;, JSON.stringify(visitor));
+// {&quot;email&quot;: &quot;${email}&quot;,&quot;password&quot;: &quot;${password}&quot;,&quot;fname&quot;: &quot;${fname}&quot;,&quot;lname&quot;: &quot;${lname}&quot;}
+// {&quot;facebook_id&quot;:&quot;&quot;,&quot;google_id&quot;:&quot;&quot;,&quot;email&quot;:&quot;b@i.ua&quot;,&quot;fname&quot;:&quot;A&quot;,&quot;lname&quot;:&quot;B&quot;,&quot;password&quot;:&quot;123123123&quot;}
+</stringProp>
+          </BSFPreProcessor>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save visitor" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var visitorSaved = response[&quot;result&quot;];
+	vars.putObject(&quot;visitorS&quot;, visitorSaved);
+
+	var visitorID = visitorSaved[&quot;_id&quot;] || visitorSaved[&quot;id&quot;];
+	vars.put(&quot;visitor_id&quot;, visitorID);
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;visitor, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Log out (storefront)" enabled="false">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/visit/logout</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;visitor, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Log in (storefront)" enabled="false">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">${jsonData}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/visit/login</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;visitor, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get visitor info" enabled="false">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/visit</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP Header Manager" enabled="true">
+            <collectionProp name="HeaderManager.headers">
+              <elementProp name="" elementType="Header">
+                <stringProp name="Header.name">Content-Type</stringProp>
+                <stringProp name="Header.value">application/json</stringProp>
+              </elementProp>
+            </collectionProp>
+          </HeaderManager>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="BSF PostProcessor" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+vars.putObject(&quot;visitorID&quot;, null);
+if (response[&quot;result&quot;] != null) {
+	var result = response[&quot;result&quot;];
+	vars.putObject(&quot;visitorID&quot;, result[&quot;_id&quot;]);
+}
+// /visitor/:visitorID</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;visitor, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get products" enabled="false">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/products</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="get products handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var productsList = response[&quot;result&quot;];
+	vars.putObject(&quot;products&quot;, productsList);
+	// ${__threadNum}
+}
+</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;get prodcuts, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <LoopController guiclass="LoopControlPanel" testclass="LoopController" testname="Add prodcuts" enabled="false">
+          <boolProp name="LoopController.continue_forever">true</boolProp>
+          <stringProp name="LoopController.loops">2</stringProp>
+        </LoopController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Get random product" enabled="true">
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+              <collectionProp name="Arguments.arguments"/>
+            </elementProp>
+            <stringProp name="HTTPSampler.domain"></stringProp>
+            <stringProp name="HTTPSampler.port"></stringProp>
+            <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+            <stringProp name="HTTPSampler.response_timeout"></stringProp>
+            <stringProp name="HTTPSampler.protocol"></stringProp>
+            <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+            <stringProp name="HTTPSampler.path">${BASE_URL}/product/${product_id}</stringProp>
+            <stringProp name="HTTPSampler.method">GET</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+            <boolProp name="HTTPSampler.monitor">false</boolProp>
+            <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="find one random" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+var productsList = vars.getObject(&quot;products&quot;);
+var product = productsList[getRandomInt(0, productsList.length-1)];
+vars.put(&quot;product_id&quot;, product[&quot;ID&quot;]);
+vars.putObject(&quot;product&quot;, product);</stringProp>
+            </BSFPreProcessor>
+            <hashTree/>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="save product handler" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var product = response[&quot;result&quot;];
+	vars.putObject(&quot;product&quot;, product);
+	// ${__threadNum}
+}
+</stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;random product, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+          </hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Add to cart" enabled="true">
+            <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+              <collectionProp name="Arguments.arguments">
+                <elementProp name="" elementType="HTTPArgument">
+                  <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                  <stringProp name="Argument.value">${options}</stringProp>
+                  <stringProp name="Argument.metadata">=</stringProp>
+                </elementProp>
+              </collectionProp>
+            </elementProp>
+            <stringProp name="HTTPSampler.domain"></stringProp>
+            <stringProp name="HTTPSampler.port"></stringProp>
+            <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+            <stringProp name="HTTPSampler.response_timeout"></stringProp>
+            <stringProp name="HTTPSampler.protocol"></stringProp>
+            <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+            <stringProp name="HTTPSampler.path">${BASE_URL}/cart/item?pid=${product_id}&amp;qty=${qty}</stringProp>
+            <stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+            <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+            <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+            <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+            <boolProp name="HTTPSampler.monitor">false</boolProp>
+            <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="build options" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randomProperty (obj) {
+    var keys = Object.keys(obj);
+    return obj[keys[ keys.length * Math.random() &lt;&lt; 0]];
+}
+function randomKey (obj) {
+    var keys = Object.keys(obj);
+    return keys[keys.length * Math.random() &lt;&lt; 0];
+}
+
+function getOptions(product) {
+	var result = {};
+	if (!product){	OUT.println(&quot;product not passed&quot;); return result;	}
+	var options = product[&quot;options&quot;] || {};
+	for (var optionName in options) {
+		var option = options[optionName] || {};
+		// this will trigger to make options only for required and with 50% for not required
+		if (!option[&quot;required&quot;] &amp;&amp; Math.random() &gt;= 0.5) {continue;}
+
+		var optionValue = &quot;&quot;;
+		switch (option[&quot;type&quot;]){
+			case &quot;field&quot;: 
+			optionValue = &quot;dummyText&quot;;
+			case &quot;date&quot;:
+			optionValue = new Date().toJSON() || &quot;dummyDate&quot;;
+			case &quot;select&quot;:
+			optionValue = randomKey(option[&quot;options&quot;] || {}) || &quot;dummyProperty&quot;;
+			case &quot;multi_select&quot;:
+			optionValue = randomKey(option[&quot;options&quot;] || {}) || &quot;dummyProperty&quot;;
+			case &quot;radio&quot;:
+			optionValue = randomKey(option[&quot;options&quot;] || {}) || &quot;dummyProperty&quot;;
+		}
+		result[optionName] = optionValue;
+	}
+	
+	return result;
+}
+
+// executed before assign as there can be issue 
+if (!vars.getObject(&quot;product&quot;)) {
+	var productsList = vars.getObject(&quot;products&quot;);
+	var product = productsList[getRandomInt(0, productsList.length)];
+	vars.put(&quot;product_id&quot;, product[&quot;ID&quot;]);
+	vars.putObject(&quot;product&quot;, product);
+}
+
+var product = vars.getObject(&quot;product&quot;) || {};
+var options = getOptions(product);
+// OUT.println(JSON.stringify(options));
+
+vars.putObject(&quot;qty&quot;, JSON.stringify(1));
+vars.putObject(&quot;options&quot;, JSON.stringify(options));</stringProp>
+            </BSFPreProcessor>
+            <hashTree/>
+            <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="add to cart handler" enabled="true">
+              <stringProp name="scriptLanguage">javascript</stringProp>
+              <stringProp name="parameters"></stringProp>
+              <stringProp name="filename"></stringProp>
+              <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;add to cart, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}
+</stringProp>
+            </BSFPostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="get checkout" enabled="false">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/checkout</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree/>
+        <BSFSampler guiclass="TestBeanGUI" testclass="BSFSampler" testname="select addresses (onestep)" enabled="false">
+          <stringProp name="scriptLanguage">javascript</stringProp>
+          <stringProp name="parameters"></stringProp>
+          <stringProp name="filename"></stringProp>
+          <stringProp name="script">var address = vars.getObject(&quot;address&quot;);
+var requiredKeys = [&quot;country&quot;, &quot;state&quot;, &quot;zip_code&quot;, &quot;address_line1&quot;, &quot;first_name&quot;, &quot;last_name&quot;];
+if (address == null) {
+	var addresses = vars.getObject(&quot;ADDRESSES&quot;);
+	var address = addresses ? addresses[Math.floor((Math.random() * addresses.length))] : {};
+	
+	var visitor = vars.getObject(&quot;visitorS&quot;);
+	
+	if (visitor != null &amp;&amp; visitor.length &gt; 0) {
+		address[&quot;visitor_id&quot;] = visitor[&quot;_id&quot;];
+		address[&quot;first_name&quot;] = visitor[&quot;first_name&quot;];
+		address[&quot;last_name&quot;] = visitor[&quot;last_name&quot;];
+	}//{&quot;state&quot;:&quot;Al&quot;, &quot;zip_code&quot;:&quot;00000&quot;, &quot;address_line2&quot;:&quot;&quot;, &quot;company&quot;:&quot;S&quot;, &quot;country&quot;:&quot;US&quot;, &quot;last_name&quot;:&quot;One&quot;, &quot;phone&quot;:&quot;123&quot;, &quot;address_line1&quot;:&quot;Test&quot;, &quot;city&quot;:&quot;Test&quot;, &quot;first_name&quot;:&quot;Test&quot;}
+}
+// should make some values for required keys
+function getValue (key) {
+	return &quot;test&quot;;
+}
+
+for (var i = 0; i &lt; requiredKeys.length; i++){
+	var key = requiredKeys[i];
+	if (address[key] == null) {
+		address[key] = getValue(key);
+	}
+}
+
+vars.putObject(&quot;address&quot;, address);
+var checkout = vars.getObject(&quot;checkout&quot;) || {};
+
+checkout[&quot;shipping_address&quot;] = address;
+checkout[&quot;billing_address&quot;] = address;
+vars.putObject(&quot;checkout&quot;, checkout);</stringProp>
+        </BSFSampler>
+        <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="select shipping method  (onestep)" enabled="false">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/checkout/shipping/methods</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="handle shipping method selection" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var shippingMethods = response[&quot;result&quot;];
+	vars.putObject(&quot;shippingMethods&quot;, shippingMethods);
+
+	// select shipping method and assign it to checkout
+	var selectedShipping = &quot;flat_rate&quot;;
+	var selectedShippingRate = &quot;default&quot;;
+	
+	
+	for (var i = 0; i &lt; shippingMethods.length; i++){
+		var shippingMethod = shippingMethods[i];
+		var shippingMethodRates = shippingMethod[&quot;Rates&quot;] || [];
+		
+		var rateFound = false;
+		for (var j = 0; j &lt; shippingMethodRates.length; j++){
+			var rate = shippingMethodRates[j][&quot;Code&quot;] || &quot;&quot;;
+			if (rate != &quot;&quot;) {
+				selectedShipping = shippingMethod[&quot;Code&quot;];
+				selectedShippingRate = rate;
+				rateFound = true;
+				break;
+			}
+		}
+
+		if (rateFound) {
+			break;			
+		}
+	}
+	
+	var checkout = vars.getObject(&quot;checkout&quot;) || {};
+	
+	checkout[&quot;shipping_method&quot;] = selectedShipping;
+	checkout[&quot;shipping_rate&quot;] = selectedShippingRate;
+	vars.putObject(&quot;checkout&quot;, checkout);
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;checkout, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="select payment method  (onestep)" enabled="false">
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
+            <collectionProp name="Arguments.arguments"/>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/checkout/payment/methods</stringProp>
+          <stringProp name="HTTPSampler.method">GET</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="handle payment selection" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] == null) {
+	var paymentMethods = response[&quot;result&quot;];
+	
+	vars.putObject(&quot;paymentMethods&quot;, paymentMethods);
+
+	// select shipping method and assign it to checkout
+	var selectedPayment = &quot;checkmo&quot;;
+	var ccPayment = false;
+	
+	//OUT.println(JSON.stringify(paymentMethods));
+	
+	for (var i = 0; i &lt; paymentMethods.length; i++){
+		var paymentMethod = paymentMethods[i];
+		var pType = paymentMethod[&quot;Type&quot;];
+		
+		if (pType == &quot;simple&quot;){
+			selectedPayment = paymentMethod[&quot;Code&quot;];
+			ccPayment = false;
+			break;
+		}
+		
+
+		if (pType == &quot;cc&quot;) {
+			selectedPayment = paymentMethod[&quot;Code&quot;];
+			ccPayment = true;
+		}
+	}
+	
+	// OUT.println(&quot;3 &quot;+selectedPayment);
+	
+	var checkout = vars.getObject(&quot;checkout&quot;) || {};
+	if (ccPayment) {
+		// add cc to checkout
+		// &quot;cc&quot;:{&quot;type&quot;:&quot;VI&quot;, &quot;number&quot;:&quot;4111111111111111&quot;, &quot;expire_month&quot;:&quot;12&quot;, &quot;expire_year&quot;:&quot;2016&quot;}
+		checkout[&quot;cc&quot;] = {
+			&quot;type&quot;:&quot;VI&quot;,
+			&quot;number&quot;:&quot;4111111111111111&quot;,
+			&quot;expire_month&quot;:&quot;12&quot;,
+			&quot;expire_year&quot;:&quot;2016&quot;,
+			&quot;save&quot; : true
+		}
+	}
+	
+	checkout[&quot;payment_method&quot;] = selectedPayment;
+	vars.putObject(&quot;checkout&quot;, checkout);
+	//OUT.println(JSON.stringify(checkout));
+}
+// &quot;[{&quot;Name&quot;:&quot;Zero Amount Payment&quot;,&quot;Code&quot;:&quot;zeropay&quot;,&quot;Type&quot;:&quot;simple&quot;,&quot;Tokenable&quot;:false},{&quot;Name&quot;:&quot;Authorize.Net (Direct Post)&quot;,&quot;Code&quot;:&quot;authorizeNetDPM&quot;,&quot;Type&quot;:&quot;post_cc&quot;,&quot;Tokenable&quot;:false},{&quot;Name&quot;:&quot;Check/Money Order&quot;,&quot;Code&quot;:&quot;checkmo&quot;,&quot;Type&quot;:&quot;simple&quot;,&quot;Tokenable&quot;:false},{&quot;Name&quot;:&quot;PayPal&quot;,&quot;Code&quot;:&quot;paypal_express&quot;,&quot;Type&quot;:&quot;remote&quot;,&quot;Tokenable&quot;:false},{&quot;Name&quot;:&quot;Credit Card Direct Payment&quot;,&quot;Code&quot;:&quot;paypal_payflow&quot;,&quot;Type&quot;:&quot;cc&quot;,&quot;Tokenable&quot;:true}]&quot;</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;checkout, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Checkout Submit  (onestep)" enabled="false">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">${jsonData}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.domain"></stringProp>
+          <stringProp name="HTTPSampler.port"></stringProp>
+          <stringProp name="HTTPSampler.connect_timeout"></stringProp>
+          <stringProp name="HTTPSampler.response_timeout"></stringProp>
+          <stringProp name="HTTPSampler.protocol"></stringProp>
+          <stringProp name="HTTPSampler.contentEncoding"></stringProp>
+          <stringProp name="HTTPSampler.path">${BASE_URL}/checkout/submit</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.auto_redirects">false</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.DO_MULTIPART_POST">false</boolProp>
+          <boolProp name="HTTPSampler.BROWSER_COMPATIBLE_MULTIPART">true</boolProp>
+          <boolProp name="HTTPSampler.monitor">false</boolProp>
+          <stringProp name="HTTPSampler.embedded_url_re"></stringProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <BSFPreProcessor guiclass="TestBeanGUI" testclass="BSFPreProcessor" testname="put cehckout to json data" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">vars.putObject(&quot;jsonData&quot;, JSON.stringify(vars.getObject(&quot;checkout&quot;)));
+
+
+/*
+{&quot;cc&quot;:{&quot;type&quot;:&quot;VI&quot;, &quot;number&quot;:&quot;4111111111111111&quot;, &quot;expire_month&quot;:&quot;12&quot;, &quot;expire_year&quot;:&quot;2016&quot;},
+&quot;custom_info&quot;:{&quot;customer_email&quot;:&quot;test@i.ua&quot;, &quot;customer_name&quot;:&quot;Test One&quot;},
+&quot;billing_address&quot;:{&quot;state&quot;:&quot;Al&quot;, &quot;zip_code&quot;:&quot;00000&quot;, &quot;address_line2&quot;:&quot;&quot;, &quot;company&quot;:&quot;S&quot;, &quot;country&quot;:&quot;US&quot;, &quot;last_name&quot;:&quot;One&quot;, &quot;phone&quot;:&quot;123&quot;, &quot;address_line1&quot;:&quot;Test&quot;, &quot;city&quot;:&quot;Test&quot;, &quot;first_name&quot;:&quot;Test&quot;},
+&quot;shipping_address&quot;:{&quot;zip_code&quot;:&quot;0000&quot;, &quot;address_line1&quot;:&quot;Test&quot;, &quot;company&quot;:&quot;Test&quot;, &quot;country&quot;:&quot;US&quot;, &quot;first_name&quot;:&quot;Test&quot;, &quot;last_name&quot;:&quot;One&quot;, &quot;address_line2&quot;:&quot;&quot;, &quot;city&quot;:&quot;Test&quot;, &quot;phone&quot;:&quot;123&quot;, &quot;state&quot;:&quot;AL&quot;},
+&quot;payment_method&quot;:&quot;paypal_payflow&quot;, &quot;shipping_method&quot;:&quot;flat_rate&quot;, &quot;shipping_rate&quot;:&quot;default&quot;}
+ */</stringProp>
+          </BSFPreProcessor>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="handle checkout post" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+//vars.putObject(&quot;addressID&quot;, null);
+//if (response[&quot;result&quot;] != null) {
+//	vars.putObject(&quot;addressID&quot;, response[&quot;result&quot;][&quot;_id&quot;]);
+//}
+</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+          <BSFPostProcessor guiclass="TestBeanGUI" testclass="BSFPostProcessor" testname="error handler" enabled="true">
+            <stringProp name="scriptLanguage">javascript</stringProp>
+            <stringProp name="parameters"></stringProp>
+            <stringProp name="filename"></stringProp>
+            <stringProp name="script">var response = JSON.parse(prev.getResponseDataAsString());
+
+if (response[&quot;error&quot;] != null) {
+	OUT.println(&quot;checkout, error - &quot;+ JSON.stringify(response[&quot;error&quot;])+&quot;, in thread - &quot;+ ${__threadNum});
+}</stringProp>
+          </BSFPostProcessor>
+          <hashTree/>
+        </hashTree>
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="Summary Report" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>false</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <threadCounts>true</threadCounts>
+            </value>
+          </objProp>
+          <objProp>
+            <name></name>
+            <value class="SampleSaveConfiguration" reference="../../../../hashTree[11]/ResultCollector/objProp[2]/value"/>
+          </objProp>
+          <stringProp name="filename"></stringProp>
+        </ResultCollector>
+        <hashTree/>
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+          <boolProp name="ResultCollector.error_logging">false</boolProp>
+          <objProp>
+            <name>saveConfig</name>
+            <value class="SampleSaveConfiguration">
+              <time>true</time>
+              <latency>true</latency>
+              <timestamp>true</timestamp>
+              <success>true</success>
+              <label>true</label>
+              <code>true</code>
+              <message>true</message>
+              <threadName>true</threadName>
+              <dataType>true</dataType>
+              <encoding>false</encoding>
+              <assertions>true</assertions>
+              <subresults>true</subresults>
+              <responseData>false</responseData>
+              <samplerData>false</samplerData>
+              <xml>false</xml>
+              <fieldNames>false</fieldNames>
+              <responseHeaders>false</responseHeaders>
+              <requestHeaders>false</requestHeaders>
+              <responseDataOnError>false</responseDataOnError>
+              <saveAssertionResultsFailureMessage>false</saveAssertionResultsFailureMessage>
+              <assertionsResultsToSave>0</assertionsResultsToSave>
+              <bytes>true</bytes>
+              <threadCounts>true</threadCounts>
+            </value>
+          </objProp>
+          <objProp>
+            <name></name>
+            <value class="SampleSaveConfiguration" reference="../../../../hashTree[11]/ResultCollector[2]/objProp[2]/value"/>
           </objProp>
           <stringProp name="filename"></stringProp>
         </ResultCollector>
