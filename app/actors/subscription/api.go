@@ -28,7 +28,30 @@ func setupAPI() error {
 	// Other thing
 	service.GET("subscriptional/checkout", APICheckCheckoutSubscription)
 
+	//TODO: for testing only
+	service.GET("nofundsEmail/:id", APISendNoFundsEmail)
+
 	return nil
+}
+
+func APISendNoFundsEmail(context api.InterfaceApplicationContext) (interface{}, error) {
+	subscriptionID := context.GetRequestArgument("id")
+	if subscriptionID == "" {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "b626ec0a-a317-4b63-bd05-cc23932bdfe0", "subscription id should be specified")
+	}
+
+	subscriptionModel, err := subscription.LoadSubscriptionByID(subscriptionID)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	emailError := sendNotificationEmail(subscriptionModel);
+	if emailError != nil {
+		env.Log(subscription.ConstSubscriptionLogStorage, "Notification Error", subscriptionModel.GetID()+": "+emailError.Error())
+		return nil, env.ErrorDispatch(emailError)
+	}
+
+	return "ok", nil
 }
 
 // APIListSubscriptions returns a list of subscriptions for visitor
