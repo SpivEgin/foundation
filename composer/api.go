@@ -23,6 +23,10 @@ func setupAPI() error {
 	return nil
 }
 
+// APIComposerTypes returns related to specified types information
+//    types - types of items which could be selected for specified type value
+//    units - expressions which could be applied to specified value
+//    binding - which units could be applied to specified types
 func APIComposerTypes(context api.InterfaceApplicationContext) (interface{}, error) {
 
 	result := make(map[string]interface{})
@@ -31,7 +35,7 @@ func APIComposerTypes(context api.InterfaceApplicationContext) (interface{}, err
 	bindingResult := make(map[string]interface{})
 
 	composer := GetComposer()
-	baseForAny := map[string]int{"string":1, "int":1, "float":1, "boolean":1}
+	baseForAny := map[string]int{"string": 1, "int": 1, "float": 1, "boolean": 1}
 	typeNames := strings.Split(context.GetRequestArgument("names"), ",")
 	listUnits := composer.ListUnits()
 
@@ -41,9 +45,9 @@ func APIComposerTypes(context api.InterfaceApplicationContext) (interface{}, err
 			keyInfo := make(map[string]interface{})
 			for _, item := range typeInfo.ListItems() {
 				keyInfo[item] = map[string]interface{}{
-					"label": 		typeInfo.GetLabel(item),
-					"description":  typeInfo.GetDescription(item),
-					"type":  		typeInfo.GetType(item),
+					"label":       typeInfo.GetLabel(item),
+					"description": typeInfo.GetDescription(item),
+					"type":        typeInfo.GetType(item),
 				}
 			}
 
@@ -59,7 +63,7 @@ func APIComposerTypes(context api.InterfaceApplicationContext) (interface{}, err
 
 				unitName := unitInfo.GetName()
 				// binding definition
-				binding = append(binding, unitName);
+				binding = append(binding, unitName)
 
 				if unitsResult[unitName] == nil {
 					keyInfo := make(map[string]interface{})
@@ -76,16 +80,17 @@ func APIComposerTypes(context api.InterfaceApplicationContext) (interface{}, err
 				}
 			}
 		}
-		bindingResult[typeName] = binding;
+		bindingResult[typeName] = binding
 	}
 
 	result["types"] = typesResult
 	result["units"] = unitsResult
-	result["type_unit_binding"] = bindingResult
+	result["binding"] = bindingResult
 
 	return result, nil
 }
 
+// APIComposerGoTypes returns corresponding JS types for GO types
 func APIComposerGoTypes(context api.InterfaceApplicationContext) (interface{}, error) {
 
 	result := make(map[string]interface{})
@@ -114,22 +119,27 @@ func APIComposerGoTypes(context api.InterfaceApplicationContext) (interface{}, e
 	return result, nil
 }
 
+// APIComposerUnits returns related to specified units information
 func APIComposerUnits(context api.InterfaceApplicationContext) (interface{}, error) {
 
-	var result map[string]interface{}
+	result := make(map[string]interface{})
 
 	if composer := GetComposer(); composer != nil {
-		unit := composer.GetUnit(context.GetRequestArgument("unit"))
-		if unit != nil {
-			result = make(map[string]interface{})
+		units := strings.Split(context.GetRequestArgument("names"), ",")
+		for _, unitName := range units {
+			if unit := composer.GetUnit(unitName); unit != nil {
+				unitInfo := make(map[string]interface{})
 
-			for _, item := range unit.ListItems() {
-				result[item] = map[string]interface{}{
-					"label":       unit.GetLabel(item),
-					"description": unit.GetDescription(item),
-					"type":        unit.GetType(item),
-					"required":    unit.IsRequired(item),
+				for _, item := range unit.ListItems() {
+					unitInfo[item] = map[string]interface{}{
+						"label":       unit.GetLabel(item),
+						"description": unit.GetDescription(item),
+						"type":        unit.GetType(item),
+						"required":    unit.IsRequired(item),
+					}
 				}
+
+				result[unitName] = unitInfo
 			}
 		}
 	}
@@ -137,6 +147,7 @@ func APIComposerUnits(context api.InterfaceApplicationContext) (interface{}, err
 	return result, nil
 }
 
+// APIComposerInfo returns composer description and information
 func APIComposerInfo(context api.InterfaceApplicationContext) (interface{}, error) {
 
 	result := map[string]interface{}{

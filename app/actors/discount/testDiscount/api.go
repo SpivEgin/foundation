@@ -9,8 +9,8 @@ import (
 func setupAPI() error {
 
 	service := api.GetRestService()
-	service.GET("testDiscount/CreateTestRule", APICreateTestRule)
-	service.GET("testDiscount/CreateTestAction", APICreateTestAction)
+	service.PUT("testDiscount/CreateTestRule", APICreateTestRule)
+	service.PUT("testDiscount/CreateTestAction", APICreateTestAction)
 	service.GET("testDiscount/GetConfigForTestDiscount", APIGetConfigForTestDiscount)
 
 	return nil
@@ -54,15 +54,14 @@ func APIGetConfigForTestDiscount(context api.InterfaceApplicationContext) (inter
 	config := env.GetConfig()
 
 	rule := make(map[string]interface{})
-	rule["type"]   = "DiscountRule"
-	rule["json"]   = config.GetValue(ConstConfigPathTestDiscountRule)
+	rule["type"] = "DiscountRule"
+	rule["json"] = config.GetValue(ConstConfigPathTestDiscountRule)
 	result["rule"] = rule
 
 	action := make(map[string]interface{})
-	action["type"]   = "DiscountAction"
-	action["json"]   = config.GetValue(ConstConfigPathTestDiscountAction)
+	action["type"] = "DiscountAction"
+	action["json"] = config.GetValue(ConstConfigPathTestDiscountAction)
 	result["action"] = action
 
 	return result, nil
 }
-

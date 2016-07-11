@@ -5,10 +5,12 @@ import (
 	"strings"
 )
 
+// GetName returns unit name
 func (it *BasicUnit) GetName() string {
 	return it.Name
 }
 
+// ValidateType
 func (it *BasicUnit) ValidateType(item string, inType string) bool {
 	if it.Validator != nil {
 		return it.Validator(item, inType)
@@ -25,6 +27,7 @@ func (it *BasicUnit) ValidateType(item string, inType string) bool {
 	return false
 }
 
+// ListItems returns list of items which could be selected for specified unit
 func (it *BasicUnit) ListItems() []string {
 	var result []string
 
@@ -36,6 +39,7 @@ func (it *BasicUnit) ListItems() []string {
 	return result
 }
 
+// GetType returns type for specified unit
 func (it *BasicUnit) GetType(item string) string {
 	if value, present := it.Type[item]; present {
 		return value
@@ -43,6 +47,7 @@ func (it *BasicUnit) GetType(item string) string {
 	return ""
 }
 
+// GetLabel returns label for specified unit
 func (it *BasicUnit) GetLabel(item string) string {
 	if value, present := it.Label[item]; present {
 		return value
@@ -50,6 +55,7 @@ func (it *BasicUnit) GetLabel(item string) string {
 	return ""
 }
 
+// GetDescription returns description for specified unit
 func (it *BasicUnit) GetDescription(item string) string {
 	if value, present := it.Description[item]; present {
 		return value
@@ -57,6 +63,7 @@ func (it *BasicUnit) GetDescription(item string) string {
 	return ""
 }
 
+// IsRequired
 func (it *BasicUnit) IsRequired(item string) bool {
 	if value, present := it.Required[item]; present {
 		return value
@@ -64,6 +71,7 @@ func (it *BasicUnit) IsRequired(item string) bool {
 	return true
 }
 
+// Process
 func (it *BasicUnit) Process(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
 	if it.Action != nil {
 		return it.Action(in, args, composer)

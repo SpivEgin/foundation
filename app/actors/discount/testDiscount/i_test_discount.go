@@ -30,24 +30,24 @@ func (it *DefaultTestDiscount) Calculate(checkoutInstance checkout.InterfaceChec
 
 	// checking
 	in := map[string]interface{}{
-			"Cart": map[string]interface{}{
-				"cartAmount": checkoutInstance.GetGrandTotal(),
-				"visitorIsLogin": checkoutInstance.GetVisitor() != nil,
-			},
-			//		"vsitor": map[string]interface{}{
-			//			"is_admin": checkoutInstance.GetGrandTotal(),
-			//		},
+		"Cart": map[string]interface{}{
+			"cartAmount":     checkoutInstance.GetGrandTotal(),
+			"visitorIsLogin": checkoutInstance.GetVisitor() != nil,
+		},
+		//		"vsitor": map[string]interface{}{
+		//			"is_admin": checkoutInstance.GetGrandTotal(),
+		//		},
 	}
 
-//	in := checkoutInstance.GetCart();
+	//	in := checkoutInstance.GetCart();
 	rule := utils.InterfaceToMap(env.ConfigGetValue(ConstConfigPathTestDiscountRule))
 	action := utils.InterfaceToMap(env.ConfigGetValue(ConstConfigPathTestDiscountAction))
 
 	for _, object := range rule {
-		rule = utils.InterfaceToMap(object);
+		rule = utils.InterfaceToMap(object)
 	}
 	for _, object := range action {
-		action = utils.InterfaceToMap(object);
+		action = utils.InterfaceToMap(object)
 	}
 
 	check, err := composer.GetComposer().Check(in, rule)
@@ -57,11 +57,11 @@ func (it *DefaultTestDiscount) Calculate(checkoutInstance checkout.InterfaceChec
 
 	if check {
 		result = append(result, checkout.StructPriceAdjustment{
-			Name:      action["name"].(string),
-			Code:      action["code"].(string),
-			Amount:    action["amount"].(float64),
-			IsPercent: action["is_percent"].(bool),
-			Priority:  action["priority"].(float64),
+			Name:      utils.InterfaceToString(action["name"]),
+			Code:      utils.InterfaceToString(action["code"]),
+			Amount:    utils.InterfaceToFloat64(action["amount"]),
+			IsPercent: utils.InterfaceToBool(action["is_percent"]),
+			Priority:  utils.InterfaceToFloat64(action["priority"]),
 		})
 	}
 	return result

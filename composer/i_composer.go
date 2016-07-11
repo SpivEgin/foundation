@@ -180,7 +180,7 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 				result = false
 			}
 
-		// case 2: in interface{} <- {...}
+			// case 2: in interface{} <- {...}
 		} else if mapRule, ok := ruleItem.(map[string]interface{}); ok {
 
 			for ruleKey, ruleValue := range mapRule {

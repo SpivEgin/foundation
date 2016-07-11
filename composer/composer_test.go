@@ -43,9 +43,9 @@ func TestOperations(tst *testing.T) {
 	tst.Log(object.Get("sku"))
 	input := map[string]interface{}{
 		"cartAmount": 10,
-		"b": "test",
-		"c": 3.14,
-		"d": object,
+		"b":          "test",
+		"c":          3.14,
+		"d":          object,
 	}
 
 	rules, err := utils.DecodeJSONToStringKeyMap(`{

@@ -8,6 +8,7 @@ import (
 	_ "github.com/ottemo/foundation/env/ini"      // INI Configuration service
 	_ "github.com/ottemo/foundation/env/logger"   // File-based Logging service
 
+	_ "github.com/ottemo/foundation/api/context"   // Context runtime transfer service
 	_ "github.com/ottemo/foundation/api/rest"      // RESTful API service
 	_ "github.com/ottemo/foundation/api/session"   // Session Management service
 	_ "github.com/ottemo/foundation/impex"         // Import/Export service
@@ -20,28 +21,37 @@ import (
 	_ "github.com/ottemo/foundation/app/actors/product/review"  // Product Reviews module
 	_ "github.com/ottemo/foundation/app/actors/visitor"         // Visitor module
 	_ "github.com/ottemo/foundation/app/actors/visitor/address" // Visitor Address module
+	_ "github.com/ottemo/foundation/app/actors/visitor/token"   // Visitor Token module
 
-	_ "github.com/ottemo/foundation/app/actors/cart"     // Shopping Cart module
-	_ "github.com/ottemo/foundation/app/actors/checkout" // Checkout module
-	_ "github.com/ottemo/foundation/app/actors/order"    // Purchase Order module
-	_ "github.com/ottemo/foundation/app/actors/stock"    // Stock Management module
+	_ "github.com/ottemo/foundation/app/actors/cart"         // Shopping Cart module
+	_ "github.com/ottemo/foundation/app/actors/checkout"     // Checkout module
+	_ "github.com/ottemo/foundation/app/actors/order"        // Purchase Order module
+	_ "github.com/ottemo/foundation/app/actors/stock"        // Stock Management module
+	_ "github.com/ottemo/foundation/app/actors/subscription" // subscription extension
+	_ "github.com/ottemo/foundation/app/actors/xdomain"      // XDomain support module
 
 	_ "github.com/ottemo/foundation/app/actors/payment/authorizenet" // Authorize.Net payment method
 	_ "github.com/ottemo/foundation/app/actors/payment/checkmo"      // "Check Money Order" payment method
 	_ "github.com/ottemo/foundation/app/actors/payment/paypal"       // PayPal payment method
+	_ "github.com/ottemo/foundation/app/actors/payment/stripe"       // Stripe payment method
 
-	_ "github.com/ottemo/foundation/app/actors/shipping/fedex"    // FedEx shipping method
-	_ "github.com/ottemo/foundation/app/actors/shipping/flatrate" // "Flat Rate" shipping method
-	_ "github.com/ottemo/foundation/app/actors/shipping/usps"     // USPS shipping method
+	_ "github.com/ottemo/foundation/app/actors/shipping/fedex"      // FedEx
+	_ "github.com/ottemo/foundation/app/actors/shipping/flatrate"   // Flat Rate
+	_ "github.com/ottemo/foundation/app/actors/shipping/flatweight" // Flat Weight
+	_ "github.com/ottemo/foundation/app/actors/shipping/usps"       // USPS
 
 	_ "github.com/ottemo/foundation/app/actors/discount/coupon"   // Coupon based discounts
 	_ "github.com/ottemo/foundation/app/actors/discount/giftcard" // Gift Cards
  	_ "github.com/ottemo/foundation/app/actors/discount/testDiscount" // Test Discount
 	_ "github.com/ottemo/foundation/app/actors/tax"               // Tax Rates
 
-	_ "github.com/ottemo/foundation/app/actors/rts" // Real Time Statistics service
-	_ "github.com/ottemo/foundation/app/actors/seo" // URL Rewrite support
+	_ "github.com/ottemo/foundation/app/actors/reporting" // Reporting
+	_ "github.com/ottemo/foundation/app/actors/rts"       // Real Time Statistics service
+	_ "github.com/ottemo/foundation/app/actors/seo"       // URL Rewrite support
 
-	_ "github.com/ottemo/foundation/composer"      // Logic units service
-	_ "github.com/ottemo/foundation/app/actors/discount/testDiscount" // Test Discount
+	_ "github.com/ottemo/foundation/app/actors/other/friendmail"  // email friend extension
+	_ "github.com/ottemo/foundation/app/actors/other/grouping"    // products grouping extension
+	_ "github.com/ottemo/foundation/app/actors/other/mailchimp"   // MailChimp integration
+	_ "github.com/ottemo/foundation/app/actors/other/shipstation" // Shipstation integration
+	_ "github.com/ottemo/foundation/app/actors/other/trustpilot"  // TrustPilot integration
 )

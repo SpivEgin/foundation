@@ -26,24 +26,24 @@ func init() {
 
 func initBaseUnits() {
 
-//	action := func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
-//		if argValue, present := args[""]; present {
-//			return utils.Equals(in, argValue), nil
-//		}
-//		return false, nil
-//	}
-//
-//	registeredComposer.RegisterUnit(&BasicUnit{
-//		Name: "*eq",
-//		Type: map[string]string{
-//			ConstPrefixUnit: ConstTypeAny, // input type
-//			ConstPrefixArg:  ConstTypeAny, // operand type (unnamed argument is a key for rule right-side value if it is not a map)
-//			ConstPrefixOut:  "boolean",       // output type
-//		},
-//		Label:       map[string]string{ConstPrefixUnit: "equals"},
-//		Description: map[string]string{ConstPrefixUnit: "Checks if value equals to other value"},
-//		Action:      action,
-//	})
+	//	action := func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
+	//		if argValue, present := args[""]; present {
+	//			return utils.Equals(in, argValue), nil
+	//		}
+	//		return false, nil
+	//	}
+	//
+	//	registeredComposer.RegisterUnit(&BasicUnit{
+	//		Name: "*eq",
+	//		Type: map[string]string{
+	//			ConstPrefixUnit: ConstTypeAny, // input type
+	//			ConstPrefixArg:  ConstTypeAny, // operand type (unnamed argument is a key for rule right-side value if it is not a map)
+	//			ConstPrefixOut:  "boolean",       // output type
+	//		},
+	//		Label:       map[string]string{ConstPrefixUnit: "equals"},
+	//		Description: map[string]string{ConstPrefixUnit: "Checks if value equals to other value"},
+	//		Action:      action,
+	//	})
 
 	action := func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
 		if argValue, present := args[""]; present {
@@ -140,8 +140,8 @@ func initBaseUnits() {
 			ConstPrefixOut:  "",
 			ConstPrefixUnit: "Cart",
 			//ConstPrefixArg:  "object",
-			ConstPrefixArg + "amount":  "float",
-			ConstPrefixArg + "visitorIsLogin":  "bool",
+			ConstPrefixArg + "amount":         "float",
+			ConstPrefixArg + "visitorIsLogin": "bool",
 		},
 		Label:       map[string]string{ConstPrefixUnit: ""},
 		Description: map[string]string{ConstPrefixUnit: "Temporary test unit"},
@@ -175,81 +175,81 @@ func initTest() error {
 	testCartType := &BasicType{
 		Name: "Cart",
 		Label: map[string]string{
-			"": "Cart",
-			"cartAmount": "Amount",
+			"":               "Cart",
+			"cartAmount":     "Amount",
 			"visitorIsLogin": "Visitor is login",
 		},
 		Type: map[string]string{
-			"": "Cart",
-			"cartAmount": "float",
+			"":               "Cart",
+			"cartAmount":     "float",
 			"visitorIsLogin": "boolean",
 		},
 		Description: map[string]string{
-			"": "Cart model object",
+			"":           "Cart model object",
 			"cartAmount": "Cart amount",
 		},
 	}
 
 	registeredComposer.RegisterType(testCartType)
 
-//	testCheckoutType := &BasicType{
-//		Name: "Checkout",
-//		Label: map[string]string{
-//			"cart": "Cart",
-//			"paymentMethods": "Payment Methods",
-//			"shippingMethods": "Shippin Methods",
-//		},
-//		Type: map[string]string{
-//			"cart": "Cart",
-//			"paymentMethods": "[]Payment",
-//			"shippingMethods": "[]Shippin",
-//		},
-//		Description: map[string]string{
-//			"cart": "current Cart",
-//		},
-//	}
-//
-//	registeredComposer.RegisterType(testCheckoutType)
-//
-//	testVisitorType := &BasicType{
-//		Name: "Visitor",
-//		Label: map[string]string{
-//			"id": "ID",
-//			"name": "Name",
-//			"country": "Country",
-//			"visitorIsLogin": "Visitor is login",
-//		},
-//		Type: map[string]string{
-//			"id": "string",
-//			"name": "string",
-//			"country": "string",
-//			"visitorIsLogin": "boolean",
-//		},
-//		Description: map[string]string{
-//
-//		},
-//	}
+	//	testCheckoutType := &BasicType{
+	//		Name: "Checkout",
+	//		Label: map[string]string{
+	//			"cart": "Cart",
+	//			"paymentMethods": "Payment Methods",
+	//			"shippingMethods": "Shippin Methods",
+	//		},
+	//		Type: map[string]string{
+	//			"cart": "Cart",
+	//			"paymentMethods": "[]Payment",
+	//			"shippingMethods": "[]Shippin",
+	//		},
+	//		Description: map[string]string{
+	//			"cart": "current Cart",
+	//		},
+	//	}
+	//
+	//	registeredComposer.RegisterType(testCheckoutType)
+	//
+	//	testVisitorType := &BasicType{
+	//		Name: "Visitor",
+	//		Label: map[string]string{
+	//			"id": "ID",
+	//			"name": "Name",
+	//			"country": "Country",
+	//			"visitorIsLogin": "Visitor is login",
+	//		},
+	//		Type: map[string]string{
+	//			"id": "string",
+	//			"name": "string",
+	//			"country": "string",
+	//			"visitorIsLogin": "boolean",
+	//		},
+	//		Description: map[string]string{
+	//
+	//		},
+	//	}
 
-//	registeredComposer.RegisterType(testVisitorType)
+	//	registeredComposer.RegisterType(testVisitorType)
 
 	testDiscountRule := &BasicType{
 		Name: "DiscountRule",
 		Label: map[string]string{
-			"": "Discount Rule",
-			"Cart": "Cart",
-			"Visitor": "Visitor",
+			"":         "Discount Rule",
+			"Cart":     "Cart",
+			"Visitor":  "Visitor",
 			"Checkout": "Checkout",
 		},
 		Type: map[string]string{
-			"": "DiscountRule",
-			"Cart": "Cart",
-			"Visitor": "Visitor",
+			"":         "DiscountRule",
+			"Cart":     "Cart",
+			"Visitor":  "Visitor",
 			"Checkout": "Checkout",
 		},
 		Description: map[string]string{
-			"": "DiscountRule model object",
-			"Cart": "cart description",
-			"Visitor": "visitor description",
+			"":         "DiscountRule model object",
+			"Cart":     "cart description",
+			"Visitor":  "visitor description",
 			"Checkout": "checkout description",
 		},
 	}
@@ -259,24 +259,22 @@ func initTest() error {
 	testDiscountAction := &BasicType{
 		Name: "DiscountAction",
 		Label: map[string]string{
-			"": "DiscountAction",
-			"name": "Name",
-			"code": "Code",
-			"amount": "Discount amount",
+			"":           "DiscountAction",
+			"name":       "Name",
+			"code":       "Code",
+			"amount":     "Discount amount",
 			"is_percent": "Is percent",
-			"priority": "Priority",
+			"priority":   "Priority",
 		},
 		Type: map[string]string{
-			"": "DiscountAction",
-			"name": "string",
-			"code": "string",
-			"amount": "float",
+			"":           "DiscountAction",
+			"name":       "string",
+			"code":       "string",
+			"amount":     "float",
 			"is_percent": "boolean",
-			"priority": "float",
+			"priority":   "float",
 		},
-		Description: map[string]string{
-
-		},
+		Description: map[string]string{},
 	}
 
 	registeredComposer.RegisterType(testDiscountAction)

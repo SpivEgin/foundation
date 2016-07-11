@@ -16,8 +16,13 @@ const (
 
 	ConstEmailVerifyExpire = 60 * 60 * 24
 
+	ConstEmailPasswordResetExpire = 30 * 60
+
 	ConstErrorModule = "visitor"
 	ConstErrorLevel  = env.ConstErrorLevelActor
+
+	ConstConfigPathLostPasswordEmailSubject  = "general.mail.lost_password_email_subject"
+	ConstConfigPathLostPasswordEmailTemplate = "general.mail.lost_password_email_template"
 )
 
 // DefaultVisitor is a default implementer of InterfaceVisitor

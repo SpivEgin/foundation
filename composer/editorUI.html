@@ -137,7 +137,7 @@
         function config($routeProvider){
             $routeProvider
                     .when("/composer", {
-                        templateUrl: "testUI_template.html",
+                        templateUrl: "editorUI_template.html",
                         resolve: {
                             storeDataS: "storeDataS",
                             storeDataResolver: function(storeDataS){
@@ -199,7 +199,7 @@
                         .then(function(response) {
                             me.data.units = response.data.result.units;
                             Object.assign(me.data.types, response.data.result.types);
-                            me.data.t_u_b = response.data.result.type_unit_binding;
+                            me.data.t_u_b = response.data.result.binding;
                         })
                         /**
                          * Makes HTTP request to get information about config values
@@ -239,7 +239,7 @@
                         .then(function (response) {
                             Object.assign(me.data.types, response.data.result.types);
                             Object.assign(me.data.units, response.data.result.units);
-                            Object.assign(me.data.t_u_b, response.data.result.type_unit_binding);
+                            Object.assign(me.data.t_u_b, response.data.result.binding);
 
                             var info = response.data.result.types[inpType];
                             for(var key in inp) {
@@ -513,6 +513,10 @@
                 json = storeDataS.data.configs[val].json;
                 jsonType = storeDataS.data.configs[val].type;
 
+                if(Object.keys(json).length == 0) {
+                    json[jsonType] = {};
+                }
+
                 $scope.json = json;
                 $scope.jsonType = jsonType;
             }
@@ -678,10 +682,9 @@
              * @param {String} name - insctance name
              */
             function save(json, name){
-                //json = json[Object.keys(json)[0]];
                 json = JSON.stringify(json);
                 var promise = $http({
-                    method: "POST",
+                    method: "PUT",
                     data: json,
                     url: "http://localhost:3000/testDiscount/CreateTest" + name
                 });
