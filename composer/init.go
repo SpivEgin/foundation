@@ -26,26 +26,26 @@ func init() {
 
 func initBaseUnits() {
 
+//	action := func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
+//		if argValue, present := args[""]; present {
+//			return utils.Equals(in, argValue), nil
+//		}
+//		return false, nil
+//	}
+//
+//	registeredComposer.RegisterUnit(&BasicUnit{
+//		Name: "*eq",
+//		Type: map[string]string{
+//			ConstPrefixUnit: ConstTypeAny, // input type
+//			ConstPrefixArg:  ConstTypeAny, // operand type (unnamed argument is a key for rule right-side value if it is not a map)
+//			ConstPrefixOut:  "boolean",       // output type
+//		},
+//		Label:       map[string]string{ConstPrefixUnit: "equals"},
+//		Description: map[string]string{ConstPrefixUnit: "Checks if value equals to other value"},
+//		Action:      action,
+//	})
+
 	action := func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
-		if argValue, present := args[""]; present {
-			return utils.Equals(in, argValue), nil
-		}
-		return false, nil
-	}
-
-	registeredComposer.RegisterUnit(&BasicUnit{
-		Name: "*eq",
-		Type: map[string]string{
-			ConstPrefixUnit: ConstTypeAny, // input type
-			ConstPrefixArg:  ConstTypeAny, // operand type (unnamed argument is a key for rule right-side value if it is not a map)
-			ConstPrefixOut:  "boolean",       // output type
-		},
-		Label:       map[string]string{ConstPrefixUnit: "equals"},
-		Description: map[string]string{ConstPrefixUnit: "Checks if value equals to other value"},
-		Action:      action,
-	})
-
-	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
 		if argValue, present := args[""]; present {
 			if utils.InterfaceToFloat64(in) > utils.InterfaceToFloat64(argValue) {
 				return true, nil

@@ -7,27 +7,16 @@ import (
 
 // setupAPI setups package related API endpoint routines
 func setupAPI() error {
-	var err error
 
-	err = api.GetRestService().RegisterAPI("testDiscount/CreateTestRule", api.ConstRESTOperationCreate, CreateTestRule)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
-
-	err = api.GetRestService().RegisterAPI("testDiscount/CreateTestAction", api.ConstRESTOperationCreate, CreateTestAction)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
-
-	err = api.GetRestService().RegisterAPI("testDiscount/GetConfigForTestDiscount", api.ConstRESTOperationGet, GetConfigForTestDiscount)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
+	service := api.GetRestService()
+	service.GET("testDiscount/CreateTestRule", APICreateTestRule)
+	service.GET("testDiscount/CreateTestAction", APICreateTestAction)
+	service.GET("testDiscount/GetConfigForTestDiscount", APIGetConfigForTestDiscount)
 
 	return nil
 }
 
-func CreateTestRule(context api.InterfaceApplicationContext) (interface{}, error) {
+func APICreateTestRule(context api.InterfaceApplicationContext) (interface{}, error) {
 	config := env.GetConfig()
 
 	var setValue interface{}
@@ -43,7 +32,7 @@ func CreateTestRule(context api.InterfaceApplicationContext) (interface{}, error
 	return "rule was saved successfully", nil
 }
 
-func CreateTestAction(context api.InterfaceApplicationContext) (interface{}, error) {
+func APICreateTestAction(context api.InterfaceApplicationContext) (interface{}, error) {
 	config := env.GetConfig()
 
 	var setValue interface{}
@@ -59,7 +48,7 @@ func CreateTestAction(context api.InterfaceApplicationContext) (interface{}, err
 	return "action was saved successfully", nil
 }
 
-func GetConfigForTestDiscount(context api.InterfaceApplicationContext) (interface{}, error) {
+func APIGetConfigForTestDiscount(context api.InterfaceApplicationContext) (interface{}, error) {
 	result := make(map[string]interface{})
 
 	config := env.GetConfig()

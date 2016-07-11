@@ -17,9 +17,16 @@ func (it *DefaultTestDiscount) GetCode() string {
 	return "test_discount"
 }
 
+// GetPriority returns the code of the current coupon implementation
+func (it *DefaultTestDiscount) GetPriority() []float64 {
+	baseTestDiscountPriority := utils.InterfaceToFloat64(env.ConfigGetValue(ConstConfigPathTestDiscountApplyPriority))
+	cartCalculationPriority := baseTestDiscountPriority + 0.01
+	return []float64{baseTestDiscountPriority, cartCalculationPriority}
+}
+
 // CalculateDiscount calculates and returns amount and set of applied gift card discounts to given checkout
-func (it *DefaultTestDiscount) CalculateDiscount(checkoutInstance checkout.InterfaceCheckout) []checkout.StructDiscount {
-	var result []checkout.StructDiscount
+func (it *DefaultTestDiscount) Calculate(checkoutInstance checkout.InterfaceCheckout, currentPriority float64) []checkout.StructPriceAdjustment {
+	var result []checkout.StructPriceAdjustment
 
 	// checking
 	in := map[string]interface{}{
@@ -49,7 +56,7 @@ func (it *DefaultTestDiscount) CalculateDiscount(checkoutInstance checkout.Inter
 	}
 
 	if check {
-		result = append(result, checkout.StructDiscount{
+		result = append(result, checkout.StructPriceAdjustment{
 			Name:      action["name"].(string),
 			Code:      action["code"].(string),
 			Amount:    action["amount"].(float64),

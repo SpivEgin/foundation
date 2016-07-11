@@ -12,6 +12,8 @@ const (
 	ConstConfigPathTestDiscountRule  		= "general.testdiscounts.testDiscount_rule"
 	ConstConfigPathTestDiscountAction       = "general.testdiscounts.testDiscount_action"
 
+	ConstConfigPathTestDiscountApplyPriority = "general.discounts.testDiscount_apply_priority"
+
 	ConstErrorModule = "testDiscount"
 	ConstErrorLevel  = env.ConstErrorLevelActor
 )

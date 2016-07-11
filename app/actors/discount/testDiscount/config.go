@@ -26,10 +26,9 @@ func setupConfig() error {
 		return env.ErrorDispatch(err)
 	}
 
-	//config.UnregisterItem(ConstConfigPathTestDiscountRule);
 	err = config.RegisterItem(env.StructConfigItem{
 		Path:        ConstConfigPathTestDiscountRule,
-		Value:       "",
+		Value:       "{}",
 		Type:        env.ConstConfigTypeText,
 		Editor:      "JSON_editor",
 		Options:     nil,
@@ -42,15 +41,29 @@ func setupConfig() error {
 		return env.ErrorDispatch(err)
 	}
 
-	//config.UnregisterItem(ConstConfigPathTestDiscountAction);
 	err = config.RegisterItem(env.StructConfigItem{
 		Path:        ConstConfigPathTestDiscountAction,
-		Value:       "",
+		Value:       "{}",
 		Type:        env.ConstConfigTypeText,
 		Editor:      "JSON_editor",
 		Options:     nil,
 		Label:       "Action",
 		Description: "Action description",
+		Image:       "",
+	}, nil)
+
+	if err != nil {
+		return env.ErrorDispatch(err)
+	}
+
+	err = config.RegisterItem(env.StructConfigItem{
+		Path:        ConstConfigPathTestDiscountApplyPriority,
+		Value:       2.10,
+		Type:        env.ConstConfigTypeFloat,
+		Editor:      "line_text",
+		Options:     nil,
+		Label:       "Discounts calculating position",
+		Description: "This value used for using position to calculate it's possible applicable amount (Subtotal - 1, Shipping - 2, Grand total - 3)",
 		Image:       "",
 	}, nil)
 

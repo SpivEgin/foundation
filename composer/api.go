@@ -2,7 +2,6 @@ package composer
 
 import (
 	"github.com/ottemo/foundation/api"
-	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
 	"strings"
 )
@@ -10,35 +9,21 @@ import (
 // setups package related API endpoint routines
 func setupAPI() error {
 
-	var err error
-
-	err = api.GetRestService().RegisterAPI("composer/units/:names", api.ConstRESTOperationGet, composerUnits)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
-
-	err = api.GetRestService().RegisterAPI("composer", api.ConstRESTOperationGet, composerInfo)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
-
-	err = api.GetRestService().RegisterAPI("composer/go-json", api.ConstRESTOperationGet, composerGoTypes)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
+	service := api.GetRestService()
+	service.GET("composer/units/:names", APIComposerUnits)
+	service.GET("composer", APIComposerInfo)
+	// gets correspondence between go and js types
+	service.GET("composer/go-json", APIComposerGoTypes)
 
 	// get type info {types: {}, units:{}, types_units_binding:{}}
-	err = api.GetRestService().RegisterAPI("composer/types/:names", api.ConstRESTOperationGet, composerTypes)
-	if err != nil {
-		return env.ErrorDispatch(err)
-	}
+	service.GET("composer/types/:names", APIComposerTypes)
 
 	// add Check!!!!
 
 	return nil
 }
 
-func composerTypes(context api.InterfaceApplicationContext) (interface{}, error) {
+func APIComposerTypes(context api.InterfaceApplicationContext) (interface{}, error) {
 
 	result := make(map[string]interface{})
 	typesResult := make(map[string]interface{})
@@ -101,7 +86,7 @@ func composerTypes(context api.InterfaceApplicationContext) (interface{}, error)
 	return result, nil
 }
 
-func composerGoTypes(context api.InterfaceApplicationContext) (interface{}, error) {
+func APIComposerGoTypes(context api.InterfaceApplicationContext) (interface{}, error) {
 
 	result := make(map[string]interface{})
 	composer := GetComposer()
@@ -129,7 +114,7 @@ func composerGoTypes(context api.InterfaceApplicationContext) (interface{}, erro
 	return result, nil
 }
 
-func composerUnits(context api.InterfaceApplicationContext) (interface{}, error) {
+func APIComposerUnits(context api.InterfaceApplicationContext) (interface{}, error) {
 
 	var result map[string]interface{}
 
@@ -152,7 +137,7 @@ func composerUnits(context api.InterfaceApplicationContext) (interface{}, error)
 	return result, nil
 }
 
-func composerInfo(context api.InterfaceApplicationContext) (interface{}, error) {
+func APIComposerInfo(context api.InterfaceApplicationContext) (interface{}, error) {
 
 	result := map[string]interface{}{
 		"item_prefix": map[string]interface{}{

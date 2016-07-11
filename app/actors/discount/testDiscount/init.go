@@ -9,8 +9,8 @@ import (
 // init makes package self-initialization routine
 func init() {
 	instance := new(DefaultTestDiscount)
-	var _ checkout.InterfaceDiscount = instance
-	checkout.RegisterDiscount(instance)
+	var _ checkout.InterfacePriceAdjustment = instance
+	checkout.RegisterPriceAdjustment(instance)
 
 	env.RegisterOnConfigStart(setupConfig)
 	api.RegisterOnRestServiceStart(setupAPI)

@@ -430,30 +430,30 @@ func InterfaceToUint(value interface{}) uint {
 	}
 
 	switch typedValue := value.(type) {
-		case uint:
-			return typedValue
-		case uint8:
-			return uint(typedValue)
-		case uint16:
-			return uint(typedValue)
-		case uint32:
-			return uint(typedValue)
-		case uint64:
-			return uint(typedValue)
-		case float64:
-			return uint(typedValue)
-		case string:
-			uintValue, err := strconv.ParseUint(typedValue, 10, 64)
+	case uint:
+		return typedValue
+	case uint8:
+		return uint(typedValue)
+	case uint16:
+		return uint(typedValue)
+	case uint32:
+		return uint(typedValue)
+	case uint64:
+		return uint(typedValue)
+	case float64:
+		return uint(typedValue)
+	case string:
+		uintValue, err := strconv.ParseUint(typedValue, 10, 64)
+		if err != nil {
+			floatValue, err := strconv.ParseFloat(typedValue, 64)
 			if err != nil {
-				floatValue, err := strconv.ParseFloat(typedValue, 64)
-				if err != nil {
-					return 0
-				}
-				return uint(floatValue)
+				return 0
 			}
-			return uint(uintValue)
-		default:
-			return 0
+			return uint(floatValue)
+		}
+		return uint(uintValue)
+	default:
+		return 0
 	}
 }
 
@@ -670,43 +670,43 @@ func Equals(operands ...interface{}) bool {
 	for _, x := range operands {
 		operandType := t_string
 		switch x.(type) {
-			case uint:
-				operandType = t_uint
-			case uint8:
-				operandType = t_uint
-			case uint16:
-				operandType = t_uint
-			case uint32:
-				operandType = t_uint
-			case uint64:
-				operandType = t_uint
+		case uint:
+			operandType = t_uint
+		case uint8:
+			operandType = t_uint
+		case uint16:
+			operandType = t_uint
+		case uint32:
+			operandType = t_uint
+		case uint64:
+			operandType = t_uint
 
-			case int:
-				operandType = t_int
-			case int8:
-				operandType = t_int
-			case int16:
-				operandType = t_int
-			case int32:
-				operandType = t_int
-			case int64:
-				operandType = t_int
+		case int:
+			operandType = t_int
+		case int8:
+			operandType = t_int
+		case int16:
+			operandType = t_int
+		case int32:
+			operandType = t_int
+		case int64:
+			operandType = t_int
 
-			case float32:
-				operandType = t_float
-			case float64:
-				operandType = t_float
+		case float32:
+			operandType = t_float
+		case float64:
+			operandType = t_float
 
-			case bool:
-				operandType = t_bool
+		case bool:
+			operandType = t_bool
 
-			case time.Time:
-				operandType = t_date
+		case time.Time:
+			operandType = t_date
 
-			case string:
-				operandType = t_string
-			case []byte:
-				operandType = t_string
+		case string:
+			operandType = t_string
+		case []byte:
+			operandType = t_string
 		}
 
 		// compare should happen by lowest priority
@@ -720,18 +720,18 @@ func Equals(operands ...interface{}) bool {
 	var previousOperand interface{}
 	for _, operand := range operands {
 		switch compareAs {
-			case t_bool:
-				operand = InterfaceToBool(operand)
-			case t_string:
-				operand = InterfaceToString(operand)
-			case t_date:
-				operand = InterfaceToTime(operand)
-			case t_float:
-				operand = InterfaceToFloat64(operand)
-			case t_uint:
-				operand = InterfaceToUint(operand)
-			case t_int:
-				operand = InterfaceToInt(operand)
+		case t_bool:
+			operand = InterfaceToBool(operand)
+		case t_string:
+			operand = InterfaceToString(operand)
+		case t_date:
+			operand = InterfaceToTime(operand)
+		case t_float:
+			operand = InterfaceToFloat64(operand)
+		case t_uint:
+			operand = InterfaceToUint(operand)
+		case t_int:
+			operand = InterfaceToInt(operand)
 		}
 
 		if previousOperand == nil {

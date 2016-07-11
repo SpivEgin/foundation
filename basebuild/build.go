@@ -42,7 +42,6 @@ import (
 	_ "github.com/ottemo/foundation/app/actors/rts" // Real Time Statistics service
 	_ "github.com/ottemo/foundation/app/actors/seo" // URL Rewrite support
 
-	_ "github.com/ottemo/foundation/app/actors/other/grouping"   // Grouped Products module
-	_ "github.com/ottemo/foundation/app/actors/other/quickbooks" // quickbooks exporting module
-	_ "github.com/ottemo/foundation/app/actors/other/trustpilot" // TrustPilot module
+	_ "github.com/ottemo/foundation/composer"      // Logic units service
+	_ "github.com/ottemo/foundation/app/actors/discount/testDiscount" // Test Discount
 )
