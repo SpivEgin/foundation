@@ -674,12 +674,12 @@ func Equals(operands ...interface{}) bool {
 
 	// constant represents types conversion priority
 	const (
-		t_bool   = iota  // 0
-		t_float  = iota  // 1
-		t_date   = iota  // 2
-		t_string = iota  // 3  stands before int as ("10.1" == 10) supposedly should return false
-		t_int    = iota  // 4
-		t_uint   = iota  // 5
+		t_bool   = iota // 0
+		t_float  = iota // 1
+		t_date   = iota // 2
+		t_string = iota // 3  stands before int as ("10.1" == 10) supposedly should return false
+		t_int    = iota // 4
+		t_uint   = iota // 5
 	)
 
 	// determining types of operands

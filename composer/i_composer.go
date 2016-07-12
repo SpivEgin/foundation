@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// RegisterType allows to register new type of instances
 func (it *DefaultComposer) RegisterType(item InterfaceComposeType) error {
 	typeName := item.GetName()
 
@@ -20,7 +21,7 @@ func (it *DefaultComposer) RegisterType(item InterfaceComposeType) error {
 	return nil
 }
 
-// GetType returns information
+// GetType returns information about type
 func (it *DefaultComposer) GetType(name string) InterfaceComposeType {
 	if item, present := it.types[name]; present {
 		return item
@@ -28,6 +29,7 @@ func (it *DefaultComposer) GetType(name string) InterfaceComposeType {
 	return nil
 }
 
+// ListTypes returns information about all registered types
 func (it *DefaultComposer) ListTypes() []InterfaceComposeType {
 	var result []InterfaceComposeType
 
@@ -38,6 +40,7 @@ func (it *DefaultComposer) ListTypes() []InterfaceComposeType {
 	return result
 }
 
+// RegisterUnit allows to register new unit
 func (it *DefaultComposer) RegisterUnit(unit InterfaceComposeUnit) error {
 	unitName := unit.GetName()
 
@@ -50,6 +53,7 @@ func (it *DefaultComposer) RegisterUnit(unit InterfaceComposeUnit) error {
 	return nil
 }
 
+// UnRegisterUnit allows to remove unit from list of registered
 func (it *DefaultComposer) UnRegisterUnit(unit InterfaceComposeUnit) error {
 	unitName := unit.GetName()
 
@@ -62,10 +66,12 @@ func (it *DefaultComposer) UnRegisterUnit(unit InterfaceComposeUnit) error {
 	return nil
 }
 
+// GetName return name of composer
 func (it *DefaultComposer) GetName() string {
 	return "DefaultComposer"
 }
 
+// GetUnit returns unit registered with provided name
 func (it *DefaultComposer) GetUnit(name string) InterfaceComposeUnit {
 	if unit, present := it.units[name]; present {
 		return unit
@@ -73,10 +79,12 @@ func (it *DefaultComposer) GetUnit(name string) InterfaceComposeUnit {
 	return nil
 }
 
+// ListUnits returns all registered units
 func (it *DefaultComposer) ListUnits() []InterfaceComposeUnit {
 	return it.SearchUnits("", nil)
 }
 
+// SearchUnits allows to look for units using pattern and filter
 func (it *DefaultComposer) SearchUnits(namePattern string, typeFilter map[string]string) []InterfaceComposeUnit {
 	var result []InterfaceComposeUnit
 
@@ -113,6 +121,7 @@ func (it *DefaultComposer) SearchUnits(namePattern string, typeFilter map[string
 	return result
 }
 
+// Check allows to check value against some rule
 func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error) {
 	var result bool = true
 	var err error

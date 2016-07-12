@@ -20,6 +20,8 @@ func setupAPI() error {
 
 	// add Check!!!!
 
+	service.GET("composer/elements", APIComposerElements)
+
 	return nil
 }
 
@@ -142,6 +144,45 @@ func APIComposerUnits(context api.InterfaceApplicationContext) (interface{}, err
 				result[unitName] = unitInfo
 			}
 		}
+	}
+
+	return result, nil
+}
+
+// APIComposerElements returns all registered units and types
+func APIComposerElements(context api.InterfaceApplicationContext) (interface{}, error) {
+	result := make(map[string]interface{})
+	if composer := GetComposer(); composer != nil {
+		units := make(map[string]interface{})
+		for _, unit := range composer.ListUnits() {
+			unitInfo := make(map[string]interface{})
+
+			for _, item := range unit.ListItems() {
+				unitInfo[item] = map[string]interface{}{
+					"label":       unit.GetLabel(item),
+					"description": unit.GetDescription(item),
+					"type":        unit.GetType(item),
+					"required":    unit.IsRequired(item),
+				}
+			}
+			units[unit.GetName()] = unitInfo
+		}
+		result["units"] = units
+
+		types := make(map[string]interface{})
+		for _, unit := range composer.ListTypes() {
+			unitInfo := make(map[string]interface{})
+
+			for _, item := range unit.ListItems() {
+				unitInfo[item] = map[string]interface{}{
+					"label":       unit.GetLabel(item),
+					"description": unit.GetDescription(item),
+					"type":        unit.GetType(item),
+				}
+			}
+			types[unit.GetName()] = unitInfo
+		}
+		result["types"] = types
 	}
 
 	return result, nil

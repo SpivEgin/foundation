@@ -24,6 +24,7 @@ func init() {
 	initBaseTypes()
 }
 
+// initBaseUnits register simple units
 func initBaseUnits() {
 
 	//	action := func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
@@ -281,6 +282,7 @@ func initTest() error {
 	return nil
 }
 
+// initModelTypes register base types into composer
 func initBaseTypes() error {
 
 	for goType, jsonType := range map[string]string{
@@ -308,6 +310,8 @@ func initBaseTypes() error {
 	return nil
 }
 
+// initModelTypes register all foundation models that implements interface object with their type including
+//  all attributes provided by GetAttributesInfo
 func initModelTypes() error {
 
 	for modelName, modelInstance := range models.GetDeclaredModels() {

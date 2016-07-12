@@ -11,8 +11,8 @@ import (
 	_ "github.com/ottemo/foundation/api/context"   // Context runtime transfer service
 	_ "github.com/ottemo/foundation/api/rest"      // RESTful API service
 	_ "github.com/ottemo/foundation/api/session"   // Session Management service
-	_ "github.com/ottemo/foundation/impex"         // Import/Export service
 	_ "github.com/ottemo/foundation/composer"      // Logic units service
+	_ "github.com/ottemo/foundation/impex"         // Import/Export service
 	_ "github.com/ottemo/foundation/media/fsmedia" // Media Storage service
 
 	_ "github.com/ottemo/foundation/app/actors/category"        // Category module
@@ -40,10 +40,10 @@ import (
 	_ "github.com/ottemo/foundation/app/actors/shipping/flatweight" // Flat Weight
 	_ "github.com/ottemo/foundation/app/actors/shipping/usps"       // USPS
 
-	_ "github.com/ottemo/foundation/app/actors/discount/coupon"   // Coupon based discounts
-	_ "github.com/ottemo/foundation/app/actors/discount/giftcard" // Gift Cards
- 	_ "github.com/ottemo/foundation/app/actors/discount/testDiscount" // Test Discount
-	_ "github.com/ottemo/foundation/app/actors/tax"               // Tax Rates
+	_ "github.com/ottemo/foundation/app/actors/discount/coupon"       // Coupon based discounts
+	_ "github.com/ottemo/foundation/app/actors/discount/giftcard"     // Gift Cards
+	_ "github.com/ottemo/foundation/app/actors/discount/testDiscount" // Test Discount
+	_ "github.com/ottemo/foundation/app/actors/tax"                   // Tax Rates
 
 	_ "github.com/ottemo/foundation/app/actors/reporting" // Reporting
 	_ "github.com/ottemo/foundation/app/actors/rts"       // Real Time Statistics service
