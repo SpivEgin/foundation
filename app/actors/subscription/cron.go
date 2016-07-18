@@ -8,6 +8,7 @@ import (
 	"github.com/ottemo/foundation/app/models/subscription"
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
+	"github.com/ottemo/foundation/utils"
 )
 
 // Function for every hour check subscriptions to place an order
@@ -62,10 +63,21 @@ func placeOrders(params map[string]interface{}) error {
 
 		// need to check for unreached payment
 		// to send email to user in case of low balance on credit card
-		_, err = checkoutInstance.Submit()
+		paymentResult, err := checkoutInstance.Submit()
 		if err != nil {
 			handleCheckoutError(subscriptionInstance, checkoutInstance, err)
 			continue
+		}
+
+		// update payment token for subscription, as credit card can be not saved at all
+		if updatedToken, present := paymentResult["transactionID"]; present {
+			creditCardToken := utils.InterfaceToString(updatedToken)
+			if creditCardToken != "" {
+				if creditCard := subscriptionInstance.GetCreditCard(); creditCard != nil {
+					creditCard.Set("token_id", creditCardToken)
+					subscriptionInstance.SetCreditCard(creditCard)
+				}
+			}
 		}
 
 		subscriptionInstance.Set("last_submit", time.Now())
