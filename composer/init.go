@@ -63,7 +63,7 @@ func initBaseUnits() {
 			ConstPrefixOut:  "bool",
 		},
 		Label:       map[string]string{ConstPrefixUnit: "greater then"},
-		Description: map[string]string{ConstPrefixUnit: "Checks if value if greather then other value"},
+		Description: map[string]string{ConstPrefixUnit: "Checks if value is greater then other value"},
 		Action:      action,
 	})
 
@@ -131,10 +131,84 @@ func initBaseUnits() {
 	})
 
 	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
+		// in should be list of checks
+		for _, check := range utils.InterfaceToArray(in) {
+			if result, err := composer.Check(check, args); result && err == nil {
+				return true, nil
+			}
+		}
+
+		return false, nil
+	}
+
+	registeredComposer.RegisterUnit(&BasicUnit{
+		Name: "*any",
+		Type: map[string]string{
+			ConstPrefixUnit: "array", // apply check to each element of list
+			ConstPrefixArg:  ConstTypeAny,
+			ConstPrefixOut:  "bool",
+		},
+		Label:       map[string]string{ConstPrefixUnit: "any"},
+		Description: map[string]string{ConstPrefixUnit: "Checks list of condiions and reuturn first positive"},
+		Action:      action,
+	})
+
+	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
+
+		// in should be list of checks
+		for _, check := range utils.InterfaceToArray(in) {
+			if result, err := composer.Check(check, args); !result || err != nil {
+				return false, err
+			}
+		}
+
+		return true, nil
+	}
+
+	registeredComposer.RegisterUnit(&BasicUnit{
+		Name: "*all",
+		Type: map[string]string{
+			ConstPrefixUnit: "array",      // apply check to each element of list
+			ConstPrefixArg:  ConstTypeAny, // rules should be passed as an arguments that are checked per item
+			ConstPrefixOut:  "bool",
+		},
+		Label:       map[string]string{ConstPrefixUnit: "all"},
+		Description: map[string]string{ConstPrefixUnit: "Checks list of condiions and reuturn false and first negative"},
+		Action:      action,
+	})
+
+	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
+
+		// in should be list of checks
+		for _, check := range utils.InterfaceToArray(in) {
+			if result, err := composer.Check(check, args); !result || err != nil {
+				return false, err
+			}
+		}
+
+		return true, nil
+	}
+
+	registeredComposer.RegisterUnit(&BasicUnit{
+		Name: "*allCartItems",
+		Type: map[string]string{
+			ConstPrefixUnit: "Cart", // apply check to each element of list
+			//ConstPrefixArg:  ConstTypeAny, // rules should be passed as an arguments that are checked per item
+
+			ConstPrefixArg + "amount":         "float",
+			ConstPrefixArg + "visitorIsLogin": "bool",
+			ConstPrefixArg + "cartItems":      "object",
+			ConstPrefixOut:                    "bool",
+		},
+		Label:       map[string]string{ConstPrefixUnit: "allItemsCheck", ConstPrefixArg: "Rules"},
+		Description: map[string]string{ConstPrefixUnit: "Checks list of condiions for items and reuturn false on first negative"},
+		Action:      action,
+	})
+
+	action = func(in interface{}, args map[string]interface{}, composer InterfaceComposer) (interface{}, error) {
 
 		return "ok", nil
 	}
-
 	registeredComposer.RegisterUnit(&BasicUnit{
 		Name: "*test",
 		Type: map[string]string{
@@ -148,6 +222,7 @@ func initBaseUnits() {
 		Description: map[string]string{ConstPrefixUnit: "Temporary test unit"},
 		Action:      action,
 	})
+
 }
 
 func initTest() error {
@@ -171,67 +246,114 @@ func initTest() error {
 		},
 	}
 
+	// can we represent using this type array of any elements?
 	registeredComposer.RegisterType(testType)
+	arrayType := &BasicType{
+		Name: "object",
+		Label: map[string]string{
+			"": "object",
+		},
+		Type: map[string]string{
+			"": "object",
+		},
+		Description: map[string]string{
+			"": "object",
+		},
+	}
+
+	registeredComposer.RegisterType(arrayType)
+
+	testCartItemType := &BasicType{
+		Name: "Items",
+		Label: map[string]string{
+			"":          "Items",
+			"ProductID": "ProductID",
+			"Qty":       "Qty",
+			"Options":   "Options",
+		},
+		Type: map[string]string{
+			"":          "CartItem",
+			"ProductID": "string",
+			"Qty":       utils.ConstDataTypeInteger,
+			"Options":   "object",
+		},
+		Description: map[string]string{
+			"":          "Cart Item object",
+			"ProductID": "ProductID",
+			"Qty":       "Qty",
+			"Options":   "Options",
+		},
+	}
+
+	/*
+		idx       int
+		ProductID string
+		Qty       int
+		Options   map[string]interface{}
+	*/
+
+	registeredComposer.RegisterType(testCartItemType)
 
 	testCartType := &BasicType{
 		Name: "Cart",
 		Label: map[string]string{
 			"":               "Cart",
-			"cartAmount":     "Amount",
+			"subtotal":       "Amount",
 			"visitorIsLogin": "Visitor is login",
+			"cartItems":      "Items",
 		},
 		Type: map[string]string{
 			"":               "Cart",
-			"cartAmount":     "float",
+			"subtotal":       "float",
 			"visitorIsLogin": "boolean",
+			"cartItems":      "Items",
 		},
 		Description: map[string]string{
-			"":           "Cart model object",
-			"cartAmount": "Cart amount",
+			"":          "Cart model object",
+			"subtotal":  "Cart amount",
+			"cartItems": "array of CartItems",
 		},
 	}
 
 	registeredComposer.RegisterType(testCartType)
 
-	//	testCheckoutType := &BasicType{
-	//		Name: "Checkout",
-	//		Label: map[string]string{
-	//			"cart": "Cart",
-	//			"paymentMethods": "Payment Methods",
-	//			"shippingMethods": "Shippin Methods",
-	//		},
-	//		Type: map[string]string{
-	//			"cart": "Cart",
-	//			"paymentMethods": "[]Payment",
-	//			"shippingMethods": "[]Shippin",
-	//		},
-	//		Description: map[string]string{
-	//			"cart": "current Cart",
-	//		},
-	//	}
-	//
-	//	registeredComposer.RegisterType(testCheckoutType)
-	//
-	//	testVisitorType := &BasicType{
-	//		Name: "Visitor",
-	//		Label: map[string]string{
-	//			"id": "ID",
-	//			"name": "Name",
-	//			"country": "Country",
-	//			"visitorIsLogin": "Visitor is login",
-	//		},
-	//		Type: map[string]string{
-	//			"id": "string",
-	//			"name": "string",
-	//			"country": "string",
-	//			"visitorIsLogin": "boolean",
-	//		},
-	//		Description: map[string]string{
-	//
-	//		},
-	//	}
+	testCheckoutType := &BasicType{
+		Name: "Checkout",
+		Label: map[string]string{
+			"cart":            "Cart",
+			"paymentMethods":  "Payment Methods",
+			"shippingMethods": "Shippin Methods",
+		},
+		Type: map[string]string{
+			"cart":            "Cart",
+			"paymentMethods":  "[]Payment",
+			"shippingMethods": "[]Shippin",
+		},
+		Description: map[string]string{
+			"cart": "current Cart",
+		},
+	}
 
-	//	registeredComposer.RegisterType(testVisitorType)
+	registeredComposer.RegisterType(testCheckoutType)
+
+	testVisitorType := &BasicType{
+		Name: "Visitor",
+		Label: map[string]string{
+			"id":             "ID",
+			"name":           "Name",
+			"country":        "Country",
+			"visitorIsLogin": "Visitor is login",
+		},
+		Type: map[string]string{
+			"id":             "string",
+			"name":           "string",
+			"country":        "string",
+			"visitorIsLogin": "boolean",
+		},
+		Description: map[string]string{},
+	}
+
+	registeredComposer.RegisterType(testVisitorType)
 
 	testDiscountRule := &BasicType{
 		Name: "DiscountRule",

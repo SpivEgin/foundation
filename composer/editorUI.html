@@ -199,7 +199,7 @@
                         .then(function(response) {
                             me.data.units = response.data.result.units;
                             Object.assign(me.data.types, response.data.result.types);
-                            me.data.t_u_b = response.data.result.binding;
+                            me.data.binding = response.data.result.binding;
                         })
                         /**
                          * Makes HTTP request to get information about config values
@@ -239,7 +239,7 @@
                         .then(function (response) {
                             Object.assign(me.data.types, response.data.result.types);
                             Object.assign(me.data.units, response.data.result.units);
-                            Object.assign(me.data.t_u_b, response.data.result.binding);
+                            Object.assign(me.data.binding, response.data.result.binding);
 
                             var info = response.data.result.types[inpType];
                             for(var key in inp) {
@@ -430,8 +430,8 @@
             var jsonType = "";
             var types = storeDataS.data.types;
             var units = storeDataS.data.units;
-            var t_u_b = storeDataS.data.t_u_b; //type_unit_binding
-            $scope.t_u_b = t_u_b;
+            var binding = storeDataS.data.binding; //type_unit_binding
+            $scope.binding = binding;
 
             $scope.isDialogHidden = true;
 
@@ -883,11 +883,11 @@
              * Checks if to working item type can be applied units
              *
              * @param {String} type - working item type
-             * @param {Object} t_u_b - type unit binding
+             * @param {Object} binding - type unit binding
              * @return {Boolean}
              */
-            function hasUnits(type, t_u_b) {
-                return t_u_b[type] != null;
+            function hasUnits(type, binding) {
+                return binding[type] != null;
             }
 
             /**
@@ -897,7 +897,7 @@
              * @return {Array}
              */
             function getUnits(type) {
-                return t_u_b[type];
+                return binding[type];
             }
 
             /**
@@ -1089,7 +1089,7 @@
                     var res = response.data.result;
                     Object.assign(types, res.types);
                     Object.assign(units, res.units);
-                    Object.assign(t_u_b, res.type_unit_binding);
+                    Object.assign(binding, res.binding);
 
                     if(handler != undefined) {
                         try {

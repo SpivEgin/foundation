@@ -235,6 +235,7 @@ func (it *DefaultComposer) Check(in interface{}, rule interface{}) (bool, error)
 					if ruleKey != ConstPrefixOut {
 						continue
 					}
+
 					result = utils.Equals(in, ruleValue)
 				}
 

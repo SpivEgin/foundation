@@ -42,18 +42,43 @@ func TestOperations(tst *testing.T) {
 
 	tst.Log(object.Get("sku"))
 	input := map[string]interface{}{
-		"cartAmount": 10,
-		"b":          "test",
-		"c":          3.14,
-		"d":          object,
+		"cart": map[string]interface{}{
+			"id":       "cart_id",
+			"subtotal": 45,
+			"items": []map[string]interface{}{
+				{
+					"id":    "cart_item_1",
+					"sku":   "cart_item_sku_1",
+					"price": 25,
+					"qty":   1,
+				},
+				{
+					"id":    "cart_item_2",
+					"sku":   "cart_item_sku_2",
+					"price": 10,
+					"qty":   2,
+				},
+			},
+		},
 	}
 
 	rules, err := utils.DecodeJSONToStringKeyMap(`{
-		"cartAmount": {">gt": 15},
-		"b": "test",
-		"c": 3.14,
-		"d": {}
+		"cart": {
+			"subtotal": {"*lt":{"@": 35,"#": false}, "*gt":15},
+			"items": {"*any":{"@id":{"*contains":"cart_item_2"}, "@qty":{"*gt":1}}, "*all":{"@id":{"*contains":"cart_item_"}}}
+		}
 	}`)
+	/*
+
+		, "@test1":true
+		"*filter":{}
+		"items": {
+			"*any":{"id":"cart_item_sku_2"}
+		}
+		*any:{"id":"cart_item_sku_2"}
+	*/
+
+	tst.Log(rules)
 	if err != nil {
 		tst.Errorf("JSON decode fail: %v", err)
 	}
@@ -64,4 +89,5 @@ func TestOperations(tst *testing.T) {
 	} else if !result {
 		tst.Error("Validation fail")
 	}
+	tst.Log(result)
 }

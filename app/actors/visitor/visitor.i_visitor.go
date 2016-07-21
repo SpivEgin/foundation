@@ -261,7 +261,7 @@ func (it *DefaultVisitor) ResetPassword() error {
 	}
 	siteInfo := map[string]string{
 		"name": utils.InterfaceToString(env.ConfigGetValue(app.ConstConfigPathStoreName)),
-		"url": app.GetStorefrontURL(""),
+		"url":  app.GetStorefrontURL(""),
 	}
 
 	subject := utils.InterfaceToString(env.ConfigGetValue(ConstConfigPathLostPasswordEmailSubject))
