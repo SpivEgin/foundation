@@ -42,33 +42,48 @@ func TestOperations(tst *testing.T) {
 
 	tst.Log(object.Get("sku"))
 	input := map[string]interface{}{
-		"cart": map[string]interface{}{
+		"Cart": map[string]interface{}{
 			"id":       "cart_id",
 			"subtotal": 45,
 			"items": []map[string]interface{}{
 				{
-					"id":    "cart_item_1",
-					"sku":   "cart_item_sku_1",
-					"price": 25,
-					"qty":   1,
+					"id":        "cart_item_1",
+					"productID": "cart_item_1",
+					"sku":       "cart_item_sku_1",
+					"price":     25,
+					"qty":       1,
+					"options":   map[string]interface{}{},
 				},
 				{
-					"id":    "cart_item_2",
-					"sku":   "cart_item_sku_2",
-					"price": 10,
-					"qty":   2,
+					"id":        "cart_item_2",
+					"productID": "cart_item_2",
+					"sku":       "cart_item_sku_2",
+					"price":     10,
+					"qty":       1,
+					"options":   map[string]interface{}{},
+				},
+				{
+					"id":        "cart_item_2",
+					"productID": "cart_item_2",
+					"sku":       "cart_item_sku_2",
+					"price":     10,
+					"qty":       1,
+					"options":   map[string]interface{}{},
 				},
 			},
 		},
 	}
 
 	rules, err := utils.DecodeJSONToStringKeyMap(`{
-		"cart": {
+		"Cart": {
 			"subtotal": {"*lt":{"@": 35,"#": false}, "*gt":15},
-			"items": {"*any":{"@id":{"*contains":"cart_item_2"}, "@qty":{"*gt":1}}, "*all":{"@id":{"*contains":"cart_item_"}}}
+			"items": [{"*have": {"@productID": "cart_item_1", "*gt":0}}, {"*have": {"@productID": "cart_item_2", "*gt":0}}]
 		}
 	}`)
 	/*
+		"items": {"*have": {"*gt": 0,"@qty": { "*gt": 1}, "@sku": {"*contains":"cart_item"}}}
+
+		"cartItems": {"*any":{"@id":{"*contains":"cart_item_2"}, "@qty":{"*gt":1}}, "*all":{"@id":{"*contains":"cart_item_"}}}
 
 		, "@test1":true
 		"*filter":{}
@@ -76,6 +91,34 @@ func TestOperations(tst *testing.T) {
 			"*any":{"id":"cart_item_sku_2"}
 		}
 		*any:{"id":"cart_item_sku_2"}
+
+		// 1. Rule interpretation: one of this products should be in the Cart
+		// in this case qty isn't used and valuable only presence of such items
+		{"product_in_cart": ["54cf601a42189a77b5fe56ec", "54cf601900c58bbe78123064"]}
+		"Cart": {
+			"items": {"*have": {"@productID": "cart_item_1"}}
+		}
+		"Cart": {
+			"items": {"*have": {"@productID": "cart_item_2"}}
+		}
+
+		// 2. Rule interpretation: both of this products should be in the Cart
+		// in this case qty isn't used and valuable only presence of such items
+		{ "products_in_cart": ["cart_item_1", "cart_item_2"]}
+
+		"items": [{"*have": {"@productID": "cart_item_1", "*gt":0}}, {"*have": {"@productID": "cart_item_2", "*gt":0}}]
+
+		// 3. Rule interpretation: all products should be in cart with specified qty
+		// in this case qty is used directly
+		{"products_in_qty":{"54cf601a42189a77b5fe56ec":1, "54cf601900c58bbe78123064": 1}}
+
+
+
+		ADD unit to convert cart to flat cart by some params (args)
+		Simplify rules so they can define only condition:
+		1. Once; // just true
+		2. By amount of qualified products; // true and divide on module level
+		3. Same as above but below maximum application
 	*/
 
 	tst.Log(rules)
