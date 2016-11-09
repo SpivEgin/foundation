@@ -290,9 +290,9 @@ func initGoTypes() error {
 
 		registeredComposer.RegisterType(&BasicType{
 			Name:        goType,
-			Label:       map[string]string{goType: strings.Title(goType)},
-			Type:        map[string]string{goType: jsonType},
-			Description: map[string]string{goType: "Basic Ottemo type {" + goType + "}"},
+			Label:       map[string]string{"": strings.Title(goType)},
+			Type:        map[string]string{"": jsonType},
+			Description: map[string]string{"": "Basic Ottemo type {" + goType + "}"},
 		})
 
 	}

@@ -9,12 +9,6 @@
 
     <script type="text/javascript">
 
-        var initialized = false;
-
-        var init = function (x) {
-
-        };
-
         var module = angular.module("DiscountEditor", []);
 
         module.directive("template", ["$compile", function ($compile) {
@@ -232,6 +226,141 @@
 
         module.controller("ComposeElement", ["$scope", "$q", "$composer", function (ComposeElement, $q, $composer) {
 
+            // Internal functions
+            var _makeEditor = function(element, callback) {
+                // editor components
+                var editor = angular.element("<input class='compose-editor' type='text' />");
+                var confirm = angular.element("<i class='compose-editor confirm glyphicon glyphicon-ok'>&nbsp;</i>");
+                var cancel = angular.element("<i class='compose-editor cancel glyphicon glyphicon-remove'>&nbsp;</i>");
+                var wrapper = angular.element("<span class='compose-element-key-edit'>");
+                wrapper.append(cancel).append(editor).append("&nbsp;&nbsp;").append(confirm);
+
+                editor[0].value = element.html();
+
+                // event handlers
+                var exitFunc = function() {
+                    wrapper.remove();
+                    element.removeClass("hide");
+                };
+
+                var saveFunc = function() {
+                    if (typeof callback == "function") {
+                        callback(editor[0].value);
+                    }
+                };
+
+                editor.on("keypress", function(e){ if(e.keyCode == 13) {
+                    saveFunc();
+                    exitFunc();
+                }});
+
+                confirm.on("click", saveFunc);
+                confirm.on("click", exitFunc);
+                cancel.on("click", exitFunc);
+
+                // editor display
+                element.addClass("hide");
+                element.after(wrapper);
+                editor[0].focus();
+            };
+
+            // Constructor
+            ComposeElement._init = function() {
+
+                // back reference to itself
+                ComposeElement.self = ComposeElement;
+
+                // extracting "data" values
+                if (ComposeElement.data != undefined && typeof ComposeElement.data == "object") {
+                    var fields = ["value", "path", "json", "root", "parent", "type", "label"];
+                    for (var i in fields) {
+                        var field = fields[i];
+                        if (field in ComposeElement.data) {
+                            ComposeElement[field] = ComposeElement.data[field];
+                        }
+                    }
+                }
+
+                // default values for computable parameters
+                ComposeElement.ready = false;
+
+                ComposeElement.isBasic = true;
+                ComposeElement.isUnit = false;
+
+                ComposeElement.length = 0;
+                ComposeElement.children = new Object();
+                ComposeElement.info = {};
+
+                ComposeElement.jstype = typeof ComposeElement.value;
+
+                // computing root/parent parameters
+                ComposeElement.path = ComposeElement.pathArray(ComposeElement.path);
+                if (ComposeElement.path.length == 0) {
+                    ComposeElement.json = ComposeElement.value;
+                    ComposeElement.root = ComposeElement;
+                    ComposeElement.parent = null;
+                } else {
+                    var key = ComposeElement.path.slice(-1)[0];
+                    ComposeElement.parent.children[key].scope = ComposeElement;
+                }
+
+                // updating value parameter of element
+                if (ComposeElement.value == undefined) {
+                    ComposeElement.value = {};
+                }
+
+                // computing type parameter of element
+                if (typeof ComposeElement.type != "string" || ComposeElement.type == "") {
+                    ComposeElement.type = typeof ComposeElement.value;
+                }
+
+                // computing length parameter of element
+                if (typeof ComposeElement.value == "object") {
+                    ComposeElement.length = Object.keys(ComposeElement.value).length;
+                } else if (Array.isArray(ComposeElement.value)) {
+                    ComposeElement.length = ComposeElement.value.length;
+                }
+
+                // computing isBasic / isUnit parameters of element
+                if (!$composer.isBasic(ComposeElement.type)) {
+                    ComposeElement.isBasic = false;
+                    if ($composer.isUnit(ComposeElement.type)) {
+                        ComposeElement.isUnit = true;
+                        ComposeElement.info = $composer.unit(ComposeElement.type);
+                    } else {
+                        ComposeElement.info = $composer.type(ComposeElement.type);
+                    }
+                }
+
+                // element information request
+                $q.when(ComposeElement.info).then(function (info) {
+                    ComposeElement.info = info;
+
+                    // Initializing children elements
+                    for (var item in ComposeElement.value) {
+                        if (ComposeElement.info[item] == undefined) {
+                            continue;
+                        }
+
+                        var itemPath = ComposeElement.path.slice();
+                        itemPath.push(item);
+
+                        ComposeElement.children[item] = {
+                            path: itemPath,
+                            root: ComposeElement.root,
+                            json: ComposeElement.json,
+                            value: ComposeElement.value[item],
+                            parent: ComposeElement,
+
+                            type: ComposeElement.info[item].type,
+                            desc: ComposeElement.info[item].desc,
+                            label: ComposeElement.info[item].label
+                        };
+                    }
+                    ComposeElement.ready = true;
+                });
+            }
+
             // Scope functions
             ComposeElement.pathArray = function (path) {
                 path = path || ComposeElement.path;
@@ -251,12 +380,12 @@
                            .split(PATH_SEPARATOR);
             };
 
-            ComposeElement.collapse = function (event) {
+            ComposeElement.collapse = function(event) {
                 var element = angular.element(event.target);
                 element.toggleClass('glyphicon-triangle-right glyphicon-triangle-bottom');
 
                 for (var i = 0; i < 10; i++) {
-                    if (element.hasClass('compose-element-item')) {
+                    if (element.hasClass('compose-element')) {
                         element.toggleClass('minified');
                         break;
                     }
@@ -264,118 +393,43 @@
                 }
             };
 
-            // --------------
-            // Initialization
-            // --------------
+            ComposeElement.editKey = function(event, data) {
+                var element = angular.element(event.target);
+                _makeEditor(element, function(newValue) {
+                    data.label = newValue;
+                    data.$apply();
+                });
+            };
 
-            // extracting "data" values
-            if (ComposeElement.data != undefined && typeof ComposeElement.data == "object") {
-                var fields = ["value", "path", "root", "parent", "type"];
-                for (var i in fields) {
-                    var field = fields[i];
-                    if (field in ComposeElement.data) {
-                        ComposeElement[field] = ComposeElement.data[field];
-                    }
-                }
-            }
+            ComposeElement.editType = function(event, data) {
+                var element = angular.element(event.target);
+                _makeEditor(element, function(newValue) {
+                    data.type = newValue;
+                    data.$apply();
+                });
+            };
 
-            ComposeElement.ready   = false;
+            ComposeElement.addItem = function(event, data) {
+                var element = angular.element(event.target);
+                data.root.children = {};
+                // data.json.visitor.first_name = "Evpat";
+                // data.json.visitor.email="123@ukr.net";
+                // data.root._init();
+                // data.root.children.visitor.scope.$digest();
+                // setTimeout(function() { data.root.$digest(); }, 1000);
+            };
 
-            ComposeElement.isBasic = true;
-            ComposeElement.isUnit = false;
-
-            ComposeElement.length = 0;
-            ComposeElement.children = [];
-            ComposeElement.info = {};
-
-            // path validation
-            ComposeElement.path = ComposeElement.pathArray(ComposeElement.path);
-            if (ComposeElement.path.length == 0){
-                ComposeElement.root = ComposeElement.value;
-                ComposeElement.parent = null;
-            }
-
-            // value validation
-            if (ComposeElement.value == undefined) {
-                ComposeElement.value = {};
-            }
-
-            // type validation
-            if (typeof ComposeElement.type != "string" || ComposeElement.type == ""){
-                ComposeElement.type = typeof ComposeElement.value;
-            }
-
-            // length update
-            if (typeof ComposeElement.value == "object") {
-                ComposeElement.length = Object.keys(ComposeElement.value).length;
-            } else if (Array.isArray(ComposeElement.value)) {
-                ComposeElement.length = ComposeElement.value.lenght;
-            }
-
-            // requesting type information
-            if (!$composer.isBasic(ComposeElement.type)) {
-                ComposeElement.isBasic = false;
-                if ($composer.isUnit(ComposeElement.type)) {
-                    ComposeElement.isUnit = true;
-                    ComposeElement.info = $composer.unit(ComposeElement.type);
-                } else {
-                    ComposeElement.info = $composer.type(ComposeElement.type);
-                }
-            }
-
-            // waiting for results
-            $q.when(ComposeElement.info).then(function(info) {
-                ComposeElement.info = info;
-
-                // Initializing children elements
-                for (var item in ComposeElement.value) {
-                    if (ComposeElement.info[item] == undefined) {
-                        continue;
-                    }
-
-                    var itemPath = ComposeElement.path.slice();
-                    itemPath.push(item);
-
-                    ComposeElement.children.push({
-                        path:   itemPath,
-                        root:   ComposeElement.root,
-                        parent: ComposeElement.value,
-                        value:  ComposeElement.value[item],
-
-                        type:  ComposeElement.info[item].type,
-                        desc:  ComposeElement.info[item].desc,
-                        label: ComposeElement.info[item].label
-                    });
-                }
-                ComposeElement.ready = true;
-            });
+            ComposeElement._init();
         }]);
 
 
         module.controller("DiscountEditor", ["$scope", function (DiscountEditor) {
-            DiscountEditor.rule = {'visitor': {'first_name': 'test'}};
+            DiscountEditor.rule = {'visitor': {'first_name': 'test', 'last_name': '123'}};
             DiscountEditor.ruleType = "DiscountRule";
         }]);
     </script>
 
     <style>
-
-        #screen {
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.25);
-            position: absolute;
-            top: 0;
-        }
-
-        #modal {
-            width: 33.333%;
-            top: 20%;
-            left: 33.3333%;
-            z-index: 2;
-            position: fixed;
-        }
-
         .container {
             padding: 0px 5px 0px 0px;
             background-color: #f3f6fa;
@@ -386,15 +440,6 @@
             list-style: none;
             margin: 0;
             padding-left: 20px;
-        }
-
-        .compose-element-item {
-            line-height: 30px;
-        }
-
-        .compose-element-item .minified {
-            height: 30px;
-            overflow-y: hidden;
         }
 
         .compose-item-line {
@@ -424,7 +469,7 @@
 
 <body ng-app="DiscountEditor">
 
-<!-- Composer Editor tree item template -->
+<!-- template for composer item (recursive tree) -->
 <ul class="compose-element" template="tpl" tpl-set="compose-element" ng-controller="ComposeElement">
     <li class="compose-item">
         <div class="compose-item-line" ng-if="ready">
@@ -439,10 +484,11 @@
             </span>
 
             <span class="compose-item-label">
-                <b title="{{desc}}">{{label}}</b>({{type}})
+                <b ng-click="editKey($event, self)">{{ !label ? '""' : label }}</b>
+                (<a ng-click="editType($event, self)">{{ !type ? '""' : type }}</a>):
             </span>
 
-            <span class="compose-item-editor" ng-switch="type">
+            <span class="compose-item-editor" ng-switch="jstype">
                 <input type="text"
                        ng-switch-when="string"
                        ng-model="value"
@@ -460,19 +506,18 @@
                        ng-change="edit(value)"/>
             </span>
 
-            <button ng-if="parent != null" ng-click="removeItem()">
+            <button ng-if="parent != null" ng-click="removeItem($event, self)">
                 <i class="glyphicon glyphicon-trash"></i>
             </button>
 
-            <button ng-if="info.length > 0" ng-click="addItemDialog()">
+            <button ng-if="info" ng-click="addItem($event, self)">
                 <i class="glyphicon glyphicon-plus"></i>
             </button>
 
-            <button ng-if="hasUnits" ng-click="addUnitDialog()">
+            <button ng-if="hasUnits" ng-click="addUnit($event, self)">
                 <i class="glyphicon glyphicon-indent-left"></i>
             </button>
         </div>
-
         <template get="compose-element" data="x" ng-repeat="x in children"></template>
     </li>
 </ul>
