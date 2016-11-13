@@ -9,6 +9,69 @@
 
     <script type="text/javascript">
 
+        var pathToArray = function (path, separator) {
+            path = path || [];
+            separator = separator || "/";
+
+            if (Array.isArray(path)) {
+                return path;
+            }
+
+            if (typeof path != "string") {
+                return path;
+            }
+
+            return path.replace(new RegExp("^[" + separator + "]+"), "")
+                    .replace(new RegExp("[" + separator + "]+$"), "")
+                    .split(separator);
+        };
+
+        var pathValues = function (subject, path) {
+            var result = arguments[2] || [];
+
+            if (typeof subject != "object") {
+                return result;
+            }
+
+            path = pathToArray(path);
+            if (path.length == 0) {
+                return result;
+            }
+
+            if (path[0] in subject) {
+                result.push(subject[path[0]]);
+            } else {
+                return result;
+            }
+
+            if (path.length > 1) {
+                return pathValues(subject[path[0]], path.slice(1), result);
+            }
+
+            return result;
+        };
+
+        var pathUpdate = function (subject, path, value) {
+            path = pathToArray(path);
+            var values = pathValues(subject, path);
+
+            for(var i = 0; i < path.length; i++) {
+
+                if (i == path.length-1) {
+                    values[i] = value;
+                } else if (values[i] == undefined || typeof values[i] != "object") {
+                    values[i] = {};
+                } else {
+                    continue;
+                }
+
+                if (i > 0) {
+                    subject = values[i-1];
+                }
+                subject[path[i]] = values[i];
+            }
+        };
+
         var module = angular.module("DiscountEditor", []);
 
         module.directive("template", ["$compile", function ($compile) {
@@ -21,6 +84,7 @@
                     var templateIsTag = false;
                     var templateName = null;
                     var templateAttributes = {};
+                    var watchExpression = null;
 
                     if (element[0].tagName.toLowerCase() == this.name.toLowerCase()) {
                         templateIsTag = true;
@@ -29,16 +93,20 @@
                     /* template attributes filtering */
                     if (templateIsTag) {
                         /* case 1: directive usage as a tag - all attributes related */
-                        for (var attribute in attributes.$attr) {
-                            var attr = attribute.replace(/^(data-|x-)/, "").toLowerCase();
-                            templateAttributes[attr] = attributes[attribute];
+                        for (var tagAttribute in attributes.$attr) {
+                            if (! attributes.$attr.hasOwnProperty(tagAttribute)) { continue; }
+
+                            var tagAttrName = tagAttribute.replace(/^(data-|x-)/, "").toLowerCase();
+                            templateAttributes[tagAttrName] = attributes[tagAttribute];
                         }
 
                     } else {
                         /* case 2: directive usage as an attribute - attribute prefix filtering*/
                         var templatePrefix = "tp";
                         for (var loop = true; loop; loop = !loop) {
-                            for (var attribute in  attributes.$attr) {
+                            for (var attribute in attributes.$attr) {
+                                if (!attributes.$attr.hasOwnProperty(attribute)) { continue; }
+
                                 var attr = attribute.replace(/^(data-|x-)/, "").toLowerCase();
 
                                 /* non default prefix specified, we should repeat scan for that case (as attributes order is not strict) */
@@ -65,7 +133,7 @@
 
                     /* template "set" operation specified */
                     if ("set" in templateAttributes) {
-                        var templateName = templateAttributes["set"];
+                        var saveName = templateAttributes["set"];
                         delete templateAttributes["set"];
 
                         if (typeof angular.templates == 'undefined') {
@@ -74,9 +142,9 @@
 
                         /* angular scope and $compile operations requires top element */
                         if (templateIsTag) {
-                            angular.templates[templateName] = "<span>" + element.html() + "</span>";
+                            angular.templates[saveName] = "<span>" + element.html() + "</span>";
                         } else {
-                            angular.templates[templateName] = element[0].outerHTML;
+                            angular.templates[saveName] = element[0].outerHTML;
                         }
                     }
 
@@ -86,6 +154,14 @@
                         delete templateAttributes["get"]
                     } else {
                         templateName = null;
+                    }
+
+                    /* template "get" operation specified */
+                    if ("watch" in templateAttributes) {
+                        watchExpression = templateAttributes["watch"];
+                        delete templateAttributes["watch"]
+                    } else {
+                        watchExpression = null;
                     }
 
                     /* directive's "link" function */
@@ -127,9 +203,21 @@
 
                             /* applying new scope to the subject */
                             result = $compile(templateElement)(templateScope);
+
+                            if (watchExpression != null) {
+                                templateScope.$watch(function(scope){
+                                    console.log("111");
+                                    return new Date().getSeconds();
+                                }, function(value) {
+                                    console.log("222");
+                                    result = $compile(templateElement)(templateScope);
+                                    element.replaceWith(result);
+                                    element = result;
+                                });
+                            }
                         }
                         element.replaceWith(result);
-
+                        element = result;
                     }
                 }
             };
@@ -226,8 +314,7 @@
 
         module.controller("ComposeElement", ["$scope", "$q", "$composer", function (ComposeElement, $q, $composer) {
 
-            // Internal functions
-            var _makeEditor = function(element, callback) {
+            var makeEditor = function(element, callback) {
                 // editor components
                 var editor = angular.element("<input class='compose-editor' type='text' />");
                 var confirm = angular.element("<i class='compose-editor confirm glyphicon glyphicon-ok'>&nbsp;</i>");
@@ -264,13 +351,12 @@
                 editor[0].focus();
             };
 
-            // Constructor
-            ComposeElement._init = function() {
+            ComposeElement.init = function() {
 
                 // back reference to itself
-                ComposeElement.self = ComposeElement;
+                ComposeElement.scope = ComposeElement;
 
-                // extracting "data" values
+                // extracting "data" value
                 if (ComposeElement.data != undefined && typeof ComposeElement.data == "object") {
                     var fields = ["value", "path", "json", "root", "parent", "type", "label"];
                     for (var i in fields) {
@@ -281,47 +367,47 @@
                     }
                 }
 
-                // default values for computable parameters
+                // default
                 ComposeElement.ready = false;
 
                 ComposeElement.isBasic = true;
                 ComposeElement.isUnit = false;
 
                 ComposeElement.length = 0;
-                ComposeElement.children = new Object();
+                ComposeElement.children = {};
                 ComposeElement.info = {};
 
                 ComposeElement.jstype = typeof ComposeElement.value;
 
-                // computing root/parent parameters
-                ComposeElement.path = ComposeElement.pathArray(ComposeElement.path);
+                // root / parent
+                ComposeElement.path = pathToArray(ComposeElement.path);
                 if (ComposeElement.path.length == 0) {
                     ComposeElement.json = ComposeElement.value;
                     ComposeElement.root = ComposeElement;
                     ComposeElement.parent = null;
                 } else {
-                    var key = ComposeElement.path.slice(-1)[0];
-                    ComposeElement.parent.children[key].scope = ComposeElement;
+//                    var key = ComposeElement.path.slice(-1)[0];
+//                    ComposeElement.parent.children[key].scope = ComposeElement;
                 }
 
-                // updating value parameter of element
+                // value
                 if (ComposeElement.value == undefined) {
                     ComposeElement.value = {};
                 }
 
-                // computing type parameter of element
+                // type
                 if (typeof ComposeElement.type != "string" || ComposeElement.type == "") {
                     ComposeElement.type = typeof ComposeElement.value;
                 }
 
-                // computing length parameter of element
+                // length
                 if (typeof ComposeElement.value == "object") {
                     ComposeElement.length = Object.keys(ComposeElement.value).length;
                 } else if (Array.isArray(ComposeElement.value)) {
                     ComposeElement.length = ComposeElement.value.length;
                 }
 
-                // computing isBasic / isUnit parameters of element
+                // isBasic / isUnit
                 if (!$composer.isBasic(ComposeElement.type)) {
                     ComposeElement.isBasic = false;
                     if ($composer.isUnit(ComposeElement.type)) {
@@ -332,12 +418,16 @@
                     }
                 }
 
-                // element information request
+                // GO type request
                 $q.when(ComposeElement.info).then(function (info) {
                     ComposeElement.info = info;
 
-                    // Initializing children elements
+                    // children array
                     for (var item in ComposeElement.value) {
+                        if (!ComposeElement.value.hasOwnProperty(item)) {
+                            continue;
+                        }
+
                         if (ComposeElement.info[item] == undefined) {
                             continue;
                         }
@@ -359,25 +449,6 @@
                     }
                     ComposeElement.ready = true;
                 });
-            }
-
-            // Scope functions
-            ComposeElement.pathArray = function (path) {
-                path = path || ComposeElement.path;
-
-                if (Array.isArray(path)) {
-                    return path;
-                }
-
-                if (typeof path != "string") {
-                    return [];
-                }
-
-                var PATH_SEPARATOR = "/";
-
-                return path.replace(new RegExp("^[" + PATH_SEPARATOR + "]+"), "")
-                           .replace(new RegExp("[" + PATH_SEPARATOR + "]+$"), "")
-                           .split(PATH_SEPARATOR);
             };
 
             ComposeElement.collapse = function(event) {
@@ -395,7 +466,7 @@
 
             ComposeElement.editKey = function(event, data) {
                 var element = angular.element(event.target);
-                _makeEditor(element, function(newValue) {
+                makeEditor(element, function(newValue) {
                     data.label = newValue;
                     data.$apply();
                 });
@@ -403,23 +474,27 @@
 
             ComposeElement.editType = function(event, data) {
                 var element = angular.element(event.target);
-                _makeEditor(element, function(newValue) {
+                makeEditor(element, function(newValue) {
                     data.type = newValue;
                     data.$apply();
                 });
             };
 
             ComposeElement.addItem = function(event, data) {
-                var element = angular.element(event.target);
-                data.root.children = {};
-                // data.json.visitor.first_name = "Evpat";
-                // data.json.visitor.email="123@ukr.net";
-                // data.root._init();
+                // var element = angular.element(event.target);
+                data.json.visitor.first_name = "Evpat";
+                data.json.visitor.email="123@ukr.net";
+                data.root.init();
+                // data.root.$apply();
                 // data.root.children.visitor.scope.$digest();
-                // setTimeout(function() { data.root.$digest(); }, 1000);
+                // setTimeout(function() { data.parent.$apply(); }, 1000);
             };
 
-            ComposeElement._init();
+            ComposeElement.childValue = function(key) {
+                return pathValues(ComposeElement.json, ComposeElement.path.concat(key)).slice(-1);
+            };
+
+            ComposeElement.init();
         }]);
 
 
@@ -479,13 +554,12 @@
                    ng-switch-when="true"
                    ng-click="collapse($event)"></i>
 
-                <i class="glyphicon"
-                   ng-switch-default>&nbsp;</i>
+                <i class="glyphicon" ng-switch-default>&nbsp;</i>
             </span>
 
             <span class="compose-item-label">
-                <b ng-click="editKey($event, self)">{{ !label ? '""' : label }}</b>
-                (<a ng-click="editType($event, self)">{{ !type ? '""' : type }}</a>):
+                <b ng-click="editKey($event, scope)">{{ !label ? '""' : label }}</b>
+                (<a ng-click="editType($event, scope)">{{ !type ? '""' : type }}</a>):
             </span>
 
             <span class="compose-item-editor" ng-switch="jstype">
@@ -506,23 +580,22 @@
                        ng-change="edit(value)"/>
             </span>
 
-            <button ng-if="parent != null" ng-click="removeItem($event, self)">
+            <button ng-if="parent != null" ng-click="removeItem($event, scope)">
                 <i class="glyphicon glyphicon-trash"></i>
             </button>
 
-            <button ng-if="info" ng-click="addItem($event, self)">
+            <button ng-if="info" ng-click="addItem($event, scope)">
                 <i class="glyphicon glyphicon-plus"></i>
             </button>
 
-            <button ng-if="hasUnits" ng-click="addUnit($event, self)">
+            <button ng-if="hasUnits" ng-click="addUnit($event, scope)">
                 <i class="glyphicon glyphicon-indent-left"></i>
             </button>
         </div>
-        <template get="compose-element" data="x" ng-repeat="x in children"></template>
+        <template get="compose-element" data="val" ng-repeat="(key, val) in children track by childValue(key)"></template>
     </li>
 </ul>
 
-<!-- Discount Editor-->
 <div class="container" ng-controller="DiscountEditor">
     <template get="compose-element" value="rule" type="ruleType"></template>
 </div>
