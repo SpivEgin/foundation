@@ -9,7 +9,7 @@
 
     <script type="text/javascript">
 
-        var pathToArray = function (path, separator) {
+        function pathToArray(path, separator) {
             path = path || [];
             separator = separator || "/";
 
@@ -24,20 +24,24 @@
             return path.replace(new RegExp("^[" + separator + "]+"), "")
                     .replace(new RegExp("[" + separator + "]+$"), "")
                     .split(separator);
-        };
+        }
 
-        var pathValues = function (subject, path) {
-            var result = arguments[2] || [];
+        function pathGet(subject, path, lastOne) {
+            var result = [];
 
+            /* params validation */
             if (typeof subject != "object") {
                 return result;
             }
 
-            path = pathToArray(path);
+            path = this.pathToArray(path);
             if (path.length == 0) {
                 return result;
             }
 
+            lastOne = lastOne || false;
+
+            /* path extraction */
             if (path[0] in subject) {
                 result.push(subject[path[0]]);
             } else {
@@ -45,15 +49,23 @@
             }
 
             if (path.length > 1) {
-                return pathValues(subject[path[0]], path.slice(1), result);
+                result = result.concat(pathGet(subject[path[0]], path.slice(1), false));
+            }
+
+            /* single value result */
+            if (lastOne) {
+                if (result.length > 0) {
+                    return result[result.length-1];
+                }
+                return undefined;
             }
 
             return result;
-        };
+        }
 
-        var pathUpdate = function (subject, path, value) {
-            path = pathToArray(path);
-            var values = pathValues(subject, path);
+        function pathSet(subject, path, value) {
+            path = this.pathToArray(path);
+            var values = pathGet(subject, path, false);
 
             for(var i = 0; i < path.length; i++) {
 
@@ -70,7 +82,7 @@
                 }
                 subject[path[i]] = values[i];
             }
-        };
+        }
 
         var module = angular.module("DiscountEditor", []);
 
@@ -314,193 +326,126 @@
 
         module.controller("ComposeElement", ["$scope", "$q", "$composer", function (ComposeElement, $q, $composer) {
 
-            var makeEditor = function(element, callback) {
-                // editor components
-                var editor = angular.element("<input class='compose-editor' type='text' />");
-                var confirm = angular.element("<i class='compose-editor confirm glyphicon glyphicon-ok'>&nbsp;</i>");
-                var cancel = angular.element("<i class='compose-editor cancel glyphicon glyphicon-remove'>&nbsp;</i>");
-                var wrapper = angular.element("<span class='compose-element-key-edit'>");
-                wrapper.append(cancel).append(editor).append("&nbsp;&nbsp;").append(confirm);
+            var self = ComposeElement;            /* shorthand alias*/
 
-                editor[0].value = element.html();
+            ComposeElement.self = self;           /* self reference */
 
-                // event handlers
-                var exitFunc = function() {
-                    wrapper.remove();
-                    element.removeClass("hide");
-                };
+            ComposeElement.isReady = false;       /* flag indicates that element is ready for render */
+            ComposeElement.isBasic = true;        /* flag indicates that element is basic JS type */
+            ComposeElement.isUnit = false;        /* flag indicates that element is Unit and not Type */
 
-                var saveFunc = function() {
-                    if (typeof callback == "function") {
-                        callback(editor[0].value);
-                    }
-                };
+            ComposeElement.value = null;          /* value of current element */
+            ComposeElement.type = undefined;      /* element type (Composer type) */
+            ComposeElement.desc = "";             /* type description (Composer type) */
+            ComposeElement.label = "";            /* type label (Composer type) */
 
-                editor.on("keypress", function(e){ if(e.keyCode == 13) {
-                    saveFunc();
-                    exitFunc();
-                }});
+            ComposeElement.path = [];             /* path to current element within json */
+            ComposeElement.root = this;           /* reference to root ComposeElement (scope) */
+            ComposeElement.json = {};             /* reference to root value (object) */
+            ComposeElement.tree = undefined;      /* copy of json but with ComposeElement values (only in root) */
 
-                confirm.on("click", saveFunc);
-                confirm.on("click", exitFunc);
-                cancel.on("click", exitFunc);
+            ComposeElement.info = {};             /* sub-element types information (Composer types) */
+            ComposeElement.children = {};         /* prepared input parameters for sub-elements */
 
-                // editor display
-                element.addClass("hide");
-                element.after(wrapper);
-                editor[0].focus();
-            };
+            /* scope initialization routines */
+            ComposeElement.init = function(inputData) {
+                self.isReady = false;
 
-            ComposeElement.init = function() {
+                /* Element initialization with given data values */
+                inputData = inputData || {};
 
-                // back reference to itself
-                ComposeElement.scope = ComposeElement;
-
-                // extracting "data" value
-                if (ComposeElement.data != undefined && typeof ComposeElement.data == "object") {
-                    var fields = ["value", "path", "json", "root", "parent", "type", "label"];
-                    for (var i in fields) {
-                        var field = fields[i];
-                        if (field in ComposeElement.data) {
-                            ComposeElement[field] = ComposeElement.data[field];
-                        }
+                for (var key in inputData) {
+                    if (inputData.hasOwnProperty(key)) {
+                        self[key] = inputData[key];
                     }
                 }
 
-                // default
-                ComposeElement.ready = false;
+                /* Element parameters validation */
+                self.path = pathToArray(self.path);
 
-                ComposeElement.isBasic = true;
-                ComposeElement.isUnit = false;
-
-                ComposeElement.length = 0;
-                ComposeElement.children = {};
-                ComposeElement.info = {};
-
-                ComposeElement.jstype = typeof ComposeElement.value;
-
-                // root / parent
-                ComposeElement.path = pathToArray(ComposeElement.path);
-                if (ComposeElement.path.length == 0) {
-                    ComposeElement.json = ComposeElement.value;
-                    ComposeElement.root = ComposeElement;
-                    ComposeElement.parent = null;
-                } else {
-//                    var key = ComposeElement.path.slice(-1)[0];
-//                    ComposeElement.parent.children[key].scope = ComposeElement;
+                if (self.value == undefined) {
+                    self.value = {};
                 }
 
-                // value
-                if (ComposeElement.value == undefined) {
-                    ComposeElement.value = {};
+                if (self.type == undefined || typeof self.type != "string" || self.type == "") {
+                    self.type = typeof self.value;
                 }
 
-                // type
-                if (typeof ComposeElement.type != "string" || ComposeElement.type == "") {
-                    ComposeElement.type = typeof ComposeElement.value;
+                if (self.path.length == 0) {
+                    self.json = self.value;
+                    self.root = self;
                 }
 
-                // length
-                if (typeof ComposeElement.value == "object") {
-                    ComposeElement.length = Object.keys(ComposeElement.value).length;
-                } else if (Array.isArray(ComposeElement.value)) {
-                    ComposeElement.length = ComposeElement.value.length;
-                }
-
-                // isBasic / isUnit
-                if (!$composer.isBasic(ComposeElement.type)) {
-                    ComposeElement.isBasic = false;
-                    if ($composer.isUnit(ComposeElement.type)) {
-                        ComposeElement.isUnit = true;
-                        ComposeElement.info = $composer.unit(ComposeElement.type);
+                /* Composer type resolution */
+                if (!$composer.isBasic(self.type)) {
+                    self.isBasic = false;
+                    if ($composer.isUnit(self.type)) {
+                        self.isUnit = true;
+                        self.info = $composer.unit(self.type);
                     } else {
-                        ComposeElement.info = $composer.type(ComposeElement.type);
+                        self.info = $composer.type(self.type);
                     }
                 }
 
-                // GO type request
-                $q.when(ComposeElement.info).then(function (info) {
-                    ComposeElement.info = info;
+                $q.when(self.info).then(function (info) {
+                    self.info = info;
 
-                    // children array
-                    for (var item in ComposeElement.value) {
-                        if (!ComposeElement.value.hasOwnProperty(item)) {
+                    for (var item in self.value) {
+                        if (!self.value.hasOwnProperty(item)) {
                             continue;
                         }
 
-                        if (ComposeElement.info[item] == undefined) {
+                        if (self.info[item] == undefined) {
                             continue;
                         }
 
-                        var itemPath = ComposeElement.path.slice();
-                        itemPath.push(item);
+                        self.children[item] = {
+                            path:  self.path.concat(item),
+                            value: self.value[item],
 
-                        ComposeElement.children[item] = {
-                            path: itemPath,
-                            root: ComposeElement.root,
-                            json: ComposeElement.json,
-                            value: ComposeElement.value[item],
-                            parent: ComposeElement,
+                            root:  self.root,
+                            json:  self.json,
 
-                            type: ComposeElement.info[item].type,
-                            desc: ComposeElement.info[item].desc,
-                            label: ComposeElement.info[item].label
+                            type:  self.info[item].type,
+                            desc:  self.info[item].desc,
+                            label: self.info[item].label
                         };
                     }
-                    ComposeElement.ready = true;
+
+                    self.isReady = true;
                 });
             };
 
-            ComposeElement.collapse = function(event) {
-                var element = angular.element(event.target);
-                element.toggleClass('glyphicon-triangle-right glyphicon-triangle-bottom');
-
-                for (var i = 0; i < 10; i++) {
-                    if (element.hasClass('compose-element')) {
-                        element.toggleClass('minified');
-                        break;
-                    }
-                    element = element.parent();
-                }
-            };
-
-            ComposeElement.editKey = function(event, data) {
-                var element = angular.element(event.target);
-                makeEditor(element, function(newValue) {
-                    data.label = newValue;
-                    data.$apply();
-                });
-            };
-
-            ComposeElement.editType = function(event, data) {
-                var element = angular.element(event.target);
-                makeEditor(element, function(newValue) {
-                    data.type = newValue;
-                    data.$apply();
-                });
-            };
-
-            ComposeElement.addItem = function(event, data) {
-                // var element = angular.element(event.target);
-                data.json.visitor.first_name = "Evpat";
-                data.json.visitor.email="123@ukr.net";
-                data.root.init();
-                // data.root.$apply();
-                // data.root.children.visitor.scope.$digest();
-                // setTimeout(function() { data.parent.$apply(); }, 1000);
+            ComposeElement.jsType = function(event) {
+                return typeof self.value;
             };
 
             ComposeElement.childValue = function(key) {
-                return pathValues(ComposeElement.json, ComposeElement.path.concat(key)).slice(-1);
+                return pathGet(this.json, self.path.concat(key), true);
             };
 
-            ComposeElement.init();
+            ComposeElement.canEdit = function() {
+                return self != self.root;
+            };
+
+            ComposeElement.editItem = function() {
+                return self != self.root;
+            };
+
+
+            ComposeElement.hasChildren = function() {
+                return Object.keys(self.children).length > 0;
+            };
+
+            ComposeElement.init(self.data);
         }]);
 
 
         module.controller("DiscountEditor", ["$scope", function (DiscountEditor) {
-            DiscountEditor.rule = {'visitor': {'first_name': 'test', 'last_name': '123'}};
-            DiscountEditor.ruleType = "DiscountRule";
+            DiscountEditor.data = {
+                value: {'visitor': {'first_name': 'test', 'last_name': '123'}},
+                type: "DiscountRule"
+            }
         }]);
     </script>
 
@@ -546,15 +491,14 @@
 
 <!-- template for composer item (recursive tree) -->
 <ul class="compose-element" template="tpl" tpl-set="compose-element" ng-controller="ComposeElement">
-    <li class="compose-item">
-        <div class="compose-item-line" ng-if="ready">
-
-            <span class="compose-item-icon" ng-switch="children.length > 0">
+    <li class="compose-item" ng-if="isReady">
+        <div class="compose-item-line">
+            <span class="compose-item-icon" ng-switch="hasChildren()">
                 <i class="glyphicon glyphicon-triangle-bottom"
                    ng-switch-when="true"
                    ng-click="collapse($event)"></i>
 
-                <i class="glyphicon" ng-switch-default>&nbsp;</i>
+                <i class="glyphicon glyphicon-triangle-right" ng-switch-default>&nbsp;</i>
             </span>
 
             <span class="compose-item-label">
@@ -562,7 +506,7 @@
                 (<a ng-click="editType($event, scope)">{{ !type ? '""' : type }}</a>):
             </span>
 
-            <span class="compose-item-editor" ng-switch="jstype">
+            <span class="compose-item-value" ng-switch="jsType()">
                 <input type="text"
                        ng-switch-when="string"
                        ng-model="value"
@@ -580,24 +524,53 @@
                        ng-change="edit(value)"/>
             </span>
 
-            <button ng-if="parent != null" ng-click="removeItem($event, scope)">
+            <button ng-click="removeItem($event, self)">
                 <i class="glyphicon glyphicon-trash"></i>
             </button>
 
-            <button ng-if="info" ng-click="addItem($event, scope)">
+            <button ng-if="info" ng-click="addItem($event, self)">
                 <i class="glyphicon glyphicon-plus"></i>
             </button>
 
-            <button ng-if="hasUnits" ng-click="addUnit($event, scope)">
+            <button ng-if="canEdit()" ng-click="editItem($event, self)">
+                <i class="glyphicon glyphicon-edit"></i>
+            </button>
+
+            <button ng-if="hasUnits" ng-click="addUnit($event, self)">
                 <i class="glyphicon glyphicon-indent-left"></i>
             </button>
         </div>
-        <template get="compose-element" data="val" ng-repeat="(key, val) in children track by childValue(key)"></template>
+
+        <!--<div class="compose-item-line" ng-controller="ComposeEdit">-->
+            <!--<span class="compose-edit-item" ng-switch="haveItems()">-->
+                <!--<select ng-switch-when="true">-->
+                    <!--<option ng-repeat="editItems()"></option>-->
+                <!--</select>-->
+                <!--<input type="text" ng-switch-default="boolean" />-->
+            <!--</span>-->
+            <!--<span class="compose-edit-type" ng-switch="haveTypes()">-->
+                <!--<select ng-switch-when="true">-->
+                    <!--<option ng-repeat="editItems()"></option>-->
+                <!--</select>-->
+                <!--<input type="text" ng-switch-default="boolean" />-->
+            <!--</span>-->
+            <!--<span class="compose-edit-value" ng-switch="haveValue()">-->
+                <!--<select ng-switch-when="true">-->
+                    <!--<option ng-repeat="editItems()"></option>-->
+                <!--</select>-->
+                <!--<input type="text" ng-switch-default="boolean" />-->
+            <!--</span>-->
+        <!--</div>-->
+
+        <!-- sub-elements rendering -->
+        <span ng-repeat="(key, val) in children track by childValue(key)">
+                <template get="compose-element" data="val"></template>
+        </span>
     </li>
 </ul>
 
 <div class="container" ng-controller="DiscountEditor">
-    <template get="compose-element" value="rule" type="ruleType"></template>
+    <template get="compose-element" data="data"></template>
 </div>
 
 </body>
