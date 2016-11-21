@@ -9,81 +9,6 @@
 
     <script type="text/javascript">
 
-        function pathToArray(path, separator) {
-            path = path || [];
-            separator = separator || "/";
-
-            if (Array.isArray(path)) {
-                return path;
-            }
-
-            if (typeof path != "string") {
-                return path;
-            }
-
-            return path.replace(new RegExp("^[" + separator + "]+"), "")
-                    .replace(new RegExp("[" + separator + "]+$"), "")
-                    .split(separator);
-        }
-
-        function pathGet(subject, path, lastOne) {
-            var result = [];
-
-            /* params validation */
-            if (typeof subject != "object") {
-                return result;
-            }
-
-            path = this.pathToArray(path);
-            if (path.length == 0) {
-                return result;
-            }
-
-            lastOne = lastOne || false;
-
-            /* path extraction */
-            if (path[0] in subject) {
-                result.push(subject[path[0]]);
-            } else {
-                return result;
-            }
-
-            if (path.length > 1) {
-                result = result.concat(pathGet(subject[path[0]], path.slice(1), false));
-            }
-
-            /* single value result */
-            if (lastOne) {
-                if (result.length > 0) {
-                    return result[result.length-1];
-                }
-                return undefined;
-            }
-
-            return result;
-        }
-
-        function pathSet(subject, path, value) {
-            path = this.pathToArray(path);
-            var values = pathGet(subject, path, false);
-
-            for(var i = 0; i < path.length; i++) {
-
-                if (i == path.length-1) {
-                    values[i] = value;
-                } else if (values[i] == undefined || typeof values[i] != "object") {
-                    values[i] = {};
-                } else {
-                    continue;
-                }
-
-                if (i > 0) {
-                    subject = values[i-1];
-                }
-                subject[path[i]] = values[i];
-            }
-        }
-
         var module = angular.module("DiscountEditor", []);
 
         module.directive("template", ["$compile", function ($compile) {
@@ -132,7 +57,7 @@
                                 }
 
                                 /* grabbing template related attributes and removing them from element */
-                                if (attr.length >= templatePrefix.length && attr.slice(0, templatePrefix.length) == templatePrefix) {
+                                if (attr.startsWith(templatePrefix)) {
                                     attr = attr.slice(templatePrefix.length);
 
                                     templateAttributes[attr] = attributes[attribute];
@@ -236,6 +161,91 @@
             return template;
         }]);
 
+        var utils = {
+            pathToArray: function (path, separator) {
+                path = path || [];
+                separator = separator || "/";
+
+                if (Array.isArray(path)) {
+                    return path;
+                }
+
+                if (typeof path != "string") {
+                    return path;
+                }
+
+                return path.replace(new RegExp("^[" + separator + "]+"), "")
+                        .replace(new RegExp("[" + separator + "]+$"), "")
+                        .split(separator);
+            },
+
+            pathGet: function (subject, path, lastone) {
+                var result = [];
+
+                /* params validation */
+                if (typeof subject != "object") {
+                    return result;
+                }
+
+                path = this.pathToArray(path);
+                if (path.length == 0) {
+                    return result;
+                }
+
+                lastone = lastone || false;
+
+                /* path extraction */
+                if (path[0] in subject) {
+                    result.push(subject[path[0]]);
+                } else {
+                    return result;
+                }
+
+                if (path.length > 1) {
+                    result = result.concat(pathGet(subject[path[0]], path.slice(1), false));
+                }
+
+                /* single value result */
+                if (lastone) {
+                    if (result.length > 0) {
+                        return result[result.length-1];
+                    }
+                    return undefined;
+                }
+
+                return result;
+            },
+
+            pathSet: function (subject, path, value) {
+                path = this.pathToArray(path);
+                var values = pathGet(subject, path, false);
+
+                for(var i = 0; i < path.length; i++) {
+
+                    if (i == path.length-1) {
+                        values[i] = value;
+                    } else if (values[i] == undefined || typeof values[i] != "object") {
+                        values[i] = {};
+                    } else {
+                        continue;
+                    }
+
+                    if (i > 0) {
+                        subject = values[i-1];
+                    }
+                    subject[path[i]] = values[i];
+                }
+            },
+
+            mergeObject: function(sourceObject, destinationObject) {
+                for (var key in sourceObject) {
+                    if (sourceObject.hasOwnProperty(key)) {
+                        destinationObject[key] = sourceObject[key];
+                    }
+                }
+            }
+        };
+
         module.service("$composer", ["$http", "$q", function ($http, $q) {
             var $composer = {
                 API_SERVER_URL: "http://localhost:3000",
@@ -324,173 +334,228 @@
             return $composer;
         }]);
 
-        module.controller("ComposeElement", ["$scope", "$q", "$composer", function (ComposeElement, $q, $composer) {
+        module.controller("ComposeElement", ["$scope", "$q", "$composer", function ($scope, $q, $composer) {
 
-            var self = ComposeElement;            /* shorthand scope alias*/
+            /*var makeEditor = function(element, callback) {
+                // editor components
+                var editor = angular.element("<input class='compose-editor' type='text' />");
+                var confirm = angular.element("<i class='compose-editor confirm glyphicon glyphicon-ok'>&nbsp;</i>");
+                var cancel = angular.element("<i class='compose-editor cancel glyphicon glyphicon-remove'>&nbsp;</i>");
+                var wrapper = angular.element("<span class='compose-element-key-edit'>");
+                wrapper.append(cancel).append(editor).append("&nbsp;&nbsp;").append(confirm);
 
-            ComposeElement.self = self;           /* scope self reference */
+                editor[0].value = element.html();
 
-            ComposeElement.isReady = false;       /* flag indicates that element is ready for render */
-            ComposeElement.isBasic = true;        /* flag indicates that element is basic JS type */
-            ComposeElement.isUnit = false;        /* flag indicates that element is Unit and not Type */
+                // event handlers
+                var exitFunc = function() {
+                    wrapper.remove();
+                    element.removeClass("hide");
+                };
 
-            ComposeElement.value = null;          /* value of current element */
-            ComposeElement.type = undefined;      /* element type (Composer type) */
-            ComposeElement.desc = "";             /* type description (Composer type) */
-            ComposeElement.label = "";            /* type label (Composer type) */
-
-            ComposeElement.path = [];             /* path to current element within json */
-            ComposeElement.root = undefined;      /* reference to root ComposeElement (scope) */
-            ComposeElement.json = undefined;      /* reference to root value (object) */
-            ComposeElement.tree = undefined;      /* copy of json but with ComposeElement values (only in root) */
-
-            ComposeElement.info = {};             /* sub-element types information (Composer types) */
-            ComposeElement.children = {};         /* prepared input parameters for sub-elements */
-
-            /* Scope initialization routines */
-            ComposeElement.init = function(inputData) {
-                self.isReady = false;
-
-                /* Element initialization with given data values */
-                inputData = inputData || {};
-
-                for (var key in inputData) {
-                    if (inputData.hasOwnProperty(key)) {
-                        self[key] = inputData[key];
+                var saveFunc = function() {
+                    if (typeof callback == "function") {
+                        callback(editor[0].value);
                     }
-                }
+                };
 
-                /* Element parameters validation */
-                self.path = pathToArray(self.path);
+                editor.on("keypress", function(e){ if(e.keyCode == 13) {
+                    saveFunc();
+                    exitFunc();
+                }});
 
-                if (self.value == undefined) {
-                    self.value = {};
-                }
+                confirm.on("click", saveFunc);
+                confirm.on("click", exitFunc);
+                cancel.on("click", exitFunc);
 
-                if (self.type == undefined || typeof self.type != "string" || self.type == "") {
-                    self.type = typeof self.value;
-                }
+                // editor display
+                element.addClass("hide");
+                element.after(wrapper);
+                editor[0].focus();
+            };*/
+            var ComposeElement = {
+                self: $scope,      /* scope reference */
 
-                if (self.path.length == 0) {
-                    self.json = self.value;
-                    self.root = self;
-                }
+                isReady: false,     /* flag indicates that element is ready for render */
+                isBasic: true,      /* flag indicates that element is basic JS type */
+                isUnit: false,      /* flag indicates that element is Unit and not Type */
 
-                /* Composer type resolution */
-                if (!$composer.isBasic(self.type)) {
-                    self.isBasic = false;
-                    if ($composer.isUnit(self.type)) {
-                        self.isUnit = true;
-                        self.info = $composer.unit(self.type);
+                value: null,        /* value of current element */
+                type: undefined,    /* element type (Composer type) */
+                desc: "",           /* type description (Composer type) */
+                label: "",          /* type label (Composer type) */
+
+                path: [],           /* path to current element within json */
+                root: this,         /* reference to root ComposeElement (scope) */
+                json: {},           /* reference to root value (object) */
+                tree: undefined,    /* copy of json but with ComposeElement values (only in root) */
+
+                info: {},           /* sub-element types information (Composer types) */
+                children: {},       /* prepared input parameters for sub-elements */
+
+
+                /**
+                 * Element initializer
+                 *
+                 * @param input object - init params
+                 */
+                init: function(input)
+                {
+                    this.isReady = false;
+
+                    /* extracting input parameters (if specified) */
+                    if (input != undefined && typeof input == "object") {
+                        ["value", "path", "json", "root", "type", "label"].map(function(field){
+                            if (field in input) {
+                                this[field] = input[field];
+                            }
+                        })
+                    }
+
+                    /* validations */
+                    this.path = utils.pathToArray(this.path);
+
+                    if (typeof this.type != "string" || this.type == "") {
+                        this.type = typeof this.value;
+                    }
+
+
+                    /* navigation references update */
+                    if (this.root == this) {
+                        this.json = this.value;
+                        this.tree = {};
                     } else {
-                        self.info = $composer.type(self.type);
-                    }
-                }
+                        // root scope tree update with self reference
+                        var treeObject = this.root.tree;
+                        for (var pathIdx=0; pathIdx < this.path.length; pathIdx++) {
+                            var pathKey = this.path[pathIdx];
 
-                $q.when(self.info).then(function (info) {
-                    self.info = info;
+                            if (typeof treeObject[pathKey] != "object") {
+                                treeObject[pathKey] = {};
+                            }
 
-                    for (var item in self.value) {
-                        if (!self.value.hasOwnProperty(item)) {
-                            continue;
+                            if (pathIdx != this.path.length-1) {
+                                treeObject = treeObject[pathKey];
+                            } else {
+                                treeObject[pathKey] = {".": this};
+                            }
                         }
-
-                        if (self.info[item] == undefined) {
-                            continue;
-                        }
-
-                        self.children[item] = {
-                            path:  self.path.concat(item),
-                            value: self.value[item],
-
-                            root:  self.root,
-                            json:  self.json,
-
-                            type:  self.info[item].type,
-                            desc:  self.info[item].desc,
-                            label: self.info[item].label
-                        };
                     }
 
-                    self.isReady = true;
-                });
-            };
 
-            ComposeElement.getEditorData = function(event) {
-                return {
-                    path: self.path,
+                    /* composer type resolution */
+                    if (!$composer.isBasic(this.type)) {
+                        this.isBasic = false;
+                        if ($composer.isUnit(this.type)) {
+                            this.isUnit = true;
+                            this.info = $composer.unit(this.type);
+                        } else {
+                            this.info = $composer.type(this.type);
+                        }
+                    }
 
+                    $q.when(this.info).then(function (info) {
+                        this.info = info;
+
+                        for (var item in this.value) {
+                            if (!this.value.hasOwnProperty(item)) {
+                                continue;
+                            }
+
+                            if (this.info[item] == undefined) {
+                                continue;
+                            }
+
+                            var itemPath = this.path.slice();
+                            itemPath.push(item);
+
+                            this.children[item] = {
+                                path: itemPath,
+                                root: this.root,
+                                json: this.json,
+
+                                value: this.value[item],
+                                label: this.info[item].label,
+                                type:  this.info[item].type,
+                                desc:  this.info[item].desc
+                            };
+                        }
+                        this.isReady = true;
+                    });
+                },
+
+                jsType: function() {
+                    return typeof this.value;
+                },
+
+                collapse: function(event) {
+                    var element = angular.element(event.target);
+                    element.toggleClass('glyphicon-triangle-right glyphicon-triangle-bottom');
+
+                    for (var i = 0; i < 10; i++) {
+                        if (element.hasClass('compose-element')) {
+                            element.toggleClass('minified');
+                            break;
+                        }
+                        element = element.parent();
+                    }
+                },
+
+                editKey: function(event, data) {
+                    var element = angular.element(event.target);
+                    makeEditor(element, function(newValue) {
+                        data.label = newValue;
+                        data.$apply();
+                    });
+                },
+
+                editType: function(event, data) {
+                    var element = angular.element(event.target);
+                    makeEditor(element, function(newValue) {
+                        data.type = newValue;
+                        data.$apply();
+                    });
+                },
+
+                editItem: function(event, self) {
+                    alert("there");
+                    self.edit=true;
+                },
+
+                addItem: function(event, self) {
+                    // var element = angular.element(event.target);
+                    // data.json.visitor.first_name = "Evpat";
+                    // data.json.visitor.email="123@ukr.net";
+                    // pathValues(data.root.tree, "visitor").slice(-1)[0]["."].init();
+                    util.pathGet(self.json, self.path, true)["email"] = "ll";
+                    self.init();
+                    // pathValues(data.root.tree, "visitor").slice(-1)[0]["."].init();
+                    // data.root.$apply();
+                    // data.root.children.visitor.scope.$digest();
+                    // setTimeout(function() { data.parent.$apply(); }, 1000);
+                },
+
+                jsonValue: function(key) {
+                    return utils.pathGet(this.json, this.path.concat(key), true);
                 }
             };
 
-            ComposeElement.jsType = function(event) {
-                return typeof self.value;
-            };
-
-            ComposeElement.childValue = function(key) {
-                return pathGet(this.json, self.path.concat(key), true);
-            };
-
-            ComposeElement.canEdit = function() {
-                return self != self.root;
-            };
-
-            ComposeElement.editItem = function() {
-                return self != self.root;
-            };
-
-            ComposeElement.hasChildren = function() {
-                return Object.keys(self.children).length > 0;
-            };
-
-            ComposeElement.init(self.data);
+            ComposeElement.init($scope);
+            utils.mergeObject(ComposeElement, $scope);
         }]);
 
-        module.controller("ComposeEditor", ["$scope", "$q", "$composer", function (ComposeEditor) {
 
-            var self = ComposeEditor;         /* shorthand scope alias*/
-
-            ComposeEditor.self = self;        /* scope self reference */
-
-            ComposeEditor.path = [];          /* current editing element path within json */
-            ComposeEditor.json = undefined;   /* destination json */
-
-            ComposeEditor.info = {};          /* sub-element types information (Composer types) */
-            ComposeEditor.custom = false;     /* flag indicates that custom key is allowed */
-
-            ComposeEditor.key = undefined;    /* current element key */
-            ComposeEditor.type = undefined;   /* current element type */
-            ComposeEditor.value = undefined;  /* current element value */
-
-            /* Scope initialization routines */
-            ComposeEditor.init = function(inputData) {
-                /* Given params extraction */
-                inputData = inputData || {};
-
-                for (var key in inputData) {
-                    if (inputData.hasOwnProperty(key)) {
-                        self[key] = inputData[key];
-                    }
-                }
-            };
-            ComposeEditor.getTypes = function() {
-                return [];
-            };
-
-            ComposeEditor.apply = function($event) {
-
-            };
-
-            ComposeEditor.cancel = function($event) {
-
-            };
-        }]);
-        
-        module.controller("RootController", ["$scope", function (RootController) {
-            RootController.data = {
-                value: {'visitor': {'first_name': 'test', 'last_name': '123'}},
+        module.controller("ComposeEditor", ["$scope", function ($scope) {
+            var ComposeEditor = {
+                json: {'visitor': 
+                        {
+                            'first_name': 'test', 
+                            'last_name': '123'
+                        }
+                      },
                 type: "DiscountRule"
-            }
+            };
+
+            utils.mergeObject(ComposeEditor, $scope);
         }]);
     </script>
 
@@ -534,16 +599,17 @@
 
 <body ng-app="DiscountEditor">
 
-<!-- template for composer item (recursive tree) -->
+<!-- template tree item -->
 <ul class="compose-element" template="tpl" tpl-set="compose-element" ng-controller="ComposeElement">
-    <li class="compose-item" ng-if="isReady">
-        <div class="compose-item-line">
-            <span class="compose-item-icon" ng-switch="hasChildren()">
+    <li class="compose-item">
+        <div class="compose-item-line" ng-if="isReady">
+
+            <span class="compose-item-icon" ng-switch="children.length > 0">
                 <i class="glyphicon glyphicon-triangle-bottom"
                    ng-switch-when="true"
                    ng-click="collapse($event)"></i>
 
-                <i class="glyphicon glyphicon-triangle-right" ng-switch-default>&nbsp;</i>
+                <i class="glyphicon" ng-switch-default>&nbsp;</i>
             </span>
 
             <span class="compose-item-label">
@@ -551,7 +617,7 @@
                 (<a ng-click="editType($event, scope)">{{ !type ? '""' : type }}</a>):
             </span>
 
-            <span class="compose-item-value" ng-switch="jsType()">
+            <span class="compose-item-editor" ng-switch="jsType()">
                 <input type="text"
                        ng-switch-when="string"
                        ng-model="value"
@@ -569,59 +635,37 @@
                        ng-change="edit(value)"/>
             </span>
 
-            <button ng-click="removeItem($event, self)">
-                <i class="glyphicon glyphicon-trash"></i>
-            </button>
-
-            <button ng-if="info" ng-click="addItem($event, self)">
-                <i class="glyphicon glyphicon-plus"></i>
-            </button>
-
-            <button ng-if="canEdit()" ng-click="editItem($event, self)">
+            <button ng-click="editItem($event, scope)">
                 <i class="glyphicon glyphicon-edit"></i>
             </button>
 
-            <button ng-if="hasUnits" ng-click="addUnit($event, self)">
+            <button ng-if="parent != null" ng-click="removeItem($event, scope)">
+                <i class="glyphicon glyphicon-trash"></i>
+            </button>
+
+            <button ng-if="info" ng-click="addItem($event, scope)">
+                <i class="glyphicon glyphicon-plus"></i>
+            </button>
+
+            <button ng-if="hasUnits" ng-click="addUnit($event, scope)">
                 <i class="glyphicon glyphicon-indent-left"></i>
             </button>
         </div>
 
-        <div class="compose-item-line" ng-controller="ComposeEditor" ng-init="init(editorData())">
-            <span class="compose-edit-key">
-                <select>
-                    <option ng-repeat="(key, val) in items">{{!val.label ? key : label}}</option>
-                </select>
-                <input type="text" ng-model="key" ng-if="custom" />
-            </span>
-
-            <span class="compose-edit-type">
-                <select ng-if="hasTypes()">
-                    <option ng-repeat="(key, val) in getTypes()"></option>
-                </select>
-                <input type="text" ng-model="type"/>
-            </span>
-
-            <input type="text" ng-model="value"/>
-
-            <button ng-click="cancel()">
-                <i class="glyphicon glyphicon-remove"></i>
-            </button>
-
-            <button ng-click="apply()">
-                <i class="glyphicon glyphicon-ok"></i>
-            </button>
-
+        <div class="compose-item-line" ng-if="edit">
+            <select>
+                <option value="123">123</option>
+            </select>
         </div>
 
-        <!-- sub-elements rendering -->
-        <span ng-repeat="(key, val) in children track by childValue(key)">
-                <template get="compose-element" data="val"></template>
+        <span ng-repeat="(key, val) in children track by jsonValue(key)">
+            <template get="compose-element" data="val"></template>
         </span>
     </li>
 </ul>
 
-<div class="container" ng-controller="RootController">
-    <template get="compose-element" data="data"></template>
+<div class="container" ng-controller="ComposeEditor">
+    <template get="compose-element" value="json" type="type"></template>
 </div>
 
 </body>

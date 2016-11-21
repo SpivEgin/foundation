@@ -167,7 +167,7 @@
                 }
 
                 var typeItems = {};
-                var path0 = pathArray.shift();
+                var path0 = pathToArray.shift();
                 var pathIsUnit = units.isUnit(path0);
 
                 if (!pathIsUnit && complexTypes.isComplexType(type)) {
@@ -190,12 +190,12 @@
                     return null;
                 }
 
-                if (pathArray.length > 0) {
+                if (pathToArray.length > 0) {
                     type = getItemType(type);
                     if (pathIsUnit && (prefix != _OP_ || complexTypes.isComplexType(type))) {
                         type = typeItems[path0][_OP_];
                     }
-                    return getItemInfo(pathArray.join(_PS_), prefix, getItemType(type));
+                    return getItemInfo(pathToArray.join(_PS_), prefix, getItemType(type));
                 }
 
                 return type;
