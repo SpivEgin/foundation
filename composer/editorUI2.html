@@ -132,7 +132,7 @@
                                 }
 
                                 /* grabbing template related attributes and removing them from element */
-                                if (attr.startsWith(templatePrefix)) {
+                                if (attr.length >= templatePrefix.length && attr.slice(0, templatePrefix.length) == templatePrefix) {
                                     attr = attr.slice(templatePrefix.length);
 
                                     templateAttributes[attr] = attributes[attribute];
@@ -326,9 +326,9 @@
 
         module.controller("ComposeElement", ["$scope", "$q", "$composer", function (ComposeElement, $q, $composer) {
 
-            var self = ComposeElement;            /* shorthand alias*/
+            var self = ComposeElement;            /* shorthand scope alias*/
 
-            ComposeElement.self = self;           /* self reference */
+            ComposeElement.self = self;           /* scope self reference */
 
             ComposeElement.isReady = false;       /* flag indicates that element is ready for render */
             ComposeElement.isBasic = true;        /* flag indicates that element is basic JS type */
@@ -340,14 +340,14 @@
             ComposeElement.label = "";            /* type label (Composer type) */
 
             ComposeElement.path = [];             /* path to current element within json */
-            ComposeElement.root = this;           /* reference to root ComposeElement (scope) */
-            ComposeElement.json = {};             /* reference to root value (object) */
+            ComposeElement.root = undefined;      /* reference to root ComposeElement (scope) */
+            ComposeElement.json = undefined;      /* reference to root value (object) */
             ComposeElement.tree = undefined;      /* copy of json but with ComposeElement values (only in root) */
 
             ComposeElement.info = {};             /* sub-element types information (Composer types) */
             ComposeElement.children = {};         /* prepared input parameters for sub-elements */
 
-            /* scope initialization routines */
+            /* Scope initialization routines */
             ComposeElement.init = function(inputData) {
                 self.isReady = false;
 
@@ -416,6 +416,13 @@
                 });
             };
 
+            ComposeElement.getEditorData = function(event) {
+                return {
+                    path: self.path,
+
+                }
+            };
+
             ComposeElement.jsType = function(event) {
                 return typeof self.value;
             };
@@ -432,7 +439,6 @@
                 return self != self.root;
             };
 
-
             ComposeElement.hasChildren = function() {
                 return Object.keys(self.children).length > 0;
             };
@@ -440,9 +446,26 @@
             ComposeElement.init(self.data);
         }]);
 
+        module.controller("ComposeEditor", ["$scope", "$q", "$composer", function (ComposeEditor) {
 
-        module.controller("DiscountEditor", ["$scope", function (DiscountEditor) {
-            DiscountEditor.data = {
+            var self = ComposeEditor;         /* shorthand scope alias*/
+
+            ComposeEditor.self = self;        /* scope self reference */
+
+            ComposeEditor.path = [];          /* current editing element path within json */
+            ComposeEditor.json = [];          /* destination json */
+
+            ComposeEditor.info = {};          /* sub-element types information (Composer types) */
+            ComposeEditor.custom = false;     /* flag indicates that custom key is allowed */
+
+            ComposeEditor.value = undefined;  /* current value of element */
+            ComposeEditor.type = undefined;   /* element type (Composer type) */
+
+            ComposeEditor.children = {};      /* prepared input parameters for sub-elements */
+        }]);
+        
+        module.controller("DiscountEditor", ["$scope", function (RootController) {
+            RootController.data = {
                 value: {'visitor': {'first_name': 'test', 'last_name': '123'}},
                 type: "DiscountRule"
             }
@@ -569,7 +592,7 @@
     </li>
 </ul>
 
-<div class="container" ng-controller="DiscountEditor">
+<div class="container" ng-controller="RootController">
     <template get="compose-element" data="data"></template>
 </div>
 
