@@ -13,6 +13,7 @@ import (
 	"github.com/ottemo/foundation/utils"
 	"github.com/ottemo/foundation/app/models/visitor"
 	"time"
+	"github.com/ottemo/foundation/app/models/product"
 )
 var siteApiRestUrl string
 var httpClient *http.Client
@@ -95,12 +96,12 @@ func restMagentoImport(context api.InterfaceApplicationContext) (interface{}, er
 
 	oauthToken := utils.InterfaceToString(requestData["oauthToken"])
 	if oauthToken == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
+		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
 	}
 
 	oauthVerifier := utils.InterfaceToString(requestData["oauthVerifier"])
 	if oauthVerifier == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
+		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
 	}
 
 	requestToken := utils.InterfaceToString(context.GetSession().Get(ConstSessionKeyMagentoRequestToken))
@@ -143,11 +144,11 @@ func restMagentoImport(context api.InterfaceApplicationContext) (interface{}, er
 	//if err != nil {
 	//	return nil, err
 	//}
-	customersByte, err := getApiData("/customers")
-	if err != nil {
-		return nil, err
-	}
-	result = saveCustomersData(customersByte)
+	//customersByte, err := getApiData("/customers")
+	//if err != nil {
+	//	return nil, err
+	//}
+	//result = saveCustomersData(customersByte)
 
 	productsByte, err := getApiData("/products")
 	if err != nil {
@@ -247,44 +248,46 @@ func saveCustomersData(dataByte []byte) (bool)  {
 }
 
 func saveProductsData(dataByte []byte) (bool)  {
-	data, err := utils.DecodeJSONToStringKeyMap(dataByte)
+	products, err := utils.DecodeJSONToStringKeyMap(dataByte)
 	if err != nil {
 		return false
 	}
-fmt.Println(data)
-	//for _, value := range data {
-	//
-	//	productModel, err := product.GetProductModel()
-	//	if err != nil {
-	//		fmt.Println(err)
-	//		return false
-	//	}
-	//
-	//	v := utils.InterfaceToMap(value)
-	//
-	//	//// visitor map with info
-	//	visitorRecord := map[string]interface{}{
-	//		"email":       utils.InterfaceToString(v["email"]),
-	//		"first_name":  utils.InterfaceToString(v["first_name"]),
-	//		"last_name":   utils.InterfaceToString(v["last_name"]),
-	//		"is_admin":    false,
-	//		"password":    "test",
-	//		"created_at":  time.Now(),
-	//	}
-	//
-	//	productModel.FromHashMap(visitorRecord)
-	//
-	//	err = productModel.Save()
-	//	if err != nil {
-	//		fmt.Println(err)
-	//		return false
-	//	}
-	//
-	//	// todo save products images
-	//	//if productModel.GetID() != "" {
-	//	//	addCustomerAddresses(utils.InterfaceToString(v["entity_id"]), productModel)
-	//	//}
-	//}
+	for _, productData := range products {
+		fmt.Println(productData)
+
+		productModel, err := product.GetProductModel()
+		if err != nil {
+			fmt.Println(err)
+			return false
+		}
+
+		productMap := utils.InterfaceToMap(productData)
+
+		// visitor map with info
+		productRecord := map[string]interface{}{
+			"sku":   utils.InterfaceToString(productMap["sku"]),
+			"short_description":       utils.InterfaceToString(productMap["short_description"]),
+			"description":  utils.InterfaceToString(productMap["description"]),
+			"price":  utils.InterfaceToFloat64(productMap["price"]),
+			"weight":  utils.InterfaceToFloat64(productMap["weight"]),
+
+			"enabled":  true,
+			"created_at":  time.Now(),
+		}
+
+		productModel.FromHashMap(productRecord)
+
+		err = productModel.Save()
+		if err != nil {
+			fmt.Println(err)
+			return false
+		}
+
+		// todo save products images
+		//if productModel.GetID() != "" {
+		//	addCustomerAddresses(utils.InterfaceToString(v["entity_id"]), productModel)
+		//}
+	}
 
 	return true
 }

@@ -116,12 +116,12 @@ func restMagentoImport(context api.InterfaceApplicationContext) (interface{}, er
 
 	oauthToken := utils.InterfaceToString(requestData["oauthToken"])
 	if oauthToken == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
+		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
 	}
 
 	oauthVerifier := utils.InterfaceToString(requestData["oauthVerifier"])
 	if oauthVerifier == "" {
-		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
+		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
 	}
 
 	requestToken := utils.InterfaceToString(context.GetSession().Get(ConstSessionKeyMagentoRequestToken))

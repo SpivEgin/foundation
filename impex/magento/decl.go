@@ -8,14 +8,14 @@ import (
 // Package global constants
 const (
 	ConstErrorModule = "impex_magento"
-	ConstErrorLevel  = env.ConstErrorLevelService
+	ConstErrorLevel  = env.ConstErrorLevelAPI
 
-	ConstLogFileName = "impex_magento.log"
-	ConstSessionKeyMagentoRequestToken = "magentoRequestToken"
-	ConstSessionKeyMagentoRequestSecret = "magentoRequestSecret"
-	ConstSessionKeyMagentoSiteAdminUrl = "magentoSiteAdminUrl"
-	ConstSessionKeyMagentoSiteUrl = "magentoSiteUrl"
-	ConstSessionKeyMagentoConsumerKey = "magentoConsumerKey"
+	ConstLogFileName                     = "impex_magento.log"
+	ConstSessionKeyMagentoRequestToken   = "magentoRequestToken"
+	ConstSessionKeyMagentoRequestSecret  = "magentoRequestSecret"
+	ConstSessionKeyMagentoSiteAdminUrl   = "magentoSiteAdminUrl"
+	ConstSessionKeyMagentoSiteUrl        = "magentoSiteUrl"
+	ConstSessionKeyMagentoConsumerKey    = "magentoConsumerKey"
 	ConstSessionKeyMagentoConsumerSecret = "magentoConsumerSecret"
 )
 

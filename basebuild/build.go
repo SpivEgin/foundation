@@ -12,6 +12,7 @@ import (
 	_ "github.com/ottemo/foundation/api/rest"      // RESTful API service
 	_ "github.com/ottemo/foundation/api/session"   // Session Management service
 	_ "github.com/ottemo/foundation/impex"         // Import/Export service
+	_ "github.com/ottemo/foundation/impex/magento" // Import Magento 1 by REST API service
 	_ "github.com/ottemo/foundation/media/fsmedia" // Media Storage service
 
 	_ "github.com/ottemo/foundation/app/actors/category"        // Category module
