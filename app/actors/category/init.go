@@ -34,6 +34,7 @@ func (it *DefaultCategory) setupDB() error {
 	collection.AddColumn("path", db.ConstTypeVarchar, true)
 	collection.AddColumn("name", db.ConstTypeVarchar, true)
 	collection.AddColumn("description", db.ConstTypeVarchar, true)
+	collection.AddColumn("magento_id", db.ConstTypeVarchar, true)
 	collection.AddColumn("image", db.ConstTypeVarchar, true)
 
 	collection, err = db.GetCollection(ConstCollectionNameCategoryProductJunction)

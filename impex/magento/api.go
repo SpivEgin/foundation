@@ -2,221 +2,46 @@ package magento
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
-
-	"github.com/mrjones/oauth"
-
 	"github.com/ottemo/foundation/api"
-	"github.com/ottemo/foundation/env"
-	"github.com/ottemo/foundation/app"
 	"github.com/ottemo/foundation/utils"
-	"github.com/ottemo/foundation/app/models/visitor"
+	"github.com/ottemo/foundation/env"
+	"io/ioutil"
 	"time"
-	"github.com/ottemo/foundation/app/models/product"
+	"github.com/ottemo/foundation/app/models/visitor"
+	"github.com/ottemo/foundation/db"
+	"github.com/ottemo/foundation/app/models/category"
 )
-var siteApiRestUrl string
-var httpClient *http.Client
 
 // setups package related API endpoint routines
 func setupAPI() error {
 
 	service := api.GetRestService()
 
-	service.GET("impex/magento", restMagento)
-	service.POST("impex/magento", restMagentoImport)
+	service.POST("impex/magento/visitor", magentoVisitorRequest)
+	service.POST("impex/magento/order", magentoOrderRequest)
+	service.POST("impex/magento/category", magentoCategoryRequest)
+	service.POST("impex/magento/product", magentoProductRequest)
+	service.POST("impex/magento/stock", magentoStockRequest)
 
 	return nil
 }
 
-// WEB REST API used to list available models for Impex system
-func restMagento(context api.InterfaceApplicationContext) (interface{}, error) {
-	//var result []string
+func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}, error) {
+	fmt.Println("magentoVisitorRequest")
+	fmt.Println(context)
+	fmt.Println(context.GetRequestFile("import.json"))
 
-	var baseURL = utils.InterfaceToString(env.ConfigGetValue(app.ConstConfigPathDashboardURL))
-
-	var consumerKey = "2f026794738f4dcf5c2519da1025a085"
-	var consumerSecret = "15d7850d214561e7f2431d9330c9171c"
-	var siteUrl = "http://ee.test.taa.speroteck-dev.com"
-	var siteAdminUrl = "http://ee.test.taa.speroteck-dev.com/admin"
-
-	//return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "6f5a582f-46f1-4b46-834d-e6b39da1ca68", "no csv file was attached")
-
-	if baseURL == "" {
-		baseURL = "http://localhost:9000"
-	}
-
-	c := oauth.NewConsumer(
-		consumerKey,
-		consumerSecret,
-		oauth.ServiceProvider{
-			RequestTokenUrl:   siteUrl + "/oauth/initiate",
-			AuthorizeTokenUrl: siteAdminUrl + "/oauth_authorize",
-			AccessTokenUrl:    siteUrl + "/oauth/token",
-		},
-	)
-	c.Debug(true)
-	token, requestUrl, err := c.GetRequestTokenAndUrl(baseURL + "/impex")
-	if err != nil {
-		fmt.Println(err)
-		return "", err
-	}
-	fmt.Println(token)
-
-	context.GetSession().Set(ConstSessionKeyMagentoRequestToken, token.Token)
-	context.GetSession().Set(ConstSessionKeyMagentoRequestSecret, token.Secret)
-	context.GetSession().Set(ConstSessionKeyMagentoConsumerKey, consumerKey)
-	context.GetSession().Set(ConstSessionKeyMagentoConsumerSecret, consumerSecret)
-	context.GetSession().Set(ConstSessionKeyMagentoSiteAdminUrl, siteAdminUrl)
-	context.GetSession().Set(ConstSessionKeyMagentoSiteUrl, siteUrl)
-
-	return api.StructRestRedirect{
-		Result:   "redirect",
-		Location: requestUrl,
-		DoRedirect: false,
-	}, nil
-}
-
-
-func restMagentoImport(context api.InterfaceApplicationContext) (interface{}, error) {
- 	var result interface{}
-	var baseURL = utils.InterfaceToString(env.ConfigGetValue(app.ConstConfigPathDashboardURL))
-
-	if baseURL == "" {
-		baseURL = "http://localhost:9000"
-	}
-
-	// check request context
-	//---------------------
-	requestData, err := api.GetRequestContentAsMap(context)
+	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
 
-
-	oauthToken := utils.InterfaceToString(requestData["oauthToken"])
-	if oauthToken == "" {
-		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
-	}
-
-	oauthVerifier := utils.InterfaceToString(requestData["oauthVerifier"])
-	if oauthVerifier == "" {
-		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "6372b9a3-29f3-4ea4-a19f-40051a8f330b", "email was not specified")
-	}
-
-	requestToken := utils.InterfaceToString(context.GetSession().Get(ConstSessionKeyMagentoRequestToken))
-	requestSecret := utils.InterfaceToString(context.GetSession().Get(ConstSessionKeyMagentoRequestSecret))
-	consumerKey := utils.InterfaceToString(context.GetSession().Get(ConstSessionKeyMagentoConsumerKey))
-	consumerSecret := utils.InterfaceToString(context.GetSession().Get(ConstSessionKeyMagentoConsumerSecret))
-	siteAdminUrl := utils.InterfaceToString(context.GetSession().Get(ConstSessionKeyMagentoSiteAdminUrl))
-	siteUrl := utils.InterfaceToString(context.GetSession().Get(ConstSessionKeyMagentoSiteUrl))
-	siteApiRestUrl = siteUrl + "/api/rest"
-
-	c := oauth.NewConsumer(
-		consumerKey,
-		consumerSecret,
-		oauth.ServiceProvider{
-			RequestTokenUrl:   siteUrl + "/oauth/initiate",
-			AuthorizeTokenUrl: siteAdminUrl + "/oauth_authorize",
-			AccessTokenUrl:    siteUrl + "/oauth/token",
-		},
-	)
-	c.Debug(true)
-
-	oauthRequestToken := &oauth.RequestToken{
-		Secret: requestSecret,
-		Token: requestToken,
-	}
-
-	accessToken, err := c.AuthorizeToken(oauthRequestToken, oauthVerifier)
-	if err != nil {
-		fmt.Println(err)
-		return "", err
-	}
-
-	client, err := c.MakeHttpClient(accessToken)
-	if err != nil {
-		fmt.Println(err)
-		return "", err
-	}
-	httpClient = client
-	//_, err = getApiData("/customers/27/addresses")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//customersByte, err := getApiData("/customers")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//result = saveCustomersData(customersByte)
-
-	productsByte, err := getApiData("/products")
-	if err != nil {
-		return nil, err
-	}
-	result = saveProductsData(productsByte)
-
-	//data, err := getApiData("/orders")
-	//if err != nil {
-	//	return nil, err
-	//}
-	//result = saveOrdersData(data)
-
-	return result, nil
-}
-
-func getApiData(apiUrl string) ([]byte, error) {
-	request, err := http.NewRequest("GET", siteApiRestUrl + apiUrl, nil)
-	if err != nil {
-		return make([]byte, 0), err
-	}
-
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Accept", "*/*")
-
-	response, err := httpClient.Do(request)
-	//response, err := client.Get(siteApiRestUrl + "/customers")
-	if err != nil {
-		fmt.Println(err)
-		return make([]byte, 0), err
-	}
-	defer response.Body.Close()
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		fmt.Println(err)
-		return make([]byte, 0), err
-	}
-
-	//data, err := utils.DecodeJSONToStringKeyMap(body)
-	//if len(data) > 0 {
-	//	data, _ = utils.InterfaceToArray(v)
-	//}
-	//if err != nil {
-	//	data, err = utils.DecodeJSONToArray(body)
-	//	if err != nil {
-	//		fmt.Println(err)
-	//		return make(map[string]interface{}, 0), err
-	//	}
-	//}
-	//
-	//fmt.Println(data)
-
-	return body, nil
-}
-
-func saveCustomersData(dataByte []byte) (bool)  {
-	data, err := utils.DecodeJSONToStringKeyMap(dataByte)
-	if err != nil {
-		return false
-	}
-
-	for _, value := range data {
+	for _, value := range jsonResponse {
 
 		visitorModel, err := visitor.GetVisitorModel()
 		if err != nil {
 			fmt.Println(err)
-			return false
+			return nil, env.ErrorDispatch(err)
 		}
 
 		v := utils.InterfaceToMap(value)
@@ -236,102 +61,163 @@ func saveCustomersData(dataByte []byte) (bool)  {
 		err = visitorModel.Save()
 		if err != nil {
 			fmt.Println(err)
-			return false
+			return  nil, env.ErrorDispatch(err)
 		}
 
-		if visitorModel.GetID() != "" {
-			addCustomerAddresses(utils.InterfaceToString(v["entity_id"]), visitorModel)
-		}
+		//if utils.InterfaceToArray(v["address"]) {
+		addCustomerAddresses(utils.InterfaceToArray(v["address"])	, visitorModel)
+		//}
 	}
+	var result []string
 
-	return true
+	return result, nil
 }
 
-func saveProductsData(dataByte []byte) (bool)  {
-	products, err := utils.DecodeJSONToStringKeyMap(dataByte)
-	if err != nil {
-		return false
-	}
-	for _, productData := range products {
-		fmt.Println(productData)
+func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{}, error) {
+	fmt.Println("magentoCategoryRequest")
+	fmt.Println(context)
+	fmt.Println(context.GetRequestFile("import.json"))
 
-		productModel, err := product.GetProductModel()
+	jsonResponse, err := getDataFromContext(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	var rowData []map[string]interface{}
+
+	//fmt.Println(jsonResponse)
+
+	for _, value := range jsonResponse {
+
+		categoryModel, err := category.GetCategoryModel()
 		if err != nil {
 			fmt.Println(err)
-			return false
+			return nil, env.ErrorDispatch(err)
 		}
+		v := utils.InterfaceToMap(value)
 
-		productMap := utils.InterfaceToMap(productData)
 
-		// visitor map with info
-		productRecord := map[string]interface{}{
-			"sku":   utils.InterfaceToString(productMap["sku"]),
-			"short_description":       utils.InterfaceToString(productMap["short_description"]),
-			"description":  utils.InterfaceToString(productMap["description"]),
-			"price":  utils.InterfaceToFloat64(productMap["price"]),
-			"weight":  utils.InterfaceToFloat64(productMap["weight"]),
-
-			"enabled":  true,
+		// category map with info
+		categoryRecord := map[string]interface{}{
+			"name":       utils.InterfaceToString(v["name"]),
+			"description":  utils.InterfaceToString(v["description"]),
+			"last_name":   utils.InterfaceToString(v["last_name"]),
+			"enabled":   utils.InterfaceToBool(v["is_active"]),
+			"magento_id":   utils.InterfaceToString(v["entity_id"]),
+			// todo image
+			//"image":  utils.InterfaceToString(v["image"]),
 			"created_at":  time.Now(),
 		}
 
-		productModel.FromHashMap(productRecord)
 
-		err = productModel.Save()
-		if err != nil {
-			fmt.Println(err)
-			return false
+		if utils.InterfaceToInt(v["parent_id"]) > 0 {
+			fmt.Println(v["parent_id"])
+			dbEngine := db.GetDBEngine()
+			if dbEngine == nil {
+				return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "642ed88a-6d8b-48a1-9b3c-feac54c4d9a3", "Can't obtain DBEngine")
+			}
+
+			categoryCollectionModel, err := dbEngine.GetCollection(category.ConstModelNameCategory)
+			if err != nil {
+				return nil, env.ErrorDispatch(err)
+			}
+
+			err = categoryCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(v["parent_id"]))
+			if err != nil {
+				return nil, env.ErrorDispatch(err)
+			}
+			rowData, err = categoryCollectionModel.Load()
+			if err != nil {
+				return nil, env.ErrorDispatch(err)
+			}
+
+			if len(rowData) == 1 {
+				categoryRecord["parent_id"] = rowData[0]["_id"]
+			}
 		}
 
-		// todo save products images
-		//if productModel.GetID() != "" {
-		//	addCustomerAddresses(utils.InterfaceToString(v["entity_id"]), productModel)
-		//}
+		categoryModel.FromHashMap(categoryRecord)
+
+		err = categoryModel.Save()
+		if err != nil {
+			fmt.Println(err)
+			return  nil, env.ErrorDispatch(err)
+		}
 	}
 
-	return true
+	var result []string
+
+	return result, nil
 }
 
-func saveOrdersData(data []byte) (bool)  {
-	//fmt.Println("\n\n\n\n\n")
-	//fmt.Println(data)
-	//fmt.Println("\n\n\n\n\n")
-	//for _, value := range data {
-	//	v := utils.InterfaceToMap(value)
-	//
-	//	//// visitor map with info
-	//	visitorRecord := map[string]interface{}{
-	//		"email":       utils.InterfaceToString(v["email"]),
-	//		"first_name":  utils.InterfaceToString(v["first_name"]),
-	//		"last_name":   utils.InterfaceToString(v["last_name"]),
-	//		"is_admin":    false,
-	//		"password":    "test",
-	//		"created_at":  time.Now(),
-	//	}
-	//	visitorModel, err := saveCustomer(visitorRecord)
-	//	if err != nil {
-	//		fmt.Println(err)
-	//		return false
-	//	}
-	//	addCustomerAddresses(utils.InterfaceToString(v["entity_id"]), visitorModel)
-	//	fmt.Println(visitorModel)
-	//	fmt.Println(visitorModel.GetID())
-	//}
+func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, error) {
+	fmt.Println("magentoOrderRequest")
+	fmt.Println(context)
+	fmt.Println(context.GetRequestFile("import.json"))
 
-	return true
-}
-
-func addCustomerAddresses(customerId string, visitorModel visitor.InterfaceVisitor) (bool) {
-
-	fmt.Println("/customers/" + customerId + "/addresses")
-	fmt.Println(visitorModel)
-	fmt.Println(visitorModel.GetID())
-
-	body, _ := getApiData("/customers/" + customerId + "/addresses")
-	addresses, err := utils.DecodeJSONToArray(body)
+	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
-		return false
+		return nil, env.ErrorDispatch(err)
 	}
+
+	fmt.Println(jsonResponse)
+
+	var result []string
+
+	return result, nil
+}
+
+func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}, error) {
+	fmt.Println("magentoProductRequest")
+	fmt.Println(context)
+	fmt.Println(context.GetRequestFile("import.json"))
+
+	jsonResponse, err := getDataFromContext(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	fmt.Println(jsonResponse)
+
+	var result []string
+
+	return result, nil
+}
+
+func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, error) {
+	fmt.Println("magentoStockRequest")
+	fmt.Println(context)
+	fmt.Println(context.GetRequestFile("import.json"))
+
+	jsonResponse, err := getDataFromContext(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	fmt.Println(jsonResponse)
+	var result []string
+
+	return result, nil
+}
+
+func getDataFromContext(context api.InterfaceApplicationContext) ([]interface{}, error) {
+
+	responseBody, err := ioutil.ReadAll(context.GetRequestFile("import.json"))
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	jsonResponse, err := utils.DecodeJSONToArray(responseBody)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	//fmt.Println(utils.InterfaceToString(jsonResponse))
+
+	return jsonResponse, nil
+}
+
+func addCustomerAddresses(addresses []interface{}, visitorModel visitor.InterfaceVisitor) (bool) {
 
 	for _, addresse := range addresses {
 		visitorAddressModel, err := visitor.GetVisitorAddressModel()
@@ -367,4 +253,3 @@ func addCustomerAddresses(customerId string, visitorModel visitor.InterfaceVisit
 	return true
 
 }
-

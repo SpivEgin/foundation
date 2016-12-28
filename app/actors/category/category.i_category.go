@@ -61,6 +61,10 @@ func (it *DefaultCategory) GetParent() category.InterfaceCategory {
 func (it *DefaultCategory) GetDescription() string {
 	return it.Description
 }
+// GetMagentoId returns the Magento Id of the requested category
+func (it *DefaultCategory) GetMagentoId() string {
+	return it.MagentoId
+}
 
 // GetImage returns the image of the requested category
 func (it *DefaultCategory) GetImage() string {

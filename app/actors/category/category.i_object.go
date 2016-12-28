@@ -58,6 +58,9 @@ func (it *DefaultCategory) Get(attribute string) interface{} {
 	case "description":
 		return it.GetDescription()
 
+	case "magento_id":
+		return it.GetMagentoId()
+
 	case "product_ids":
 		return it.GetProductIds()
 
@@ -143,6 +146,9 @@ func (it *DefaultCategory) Set(attribute string, value interface{}) error {
 	case "description":
 		it.Description = utils.InterfaceToString(value)
 
+	case "magento_id":
+		it.MagentoId = utils.InterfaceToString(value)
+
 	case "products":
 		switch typedValue := value.(type) {
 
@@ -201,6 +207,7 @@ func (it *DefaultCategory) ToHashMap() map[string]interface{} {
 	result["name"] = it.Get("name")
 	result["product_ids"] = it.Get("product_ids")
 	result["path"] = it.Get("path")
+	result["magento_id"] = it.Get("magento_id")
 
 	return result
 }

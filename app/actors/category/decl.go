@@ -30,6 +30,7 @@ type DefaultCategory struct {
 	Parent      category.InterfaceCategory
 	Path        string
 	ProductIds  []string
+	MagentoId   string
 }
 
 // DefaultCategoryCollection is a default implementer of InterfaceCategoryCollection
