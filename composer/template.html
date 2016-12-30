@@ -1,0 +1,241 @@
+<!doctype html>
+<html>
+<head lang="en">
+    <meta charset="utf-8">
+    <title>Template test</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.1/angular.js"></script>
+
+    <script type="text/javascript">
+
+        var module = angular.module('TemplateTest', []);
+
+        module.directive('template', ['$compile', '$controller', '$rootScope', function ($compile, $controller) {
+            // console.log('in directive');
+            var storedTemplates = {};
+            return {
+                restrict: 'EA',
+                scope: false,
+                compile: function (element, attributes) {
+                    // console.log('in directive compile', bbb, element, attributes);
+                    var templateIsTag = false;
+                    var templateName = undefined;
+                    var templateAttributes = {};
+                    var templateController = undefined;
+                    var templateWatchExpr = undefined;
+
+                    if (element[0].tagName.toLowerCase() == this.name.toLowerCase()) {
+                        templateIsTag = true;
+                    }
+
+                    /* (1) template attributes filtering */
+
+                    if (templateIsTag) {
+                        /* directive usage as a tag - all attributes related to directive */
+                        for (var tagAttribute in attributes.$attr) {
+                            if (!attributes.$attr.hasOwnProperty(tagAttribute)) {
+                                continue;
+                            }
+
+                            var tagAttrName = tagAttribute.replace(/^(data-|x-)/, '');
+                            templateAttributes[tagAttrName] = attributes[tagAttribute];
+                        }
+
+                    } else {
+                        /* directive usage as an attribute - attribute prefix filtering */
+                        var templatePrefix = 'tp';
+
+                        /* template prefix attribute lookup */
+                        var prefixAttributes = ['template', 'data-template', 'x-template'];
+                        for(var prefixIdx in prefixAttributes) {
+                            if (!prefixAttributes.hasOwnProperty(prefixIdx)) { continue; }
+                            var prefixAttribute = prefixAttributes[prefixIdx];
+
+                            if (prefixAttribute in attributes.$attr) {
+                                if (attributes[prefixAttribute] != '') {
+                                    templatePrefix = attributes[prefixAttribute];
+                                }
+
+                                delete attributes.$attr[prefixAttribute];
+                                element.removeAttr(prefixAttribute);
+                            }
+                        }
+
+                        /* grabbing template related attributes by prefix */
+                        for (var attribute in attributes.$attr) {
+                            if (!attributes.$attr.hasOwnProperty(attribute)) { continue; }
+
+                            /* truncating possible prefixes */
+                            var attr = attribute.replace(/^(data-|x-)/, '');
+
+                            /* grabbing template related attributes and removing them from element */
+                            if (attr.slice(0, templatePrefix.length) == templatePrefix) {
+                                attr = attr.slice(templatePrefix.length);
+                                attr = attr.slice(0, 1).toLowerCase() + attr.slice(1);
+
+                                templateAttributes[attr] = attributes[attribute];
+                                delete attributes.$attr[attribute];
+                                element.removeAttr(attribute);
+                            }
+                        }
+                    }
+
+                    /* (2) template directive attributes handling */
+
+                    /* template 'set' attribute handler */
+                    if (templateAttributes.hasOwnProperty('set')) {
+                        var saveName = templateAttributes['set'];
+                        delete templateAttributes['set'];
+
+                        /* angular scope and $compile operations requires HTML element to bind */
+                        if (templateIsTag) {
+                            storedTemplates[saveName] = '<span>' + element.html() + '</span>';
+                        } else {
+                            storedTemplates[saveName] = element[0].outerHTML;
+                        }
+                    }
+
+                    /* template 'get' attribute handler */
+                    if (templateAttributes.hasOwnProperty('get')) {
+                        templateName = templateAttributes['get'];
+                        delete templateAttributes['get']
+                    }
+
+                    /* template 'controller' attribute handler */
+                    if (templateAttributes.hasOwnProperty('controller')) {
+                        templateController = templateAttributes['controller'];
+                        delete templateAttributes['controller']
+                    }
+
+                    /* template 'watch' attribute handler */
+                    if (templateAttributes.hasOwnProperty('watch')) {
+                        templateWatchExpr = templateAttributes['watch'];
+                        delete templateAttributes['watch']
+                    }
+
+                    /* (3) directive element replacement */
+                    // element.replaceWith('');
+
+                    /* directive link function */
+                    return function (scope, element, attributes) {
+                        // console.log("in directive link", element, scope);
+
+                        var directiveScope = scope;
+                        var directiveResult = '';
+
+                        if (templateName != undefined && templateName != '') {
+                            /* looking for a stored template HTML */
+                            var templateHTML = '';
+                            if (templateName in storedTemplates) {
+                                templateHTML = storedTemplates[templateName];
+                            }
+
+                            /* taking subject to which new scope will be applied */
+                            var templateElement = angular.element();
+                            if (templateIsTag) {
+                                if (templateHTML != '') {
+                                    templateElement = angular.element(templateHTML)
+                                }
+                            } else {
+                                templateElement = element.append(templateHTML);
+                            }
+
+                            /* making template scope and copying rest of attributes into */
+                            var templateScope = directiveScope.$new(false, directiveScope);
+                            for (var tplAttribute in templateAttributes) {
+                                if (!templateAttributes.hasOwnProperty(tplAttribute)) { continue; }
+
+                                var value = templateAttributes[tplAttribute];
+                                templateScope[tplAttribute] = value;
+
+                                if (value in directiveScope) {
+                                    templateScope[tplAttribute] = directiveScope[value];
+                                } else {
+                                    if (/^\s*\{\{/.test(value)) {
+                                        try {
+                                            value = value.replace(/^\s*\{\{\s*/, "").replace(/\s*\}\}\s*$/, "");
+                                            value = directiveScope.$eval(value);
+                                        } catch (e) {
+                                            console.log(e);
+                                        }
+                                    }
+                                    templateScope[tplAttribute] = value;
+                                }
+                            }
+
+                            /* binding template scope to template element */
+
+                            directiveResult = $compile(templateElement)(templateScope);
+
+                            /* assigning watchers if specified */
+                            if (templateWatchExpr != undefined) {
+                                templateScope.$watch(
+                                        /* watch the expression for changes */
+                                        function (scope) {
+                                            return scope.$eval(templateWatchExpr);
+                                        },
+                                        /* element re-creation action on value changed */
+                                        function (value) {
+                                            directiveResult = $compile(templateElement)(templateScope);
+                                            element.replaceWith(directiveResult);
+                                            element = directiveResult;
+                                        }
+                                );
+                            }
+                        }
+
+                        /* replacing template directive element with appropriate result */
+                        element.replaceWith(directiveResult);
+                        element = directiveResult;
+
+                        /* controller binding */
+                        if (templateController != undefined && templateController != '') {
+                            $controller(templateController, {'$scope': templateScope, '$element': directiveResult});
+                        }
+                    }
+                }}
+        }]);
+
+        module.controller("MyController", ["$scope", "$element", function ($scope, $element) {
+
+            // console.log("in MyController", $scope, $element);
+
+            var self = $scope;  /* shorthand scope alias*/
+            $scope.self = self; /* scope self reference */
+
+            /* Scope initialization routines */
+            $scope.init = function(inputData) {
+                self.isReady = false;
+                if (self.date == undefined || self.date == '') {
+                    self.date = new Date();
+                }
+                if (!(self.date instanceof Date)) {
+                    self.date = new Date(self.date);
+                }
+                self.isReady = true;
+            };
+
+            $scope.init();
+        }]);
+
+    </script>
+</head>
+
+<body ng-app="TemplateTest">
+
+<p template="tpl" tpl-set="element" ng-controller="MyController">
+    Item {{n}} - {{date.toISOString()}}
+
+    <span ng-if="isReady && (n > 0)">
+        <template get="element" n="{{n-1}}" date="{{date - (24*60*60*1000)}}" controller="MyController"></template>
+    </span>
+</p>
+
+<template get="element" n="3"></template>
+<hr/>
+<template get="element" n="10" date="2016-01-02"></template>
+<hr/>
+<template get="element" date="2016-01-03"></template>
+
+</body>
+</html>

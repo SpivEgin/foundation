@@ -5,7 +5,7 @@
     <title>Discount Editor</title>
 
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.2/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.1/angular.min.js"></script>
 
     <script type="text/javascript">
 
@@ -86,107 +86,119 @@
 
         var module = angular.module("DiscountEditor", []);
 
-        module.directive("template", ["$compile", function ($compile) {
-            var template = {
+        module.directive('template', ['$compile', '$controller', '$rootScope', function ($compile, $controller) {
+            var storedTemplates = {};
+            return {
                 restrict: 'EA',
-                scope: true,
+                scope: false,
                 compile: function (element, attributes) {
-
-                    /* initializing directive related variables */
                     var templateIsTag = false;
-                    var templateName = null;
+                    var templateName = undefined;
                     var templateAttributes = {};
-                    var watchExpression = null;
+                    var templateController = undefined;
+                    var templateWatchExpr = undefined;
 
                     if (element[0].tagName.toLowerCase() == this.name.toLowerCase()) {
                         templateIsTag = true;
                     }
 
-                    /* template attributes filtering */
-                    if (templateIsTag) {
-                        /* case 1: directive usage as a tag - all attributes related */
-                        for (var tagAttribute in attributes.$attr) {
-                            if (! attributes.$attr.hasOwnProperty(tagAttribute)) { continue; }
+                    /* (1) template attributes filtering */
 
-                            var tagAttrName = tagAttribute.replace(/^(data-|x-)/, "").toLowerCase();
+                    if (templateIsTag) {
+                        /* directive usage as a tag - all attributes related to directive */
+                        for (var tagAttribute in attributes.$attr) {
+                            if (!attributes.$attr.hasOwnProperty(tagAttribute)) {
+                                continue;
+                            }
+
+                            var tagAttrName = tagAttribute.replace(/^(data-|x-)/, '');
                             templateAttributes[tagAttrName] = attributes[tagAttribute];
                         }
 
                     } else {
-                        /* case 2: directive usage as an attribute - attribute prefix filtering*/
-                        var templatePrefix = "tp";
-                        for (var loop = true; loop; loop = !loop) {
-                            for (var attribute in attributes.$attr) {
-                                if (!attributes.$attr.hasOwnProperty(attribute)) { continue; }
+                        /* directive usage as an attribute - attribute prefix filtering */
+                        var templatePrefix = 'tp';
 
-                                var attr = attribute.replace(/^(data-|x-)/, "").toLowerCase();
+                        /* template prefix attribute lookup */
+                        var prefixAttributes = ['template', 'data-template', 'x-template'];
+                        for(var prefixIdx in prefixAttributes) {
+                            if (!prefixAttributes.hasOwnProperty(prefixIdx)) { continue; }
+                            var prefixAttribute = prefixAttributes[prefixIdx];
 
-                                /* non default prefix specified, we should repeat scan for that case (as attributes order is not strict) */
-                                if (attr == "template" && attributes[attribute] != "") {
-                                    templatePrefix = attributes[attribute];
-
-                                    delete attributes.$attr[attribute];
-                                    element.removeAttr(attribute);
-
-                                    loop = false;
+                            if (prefixAttribute in attributes.$attr) {
+                                if (attributes[prefixAttribute] != '') {
+                                    templatePrefix = attributes[prefixAttribute];
                                 }
 
-                                /* grabbing template related attributes and removing them from element */
-                                if (attr.length >= templatePrefix.length && attr.slice(0, templatePrefix.length) == templatePrefix) {
-                                    attr = attr.slice(templatePrefix.length);
+                                delete attributes.$attr[prefixAttribute];
+                                element.removeAttr(prefixAttribute);
+                            }
+                        }
 
-                                    templateAttributes[attr] = attributes[attribute];
-                                    delete attributes.$attr[attribute];
-                                    element.removeAttr(attribute);
-                                }
+                        /* grabbing template related attributes by prefix */
+                        for (var attribute in attributes.$attr) {
+                            if (!attributes.$attr.hasOwnProperty(attribute)) { continue; }
+
+                            /* truncating possible prefixes */
+                            var attr = attribute.replace(/^(data-|x-)/, '');
+
+                            /* grabbing template related attributes and removing them from element */
+                            if (attr.slice(0, templatePrefix.length) == templatePrefix) {
+                                attr = attr.slice(templatePrefix.length);
+                                attr = attr.slice(0, 1).toLowerCase() + attr.slice(1);
+
+                                templateAttributes[attr] = attributes[attribute];
+                                delete attributes.$attr[attribute];
+                                element.removeAttr(attribute);
                             }
                         }
                     }
 
-                    /* template "set" operation specified */
-                    if ("set" in templateAttributes) {
-                        var saveName = templateAttributes["set"];
-                        delete templateAttributes["set"];
+                    /* (2) template directive attributes handling */
 
-                        if (typeof angular.templates == 'undefined') {
-                            angular.templates = {};
-                        }
+                    /* template 'set' attribute handler */
+                    if (templateAttributes.hasOwnProperty('set')) {
+                        var saveName = templateAttributes['set'];
+                        delete templateAttributes['set'];
 
-                        /* angular scope and $compile operations requires top element */
+                        /* angular scope and $compile operations requires HTML element to bind */
                         if (templateIsTag) {
-                            angular.templates[saveName] = "<span>" + element.html() + "</span>";
+                            storedTemplates[saveName] = '<span>' + element.html() + '</span>';
                         } else {
-                            angular.templates[saveName] = element[0].outerHTML;
+                            storedTemplates[saveName] = element[0].outerHTML;
                         }
                     }
 
-                    /* template "get" operation specified */
-                    if ("get" in templateAttributes) {
-                        templateName = templateAttributes["get"];
-                        delete templateAttributes["get"]
-                    } else {
-                        templateName = null;
+                    /* template 'get' attribute handler */
+                    if (templateAttributes.hasOwnProperty('get')) {
+                        templateName = templateAttributes['get'];
+                        delete templateAttributes['get']
                     }
 
-                    /* template "get" operation specified */
-                    if ("watch" in templateAttributes) {
-                        watchExpression = templateAttributes["watch"];
-                        delete templateAttributes["watch"]
-                    } else {
-                        watchExpression = null;
+                    /* template 'controller' attribute handler */
+                    if (templateAttributes.hasOwnProperty('controller')) {
+                        templateController = templateAttributes['controller'];
+                        delete templateAttributes['controller']
                     }
 
-                    /* directive's "link" function */
+                    /* template 'watch' attribute handler */
+                    if (templateAttributes.hasOwnProperty('watch')) {
+                        templateWatchExpr = templateAttributes['watch'];
+                        delete templateAttributes['watch']
+                    }
+
+                    /* (3) directive element replacement */
+
+                    /* directive link function */
                     return function (scope, element, attributes) {
+                        var directiveScope = scope;
+                        var directiveResult = '';
 
-                        var result = '';
-                        if (templateName != null && templateName != '') {
+                        if (templateName != undefined && templateName != '') {
                             /* looking for a stored template HTML */
                             var templateHTML = '';
-                            if (typeof angular.templates != 'undefined' &&
-                                    typeof angular.templates[templateName] != 'undefined') {
-
-                                templateHTML = angular.templates[templateName];
+                            if (templateName in storedTemplates) {
+                                templateHTML = storedTemplates[templateName];
                             }
 
                             /* taking subject to which new scope will be applied */
@@ -199,41 +211,60 @@
                                 templateElement = element.append(templateHTML);
                             }
 
-                            /* making new scope */
-                            var templateScope = scope.$new(false, scope);
-                            for (var attribute in templateAttributes) {
-                                var value = templateAttributes[attribute];
-                                try {
-                                    value = value.replace(/^\s*\{\{\s*/, "").replace(/\s*\}\}\s*$/, "");
-                                    value = scope.$eval(value);
-                                } catch (e) {
-                                    // console.log(e);
+                            /* making template scope and copying rest of attributes into */
+                            var templateScope = directiveScope.$new(false, directiveScope);
+                            for (var tplAttribute in templateAttributes) {
+                                if (!templateAttributes.hasOwnProperty(tplAttribute)) { continue; }
+
+                                var value = templateAttributes[tplAttribute];
+                                templateScope[tplAttribute] = value;
+
+                                if (value in directiveScope) {
+                                    templateScope[tplAttribute] = directiveScope[value];
+                                } else {
+                                    if (/^\s*\{\{/.test(value)) {
+                                        try {
+                                            value = value.replace(/^\s*\{\{\s*/, "").replace(/\s*\}\}\s*$/, "");
+                                            value = directiveScope.$eval(value);
+                                        } catch (e) {
+                                            console.log(e);
+                                        }
+                                    }
+                                    templateScope[tplAttribute] = value;
                                 }
-                                // scope[attribute] = value;
-                                templateScope[attribute] = value;
                             }
 
-                            /* applying new scope to the subject */
-                            result = $compile(templateElement)(templateScope);
+                            /* binding template scope to template element */
 
-                            if (watchExpression != null) {
-                                templateScope.$watch(function(scope){
-                                    console.log("111");
-                                    return new Date().getSeconds();
-                                }, function(value) {
-                                    console.log("222");
-                                    result = $compile(templateElement)(templateScope);
-                                    element.replaceWith(result);
-                                    element = result;
-                                });
+                            directiveResult = $compile(templateElement)(templateScope);
+
+                            /* assigning watchers if specified */
+                            if (templateWatchExpr != undefined) {
+                                templateScope.$watch(
+                                        /* watch the expression for changes */
+                                        function (scope) {
+                                            return scope.$eval(templateWatchExpr);
+                                        },
+                                        /* element re-creation action on value changed */
+                                        function (value) {
+                                            directiveResult = $compile(templateElement)(templateScope);
+                                            element.replaceWith(directiveResult);
+                                            element = directiveResult;
+                                        }
+                                );
                             }
                         }
-                        element.replaceWith(result);
-                        element = result;
+
+                        /* replacing template directive element with appropriate result */
+                        element.replaceWith(directiveResult);
+                        element = directiveResult;
+
+                        /* controller binding */
+                        if (templateController != undefined && templateController != '') {
+                            $controller(templateController, {'$scope': templateScope, '$element': directiveResult});
+                        }
                     }
-                }
-            };
-            return template;
+                }}
         }]);
 
         module.service("$composer", ["$http", "$q", function ($http, $q) {
@@ -325,34 +356,34 @@
         }]);
 
         module.controller("ComposeElement", ["$scope", "$q", "$composer", function (ComposeElement, $q, $composer) {
+            
+            var self = ComposeElement;        /* shorthand scope alias*/
 
-            var self = ComposeElement;            /* shorthand scope alias*/
+            ComposeElement.self = self;       /* scope self reference */
 
-            ComposeElement.self = self;           /* scope self reference */
+            ComposeElement.isReady = false;   /* flag indicates that element is ready for render */
+            ComposeElement.isBasic = true;    /* flag indicates that element is basic JS type */
+            ComposeElement.isUnit = false;    /* flag indicates that element is Unit and not Type */
 
-            ComposeElement.isReady = false;       /* flag indicates that element is ready for render */
-            ComposeElement.isBasic = true;        /* flag indicates that element is basic JS type */
-            ComposeElement.isUnit = false;        /* flag indicates that element is Unit and not Type */
+            ComposeElement.value = null;      /* value of current element */
+            ComposeElement.type = undefined;  /* element type (Composer type) */
+            ComposeElement.desc = "";         /* type description (Composer type) */
+            ComposeElement.label = "";        /* type label (Composer type) */
 
-            ComposeElement.value = null;          /* value of current element */
-            ComposeElement.type = undefined;      /* element type (Composer type) */
-            ComposeElement.desc = "";             /* type description (Composer type) */
-            ComposeElement.label = "";            /* type label (Composer type) */
+            ComposeElement.path = [];         /* path to current element within json */
+            ComposeElement.root = undefined;  /* reference to root ComposeElement (scope) */
+            ComposeElement.json = undefined;  /* reference to root value (object) */
+            ComposeElement.tree = undefined;  /* copy of json but with ComposeElement values (only in root) */
 
-            ComposeElement.path = [];             /* path to current element within json */
-            ComposeElement.root = undefined;      /* reference to root ComposeElement (scope) */
-            ComposeElement.json = undefined;      /* reference to root value (object) */
-            ComposeElement.tree = undefined;      /* copy of json but with ComposeElement values (only in root) */
-
-            ComposeElement.info = {};             /* sub-element types information (Composer types) */
-            ComposeElement.children = {};         /* prepared input parameters for sub-elements */
+            ComposeElement.info = {};         /* sub-element types information (Composer types) */
+            ComposeElement.children = {};     /* prepared input parameters for sub-elements */
 
             /* Scope initialization routines */
             ComposeElement.init = function(inputData) {
                 self.isReady = false;
 
                 /* Element initialization with given data values */
-                inputData = inputData || {};
+                inputData = inputData || self.data || {};
 
                 for (var key in inputData) {
                     if (inputData.hasOwnProperty(key)) {
@@ -418,8 +449,7 @@
 
             ComposeElement.getEditorData = function(event) {
                 return {
-                    path: self.path,
-
+                    path: self.path
                 }
             };
 
@@ -535,7 +565,7 @@
 <body ng-app="DiscountEditor">
 
 <!-- template for composer item (recursive tree) -->
-<ul class="compose-element" template="tpl" tpl-set="compose-element" ng-controller="ComposeElement">
+<ul class="compose-element" template="tpl" tpl-set="compose-element">
     <li class="compose-item" ng-if="isReady">
         <div class="compose-item-line">
             <span class="compose-item-icon" ng-switch="hasChildren()">
@@ -615,13 +645,13 @@
 
         <!-- sub-elements rendering -->
         <span ng-repeat="(key, val) in children track by childValue(key)">
-                <template get="compose-element" data="val"></template>
+            <template get="compose-element" data="val" controller="ComposeElement"></template>
         </span>
     </li>
 </ul>
 
 <div class="container" ng-controller="RootController">
-    <template get="compose-element" data="data"></template>
+    <template get="compose-element" data="data" controller="ComposeElement"></template>
 </div>
 
 </body>
