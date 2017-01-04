@@ -357,26 +357,44 @@
 
         module.controller("ComposeElement", ["$scope", "$q", "$composer", function (ComposeElement, $q, $composer) {
             
-            var self = ComposeElement;        /* shorthand scope alias*/
+            var self = ComposeElement;              /* shorthand scope alias*/
 
-            ComposeElement.self = self;       /* scope self reference */
+            ComposeElement.self = self;             /* scope self reference */
 
-            ComposeElement.isReady = false;   /* flag indicates that element is ready for render */
-            ComposeElement.isBasic = true;    /* flag indicates that element is basic JS type */
-            ComposeElement.isUnit = false;    /* flag indicates that element is Unit and not Type */
+            ComposeElement.isReady = false;         /* flag indicates that element is ready for render */
+            ComposeElement.isBasic = true;          /* flag indicates that element is basic JS type */
+            ComposeElement.isUnit = false;          /* flag indicates that element is Unit and not Type */
 
-            ComposeElement.value = null;      /* value of current element */
-            ComposeElement.type = undefined;  /* element type (Composer type) */
-            ComposeElement.desc = "";         /* type description (Composer type) */
-            ComposeElement.label = "";        /* type label (Composer type) */
+            ComposeElement.key = undefined;         /* current element key */
+            ComposeElement.type = undefined;        /* current element type (Composer type) */
+            ComposeElement.value = undefined;       /* current element value */
 
-            ComposeElement.path = [];         /* path to current element within json */
-            ComposeElement.root = undefined;  /* reference to root ComposeElement (scope) */
-            ComposeElement.json = undefined;  /* reference to root value (object) */
-            ComposeElement.tree = undefined;  /* copy of json but with ComposeElement values (only in root) */
+            ComposeElement.desc = "";               /* current element type description (Composer type) */
+            ComposeElement.label = "";              /* current element type label (Composer type) */
 
-            ComposeElement.info = {};         /* sub-element types information (Composer types) */
-            ComposeElement.children = {};     /* prepared input parameters for sub-elements */
+            ComposeElement.json = undefined;        /* reference to tree root value (object) */
+            ComposeElement.path = [];               /* path to current element within json */
+
+            ComposeElement.tree = undefined;        /* path based json of ComposeElements (available only in root) */
+            ComposeElement.root = undefined;        /* reference to root ComposeElement (scope) */
+            ComposeElement.parent = undefined;      /* reference to parent ComposeElement (scope) */
+            ComposeElement.children = {};           /* prepared init parameters for sub-elements scope */
+
+            ComposeElement.info = {};               /* sub-element types information (Composer types) */
+            ComposeElement.units = {};              /* sub-element types information (Composer types) */
+
+            ComposeElement.canAdd = true;
+            ComposeElement.canEdit = true;
+            ComposeElement.canRemove = true;
+            ComposeElement.canUnit = false;
+
+            ComposeElement.showEditor = false;      /* flag to display/hide element editor line */
+            ComposeElement.editorMode = undefined;  /* allowed items to select */
+            ComposeElement.editorItems = undefined; /* allowed items to select */
+
+            ComposeElement.editorKey = undefined;   /* currently specified item key within tree node editor */
+            ComposeElement.editorType = undefined;  /* currently specified item type within tree node editor */
+            ComposeElement.editorValue = undefined; /* currently specified item value within tree node editor */
 
             /* Scope initialization routines */
             ComposeElement.init = function(inputData) {
@@ -405,6 +423,9 @@
                 if (self.path.length == 0) {
                     self.json = self.value;
                     self.root = self;
+
+                    self.canEdit = false;
+                    self.canRemove = false;
                 }
 
                 /* Composer type resolution */
@@ -426,21 +447,46 @@
                             continue;
                         }
 
-                        if (self.info[item] == undefined) {
-                            continue;
+                        var child = {
+                            parent: self,
+                            path:   self.path.concat(item),
+                            root:   self.root,
+                            json:   self.json,
+
+                            key:    item,
+                            value:  self.value[item],
+                            type:   undefined,
+                            label:  undefined,
+                            desc:   undefined
+                        };
+
+                        /* items with couple possible types should specify used type in key: { 'item[type]' = 'value' },
+                           otherwise the first available type would be considered */
+                        var reMatch = item.match(/([^\[]+)\[([^\]]+)\]/);
+                        if (reMatch) {
+                            child['key'] = reMatch[1].trim();
+                            child['type'] = reMatch[2].trim();
                         }
 
-                        self.children[item] = {
-                            path:  self.path.concat(item),
-                            value: self.value[item],
+                        if (info.hasOwnProperty(child['key'])) {
+                            var childInfo = info[child['key']];
 
-                            root:  self.root,
-                            json:  self.json,
+                            if (childInfo.hasOwnProperty('type')) {
+                                var allowedTypes = childInfo['type'].split(',').map(function(x) { return x.trim() });
+                                if (allowedTypes.indexOf(child.type) < 0) {
+                                    child.type = allowedTypes[0];
+                                }
+                            }
 
-                            type:  self.info[item].type,
-                            desc:  self.info[item].desc,
-                            label: self.info[item].label
-                        };
+                            if (childInfo.hasOwnProperty('label')) {
+                                child.label = childInfo['label'];
+                            }
+
+                            if (childInfo.hasOwnProperty('desc')) {
+                                child.desc = childInfo['desc'];
+                            }
+                        }
+                        self.children[item] = child;
                     }
 
                     self.isReady = true;
@@ -453,67 +499,64 @@
                 }
             };
 
-            ComposeElement.jsType = function(event) {
-                return typeof self.value;
+            ComposeElement.jsType = function(type, value) {
+                return typeof value;
             };
 
             ComposeElement.childValue = function(key) {
                 return pathGet(this.json, self.path.concat(key), true);
             };
 
-            ComposeElement.canEdit = function() {
-                return self != self.root;
+            ComposeElement.editorTypes = function(item) {
+//                if (self.hasOwnProperty(item)) {
+//                    var itemType =  self[item].type;
+//                    if (typeof itemType != 'object') {
+//                        return [itemType];
+//                    }
+//                    return itemType;
+//                }
+//                return ["string", "number", "boolean"];
             };
 
-            ComposeElement.editItem = function() {
-                return self != self.root;
+            ComposeElement.edit = function() {
+
             };
 
-            ComposeElement.hasChildren = function() {
-                return Object.keys(self.children).length > 0;
+            ComposeElement.addButton = function(event) {
+                if (self.showEditor && self.editorMode == 'add') {
+                    self.showEditor = false;
+                    return;
+                }
+
+                self.editorItems = self.info;
+                self.editorMode = 'add';
+                self.showEditor = true;
+            };
+
+            ComposeElement.editButton = function(event) {
+                if (self.showEditor && self.editorMode == 'edit') {
+                    self.showEditor = false;
+                    return;
+                }
+
+                self.editorKey = self.key;
+                self.editorType = self.type;
+                self.editorValue = self.value;
+
+                self.editorItems = self.parent.info;
+                self.editorMode = 'edit';
+                self.showEditor = true;
+            };
+
+            ComposeElement.removeButton = function(event) {
+
+            };
+
+            ComposeElement.unitButton = function(event) {
+
             };
 
             ComposeElement.init(self.data);
-        }]);
-
-        module.controller("ComposeEditor", ["$scope", "$q", "$composer", function (ComposeEditor) {
-
-            var self = ComposeEditor;         /* shorthand scope alias*/
-
-            ComposeEditor.self = self;        /* scope self reference */
-
-            ComposeEditor.path = [];          /* current editing element path within json */
-            ComposeEditor.json = undefined;   /* destination json */
-
-            ComposeEditor.info = {};          /* sub-element types information (Composer types) */
-            ComposeEditor.custom = false;     /* flag indicates that custom key is allowed */
-
-            ComposeEditor.key = undefined;    /* current element key */
-            ComposeEditor.type = undefined;   /* current element type */
-            ComposeEditor.value = undefined;  /* current element value */
-
-            /* Scope initialization routines */
-            ComposeEditor.init = function(inputData) {
-                /* Given params extraction */
-                inputData = inputData || {};
-
-                for (var key in inputData) {
-                    if (inputData.hasOwnProperty(key)) {
-                        self[key] = inputData[key];
-                    }
-                }
-            };
-            ComposeEditor.getTypes = function() {
-                return [];
-            };
-
-            ComposeEditor.apply = function($event) {
-
-            };
-
-            ComposeEditor.cancel = function($event) {
-
-            };
         }]);
         
         module.controller("RootController", ["$scope", function (RootController) {
@@ -581,7 +624,7 @@
                 (<a ng-click="editType($event, scope)">{{ !type ? '""' : type }}</a>):
             </span>
 
-            <span class="compose-item-value" ng-switch="jsType()">
+            <span class="compose-item-value" ng-switch="jsType(type, value)">
                 <input type="text"
                        ng-switch-when="string"
                        ng-model="value"
@@ -599,39 +642,56 @@
                        ng-change="edit(value)"/>
             </span>
 
-            <button ng-click="removeItem($event, self)">
+            <button ng-if="canRemove" ng-click="removeButton($event, self)">
                 <i class="glyphicon glyphicon-trash"></i>
             </button>
 
-            <button ng-if="info" ng-click="addItem($event, self)">
+            <button ng-if="canAdd" ng-click="addButton($event, self)">
                 <i class="glyphicon glyphicon-plus"></i>
             </button>
 
-            <button ng-if="canEdit()" ng-click="editItem($event, self)">
+            <button ng-if="canEdit" ng-click="editButton($event, self)">
                 <i class="glyphicon glyphicon-edit"></i>
             </button>
 
-            <button ng-if="hasUnits" ng-click="addUnit($event, self)">
+            <button ng-if="hasUnits" ng-click="unitButton($event, self)">
                 <i class="glyphicon glyphicon-indent-left"></i>
             </button>
         </div>
 
-        <div class="compose-item-line" ng-controller="ComposeEditor" ng-init="init(editorData())">
+        <div class="compose-item-line" ng-if="showEditor">
             <span class="compose-edit-key">
-                <select>
-                    <option ng-repeat="(key, val) in items">{{!val.label ? key : label}}</option>
+                <select ng-model="editorKey" ng-if="editorItems">
+                    <option ng-repeat="(key, val) in editorItems tracked by key" ng-selected="key == editorKey">
+                        {{!val.label ? key : val.label}}
+                    </option>
                 </select>
-                <input type="text" ng-model="key" ng-if="custom" />
+                <input type="text" ng-model="editorKey" ng-if="!editorItems" />
             </span>
 
             <span class="compose-edit-type">
-                <select ng-if="hasTypes()">
-                    <option ng-repeat="(key, val) in getTypes()"></option>
+                <select ng-if="editorTypes(editorKey)">
+                    <option ng-repeat="(key, val) in editorTypes(editorKey)"></option>
                 </select>
-                <input type="text" ng-model="type"/>
             </span>
 
-            <input type="text" ng-model="value"/>
+            <span class="compose-item-value" ng-switch="jsType(editorType)">
+                <input type="text"
+                       ng-switch-when="string"
+                       ng-model="editorValue"
+                       ng-change="edit(value)"/>
+
+                <input type="number"
+                       step="0.1"
+                       ng-switch-when="number"
+                       ng-model="editorValue"
+                       ng-change="edit(value)"/>
+
+                <input type="checkbox"
+                       ng-switch-when="boolean"
+                       ng-model="editorValue"
+                       ng-change="edit(value)"/>
+            </span>
 
             <button ng-click="cancel()">
                 <i class="glyphicon glyphicon-remove"></i>
