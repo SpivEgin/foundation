@@ -27,7 +27,7 @@
         }
 
         function pathGet(subject, path, lastOne) {
-            var result = [];
+            var result = [subject];
 
             /* params validation */
             if (typeof subject != "object") {
@@ -67,20 +67,28 @@
             path = this.pathToArray(path);
             var values = pathGet(subject, path, false);
 
-            for(var i = 0; i < path.length; i++) {
-
-                if (i == path.length-1) {
-                    values[i] = value;
-                } else if (values[i] == undefined || typeof values[i] != "object") {
-                    values[i] = {};
-                } else {
-                    continue;
+            if (value == undefined) {
+                delete values[values.length-2][path[path.length-1]];
+                for(var i = path.length-2; i >= 0; i--) {
+                    if (Object.keys(values[i]).length == 0) {
+                        delete values.slice(i, i+1)[path.slice(i)];
+                    }
                 }
+            } else {
+                for (var i = 0; i < path.length; i++) {
+                    if (i == path.length - 1) {
+                        values[i+1] = value;
+                    } else if (values[i+1] == undefined || typeof values[i+1] != "object") {
+                        values[i+1] = {};
+                    } else {
+                        continue;
+                    }
 
-                if (i > 0) {
-                    subject = values[i-1];
+                    if (i > 0) {
+                        subject = values[i];
+                    }
+                    subject[path[i]] = values[i+1];
                 }
-                subject[path[i]] = values[i];
             }
         }
 
@@ -243,6 +251,7 @@
                                 templateScope.$watch(
                                         /* watch the expression for changes */
                                         function (scope) {
+                                            console.log(templateWatchExpr, scope.$eval(templateWatchExpr));
                                             return scope.$eval(templateWatchExpr);
                                         },
                                         /* element re-creation action on value changed */
@@ -375,7 +384,6 @@
             ComposeElement.json = undefined;        /* reference to tree root value (object) */
             ComposeElement.path = [];               /* path to current element within json */
 
-            ComposeElement.tree = undefined;        /* path based json of ComposeElements (available only in root) */
             ComposeElement.root = undefined;        /* reference to root ComposeElement (scope) */
             ComposeElement.parent = undefined;      /* reference to parent ComposeElement (scope) */
             ComposeElement.children = {};           /* prepared init parameters for sub-elements scope */
@@ -426,6 +434,11 @@
 
                     self.canEdit = false;
                     self.canRemove = false;
+                } else {
+                    var pathValue = pathGet(self.json, self.path, true);
+                    if (self.value != pathValue) {
+                        self.value = pathValue;
+                    }
                 }
 
                 /* Composer type resolution */
@@ -441,81 +454,85 @@
 
                 $q.when(self.info).then(function (info) {
                     self.info = info;
+                    if (info && typeof self.value == 'object') {
+                        ComposeElement.children = {};
+                        for (var item in self.value) {
+                            if (!self.value.hasOwnProperty(item)) {
+                                continue;
+                            }
 
-                    for (var item in self.value) {
-                        if (!self.value.hasOwnProperty(item)) {
-                            continue;
-                        }
+                            var child = {
+                                parent: self,
+                                path: self.path.concat(item),
+                                root: self.root,
+                                json: self.json,
 
-                        var child = {
-                            parent: self,
-                            path:   self.path.concat(item),
-                            root:   self.root,
-                            json:   self.json,
+                                key: item,
+                                value: self.value[item],
+                                type: undefined,
+                                label: undefined,
+                                desc: undefined
+                            };
 
-                            key:    item,
-                            value:  self.value[item],
-                            type:   undefined,
-                            label:  undefined,
-                            desc:   undefined
-                        };
+                            /* items with couple possible types should specify used type in key: {'item[type]' = 'value'} otherwise the first available type would be considered */
+                            var reMatch = item.match(/([^\[]+)\[([^\]]+)\]/);
+                            if (reMatch) {
+                                child.key = reMatch[1].trim();
+                                child.type = reMatch[2].trim();
+                            }
 
-                        /* items with couple possible types should specify used type in key: { 'item[type]' = 'value' },
-                           otherwise the first available type would be considered */
-                        var reMatch = item.match(/([^\[]+)\[([^\]]+)\]/);
-                        if (reMatch) {
-                            child['key'] = reMatch[1].trim();
-                            child['type'] = reMatch[2].trim();
-                        }
+                            if (info.hasOwnProperty(child.key)) {
+                                var childInfo = info[child.key];
 
-                        if (info.hasOwnProperty(child['key'])) {
-                            var childInfo = info[child['key']];
+                                if (childInfo.hasOwnProperty('type')) {
+                                    var allowedTypes = childInfo['type'].split(',').map(function(x) {
+                                                return x.trim() })
+                                            ;
+                                    if (allowedTypes.indexOf(child.type) < 0) {
+                                        child.type = allowedTypes[0];
+                                    }
+                                }
 
-                            if (childInfo.hasOwnProperty('type')) {
-                                var allowedTypes = childInfo['type'].split(',').map(function(x) { return x.trim() });
-                                if (allowedTypes.indexOf(child.type) < 0) {
-                                    child.type = allowedTypes[0];
+                                if (childInfo.hasOwnProperty('label')) {
+                                    child.label = childInfo['label'];
+                                }
+
+                                if (childInfo.hasOwnProperty('desc')) {
+                                    child.desc = childInfo['desc'];
                                 }
                             }
-
-                            if (childInfo.hasOwnProperty('label')) {
-                                child.label = childInfo['label'];
-                            }
-
-                            if (childInfo.hasOwnProperty('desc')) {
-                                child.desc = childInfo['desc'];
-                            }
+                            self.children[item] = child;
                         }
-                        self.children[item] = child;
                     }
-
                     self.isReady = true;
                 });
             };
 
-            ComposeElement.getEditorData = function(event) {
-                return {
-                    path: self.path
-                }
-            };
-
             ComposeElement.jsType = function(type, value) {
+                if (["string", "number", "boolean"].indexOf(type) >= 0) {
+                    return type;
+                }
+
                 return typeof value;
             };
 
             ComposeElement.childValue = function(key) {
-                return pathGet(this.json, self.path.concat(key), true);
+                return [key, pathGet(this.json, self.path.concat(key), true)];
+            };
+
+            ComposeElement.jsonValue = function() {
+                return pathGet(self.json, self.path, true);
             };
 
             ComposeElement.editorTypes = function(item) {
-//                if (self.hasOwnProperty(item)) {
-//                    var itemType =  self[item].type;
-//                    if (typeof itemType != 'object') {
-//                        return [itemType];
-//                    }
-//                    return itemType;
-//                }
-//                return ["string", "number", "boolean"];
+                if (self.info.hasOwnProperty(item)) {
+                    var itemType =  self.info[item].type;
+                    if (typeof itemType != 'object') {
+                        return [itemType];
+                    }
+                    return itemType;
+                }
+                return ["string", "number", "boolean"];
             };
 
             ComposeElement.edit = function() {
@@ -523,10 +540,9 @@
             };
 
             ComposeElement.addButton = function(event) {
-                if (self.showEditor && self.editorMode == 'add') {
-                    self.showEditor = false;
-                    return;
-                }
+                self.editorKey = undefined;
+                self.editorType = undefined;
+                self.editorValue = undefined;
 
                 self.editorItems = self.info;
                 self.editorMode = 'add';
@@ -534,11 +550,6 @@
             };
 
             ComposeElement.editButton = function(event) {
-                if (self.showEditor && self.editorMode == 'edit') {
-                    self.showEditor = false;
-                    return;
-                }
-
                 self.editorKey = self.key;
                 self.editorType = self.type;
                 self.editorValue = self.value;
@@ -549,11 +560,37 @@
             };
 
             ComposeElement.removeButton = function(event) {
-
+                pathSet(self.json, self.path, undefined);
+                self.parent.init();
             };
 
             ComposeElement.unitButton = function(event) {
 
+            };
+
+            ComposeElement.cancelButton = function(event) {
+                self.showEditor = false;
+
+                self.editorKey = undefined;
+                self.editorType = undefined;
+                self.editorValue = undefined;
+            };
+
+            ComposeElement.applyButton = function(event) {
+                self.showEditor = false;
+                self.editorValue = '123';
+
+                var path = [];
+                if (self.editorMode == 'add') {
+                    path = self.path.concat(self.editorKey);
+                    pathSet(self.json, path, self.editorValue);
+                    self.init();
+                } else {
+                    pathSet(self.json, self.path, undefined);
+                    path = self.path.slice(0,-1).concat(self.editorKey);
+                    pathSet(self.json, path, self.editorValue);
+                    self.parent.init();
+                }
             };
 
             ComposeElement.init(self.data);
@@ -563,7 +600,7 @@
             RootController.data = {
                 value: {'visitor': {'first_name': 'test', 'last_name': '123'}},
                 type: "DiscountRule"
-            }
+            };
         }]);
     </script>
 
@@ -660,51 +697,56 @@
         </div>
 
         <div class="compose-item-line" ng-if="showEditor">
+            <span class="compose-item-icon" ng-switch="editorMode">
+                <i class="glyphicon glyphicon-edit" ng-switch-when="edit"></i>
+                <i class="glyphicon glyphicon-plus" ng-switch-when="add"></i>
+            </span>
+
             <span class="compose-edit-key">
-                <select ng-model="editorKey" ng-if="editorItems">
-                    <option ng-repeat="(key, val) in editorItems tracked by key" ng-selected="key == editorKey">
+                <select ng-model="self.editorKey" ng-if="editorItems">
+                    <option ng-repeat="(key, val) in editorItems"
+                            ng-if="key"
+                            ng-selected="{{key == editorKey}}"
+                            value="{{key}}">
                         {{!val.label ? key : val.label}}
                     </option>
                 </select>
+
                 <input type="text" ng-model="editorKey" ng-if="!editorItems" />
             </span>
 
             <span class="compose-edit-type">
                 <select ng-if="editorTypes(editorKey)">
-                    <option ng-repeat="(key, val) in editorTypes(editorKey)"></option>
+                    <option ng-repeat="(key, val) in editorTypes(editorKey)" value="{{val}}">{{val}}</option>
                 </select>
             </span>
 
-            <span class="compose-item-value" ng-switch="jsType(editorType)">
+            <span class="compose-item-value" ng-switch="jsType(editorType, editorValue)">
                 <input type="text"
                        ng-switch-when="string"
-                       ng-model="editorValue"
-                       ng-change="edit(value)"/>
+                       ng-model="editorValue" />
 
                 <input type="number"
                        step="0.1"
                        ng-switch-when="number"
-                       ng-model="editorValue"
-                       ng-change="edit(value)"/>
+                       ng-model="editorValue" />
 
                 <input type="checkbox"
                        ng-switch-when="boolean"
-                       ng-model="editorValue"
-                       ng-change="edit(value)"/>
+                       ng-model="editorValue" />
             </span>
 
-            <button ng-click="cancel()">
+            <button ng-click="cancelButton($event, self)">
                 <i class="glyphicon glyphicon-remove"></i>
             </button>
 
-            <button ng-click="apply()">
+            <button ng-click="applyButton($event, self)">
                 <i class="glyphicon glyphicon-ok"></i>
             </button>
-
         </div>
 
         <!-- sub-elements rendering -->
-        <span ng-repeat="(key, val) in children track by childValue(key)">
+        <span ng-repeat="(key, val) in children track by [key, value]">
             <template get="compose-element" data="val" controller="ComposeElement"></template>
         </span>
     </li>
