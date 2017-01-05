@@ -28,39 +28,30 @@
 
         function pathGet(subject, path, lastOne) {
             var result = [subject];
+            lastOne = lastOne || false;
 
             /* params validation */
             if (typeof subject != "object") {
-                return result;
+                return lastOne ? result[result.length-1] : result;
             }
 
             path = this.pathToArray(path);
             if (path.length == 0) {
-                return result;
+                return lastOne ? result[result.length-1] : result;
             }
-
-            lastOne = lastOne || false;
 
             /* path extraction */
             if (path[0] in subject) {
                 result.push(subject[path[0]]);
             } else {
-                return result;
+                return lastOne ? result[result.length-1] : result;
             }
 
             if (path.length > 1) {
                 result = result.concat(pathGet(subject[path[0]], path.slice(1), false));
             }
 
-            /* single value result */
-            if (lastOne) {
-                if (result.length > 0) {
-                    return result[result.length-1];
-                }
-                return undefined;
-            }
-
-            return result;
+            return lastOne ? result[result.length-1] : result;
         }
 
         function pathSet(subject, path, value) {
@@ -292,7 +283,7 @@
                 aliases: {},
 
                 isBasic: function (typeName) {
-                    return $composer.basic.indexOf(typeName) > 0;
+                    return $composer.basic.indexOf($composer.alias(typeName)) >= 0;
                 },
 
                 isUnit: function (typeName) {
@@ -314,8 +305,8 @@
                 },
 
                 alias: function(typeName) {
-                    if (typeName in $composer.alias) {
-                        return $composer.alias[typeName];
+                    if ($composer.aliases.hasOwnProperty(typeName)) {
+                        return $composer.aliases[typeName];
                     }
                     return typeName;
                 },
@@ -332,15 +323,22 @@
 
                         if (response.data.error != null) {
                             alert(response + ":" + response.data.error.message);
-                            return null;
+                            return undefined;
                         }
 
                         if (typeName in response.data.result) {
                             $composer.types[typeName] = response.data.result[typeName];
+
+                            /* checking for alias */
+                            if ($composer.types[typeName].hasOwnProperty('type')) {
+                                if ($composer.isBasic($composer.types[typeName].type)) {
+                                    $composer.aliases[typeName] = $composer.types[typeName].type;
+                                }
+                            }
                             return $composer.types[typeName];
                         }
 
-                        return null;
+                        return undefined;
                     });
                 },
 
@@ -390,8 +388,9 @@
 
             ComposeElement.info = {};               /* sub-element types information (Composer types) */
             ComposeElement.units = {};              /* sub-element types information (Composer types) */
+            ComposeElement.types = {};              /* current element possible types (array) */
 
-            ComposeElement.canAdd = true;
+            ComposeElement.canAdd = false;
             ComposeElement.canEdit = true;
             ComposeElement.canRemove = true;
             ComposeElement.canUnit = false;
@@ -399,6 +398,7 @@
             ComposeElement.showEditor = false;      /* flag to display/hide element editor line */
             ComposeElement.editorMode = undefined;  /* allowed items to select */
             ComposeElement.editorItems = undefined; /* allowed items to select */
+            ComposeElement.editorTypes = undefined; /* allowed types per item */
 
             ComposeElement.editorKey = undefined;   /* currently specified item key within tree node editor */
             ComposeElement.editorType = undefined;  /* currently specified item type within tree node editor */
@@ -434,16 +434,19 @@
 
                     self.canEdit = false;
                     self.canRemove = false;
-                } else {
-                    var pathValue = pathGet(self.json, self.path, true);
-                    if (self.value != pathValue) {
-                        self.value = pathValue;
-                    }
                 }
+
+                /* checking if value was not changed in JSON */
+                var pathValue = pathGet(self.json, self.path, true);
+                if (self.value != pathValue) {
+                    self.value = pathValue;
+                }
+
 
                 /* Composer type resolution */
                 if (!$composer.isBasic(self.type)) {
                     self.isBasic = false;
+                    self.canAdd = true;
                     if ($composer.isUnit(self.type)) {
                         self.isUnit = true;
                         self.info = $composer.unit(self.type);
@@ -454,12 +457,21 @@
 
                 $q.when(self.info).then(function (info) {
                     self.info = info;
+
+                    for (var infoKey in info) {
+                        if (!info.hasOwnProperty(infoKey)) { continue; }
+                        var infoValue = info[infoKey];
+
+                        if (infoValue.hasOwnProperty('type')) {
+                            infoValue.types = infoValue.type.split(',').map(function(x) { return x.trim() });
+                            self.types[infoKey] = infoValue.types;
+                        }
+                    }
+
                     if (info && typeof self.value == 'object') {
                         ComposeElement.children = {};
                         for (var item in self.value) {
-                            if (!self.value.hasOwnProperty(item)) {
-                                continue;
-                            }
+                            if (!self.value.hasOwnProperty(item)) { continue; }
 
                             var child = {
                                 parent: self,
@@ -484,22 +496,14 @@
                             if (info.hasOwnProperty(child.key)) {
                                 var childInfo = info[child.key];
 
-                                if (childInfo.hasOwnProperty('type')) {
-                                    var allowedTypes = childInfo['type'].split(',').map(function(x) {
-                                                return x.trim() })
-                                            ;
-                                    if (allowedTypes.indexOf(child.type) < 0) {
-                                        child.type = allowedTypes[0];
+                                if (childInfo.hasOwnProperty('type') && childInfo.hasOwnProperty('types')) {
+                                    if (childInfo.types.indexOf(child.type) < 0) {
+                                        child.type = childInfo.types[0];
                                     }
                                 }
 
-                                if (childInfo.hasOwnProperty('label')) {
-                                    child.label = childInfo['label'];
-                                }
-
-                                if (childInfo.hasOwnProperty('desc')) {
-                                    child.desc = childInfo['desc'];
-                                }
+                                if (childInfo.hasOwnProperty('label')) { child.label = childInfo['label']; }
+                                if (childInfo.hasOwnProperty('desc'))  { child.desc = childInfo['desc']; }
                             }
                             self.children[item] = child;
                         }
@@ -509,11 +513,17 @@
             };
 
             ComposeElement.jsType = function(type, value) {
-                if (["string", "number", "boolean"].indexOf(type) >= 0) {
+                type = $composer.alias(type);
+
+                if ($composer.isBasic(type)) {
                     return type;
                 }
 
-                return typeof value;
+                if (value) {
+                    return typeof value;
+                }
+
+                return 'object';
             };
 
             ComposeElement.childValue = function(key) {
@@ -524,27 +534,14 @@
                 return pathGet(self.json, self.path, true);
             };
 
-            ComposeElement.editorTypes = function(item) {
-                if (self.info.hasOwnProperty(item)) {
-                    var itemType =  self.info[item].type;
-                    if (typeof itemType != 'object') {
-                        return [itemType];
-                    }
-                    return itemType;
-                }
-                return ["string", "number", "boolean"];
-            };
-
-            ComposeElement.edit = function() {
-
-            };
-
             ComposeElement.addButton = function(event) {
                 self.editorKey = undefined;
                 self.editorType = undefined;
                 self.editorValue = undefined;
 
                 self.editorItems = self.info;
+                self.editorTypes = self.types;
+
                 self.editorMode = 'add';
                 self.showEditor = true;
             };
@@ -555,6 +552,8 @@
                 self.editorValue = self.value;
 
                 self.editorItems = self.parent.info;
+                self.editorTypes = self.parent.types;
+
                 self.editorMode = 'edit';
                 self.showEditor = true;
             };
@@ -716,8 +715,8 @@
             </span>
 
             <span class="compose-edit-type">
-                <select ng-if="editorTypes(editorKey)">
-                    <option ng-repeat="(key, val) in editorTypes(editorKey)" value="{{val}}">{{val}}</option>
+                <select ng-if="editorTypes[editorKey]">
+                    <option ng-repeat="(key, val) in editorTypes[editorKey]" value="{{val}}">{{val}}</option>
                 </select>
             </span>
 
