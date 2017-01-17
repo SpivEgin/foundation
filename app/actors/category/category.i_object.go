@@ -303,7 +303,7 @@ func (it *DefaultCategory) GetAttributesInfo() []models.StructAttributeInfo {
 			IsStatic:   true,
 			Label:      "Products",
 			Group:      "General",
-			Editors:    "product_selector",
+			Editors:    "products_selector",
 			Options:    "",
 			Default:    "",
 		},
