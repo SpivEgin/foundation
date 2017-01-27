@@ -48,6 +48,7 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 
 		//// visitor map with info
 		visitorRecord := map[string]interface{}{
+			"magento_id":  utils.InterfaceToString(v["entity_id"]),
 			"email":       utils.InterfaceToString(v["email"]),
 			"first_name":  utils.InterfaceToString(v["first_name"]),
 			"last_name":   utils.InterfaceToString(v["last_name"]),
@@ -65,7 +66,7 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 		}
 
 		//if utils.InterfaceToArray(v["address"]) {
-		addCustomerAddresses(utils.InterfaceToArray(v["address"])	, visitorModel)
+		addCustomerAddresses(utils.InterfaceToArray(v["address"]), visitorModel)
 		//}
 	}
 	var result []string
