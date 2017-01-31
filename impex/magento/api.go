@@ -10,6 +10,8 @@ import (
 	"github.com/ottemo/foundation/app/models/visitor"
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/app/models/category"
+	"github.com/ottemo/foundation/app/models/order"
+	"github.com/ottemo/foundation/app/models"
 )
 
 // setups package related API endpoint routines
@@ -153,15 +155,92 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 
 func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, error) {
 	fmt.Println("magentoOrderRequest")
-	fmt.Println(context)
-	fmt.Println(context.GetRequestFile("import.json"))
+	//fmt.Println(context)
+	//fmt.Println(context.GetRequestFile("import.json"))
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
 
-	fmt.Println(jsonResponse)
+	//fmt.Println(jsonResponse)
+
+	statesList := map[string]string{}
+	for code, name := range models.ConstStatesList {
+		statesList[name] = code
+	}
+
+	fmt.Println(statesList)
+
+	for _, value := range jsonResponse {
+		//fmt.Println(value)
+		orderModel, err := order.GetOrderModel()
+		if err != nil {
+			fmt.Println(err)
+			return nil, env.ErrorDispatch(err)
+		}
+		v := utils.InterfaceToMap(value)
+		fmt.Println("")
+		fmt.Println("")
+		fmt.Println(v)
+		fmt.Println("")
+		fmt.Println("")
+
+		// get state code
+		// models.ConstStatesList
+		// order map with info
+		orderRecord := map[string]interface{}{
+			"status":       utils.InterfaceToString(v["status"]),
+			"increment_id":   utils.InterfaceToString(v["increment_id"]),
+			"magento_id":   utils.InterfaceToString(v["entity_id"]),
+			"grand_total":   utils.InterfaceToFloat64(v["grand_total"]),
+			"shipping_amount":   utils.InterfaceToFloat64(v["base_shipping_amount"]),
+			"subtotal":   utils.InterfaceToFloat64(v["subtotal"]),
+			"tax_amount":   utils.InterfaceToFloat64(v["tax_amount"]),
+			"discount":   utils.InterfaceToFloat64(v["discount_amount"]),
+			"created_at":  time.Now(),
+		}
+
+		shippingAddress := utils.InterfaceToMap(v["shippingAddress"])
+		orderRecord["shipping_address"] = map[string]interface{}{
+			"country": utils.InterfaceToString(shippingAddress["country_id"]),
+			"address_line1": utils.InterfaceToString(shippingAddress["street"]),
+			"zip_code": utils.InterfaceToString(shippingAddress["postcode"]),
+			"_id": "",
+			"last_name": utils.InterfaceToString(shippingAddress["lastname"]),
+			"state": statesList[utils.InterfaceToString(shippingAddress["region"])],
+			"company": utils.InterfaceToString(shippingAddress["company"]),
+			"phone": utils.InterfaceToString(shippingAddress["telephone"]),
+			"visitor_id": "",
+			"address_line2": "",
+			"first_name": utils.InterfaceToString(shippingAddress["firstname"]),
+			"city":  utils.InterfaceToString(shippingAddress["city"]),
+		}
+
+		billingAddress := utils.InterfaceToMap(v["billingAddress"])
+		orderRecord["billing_address"] = map[string]interface{}{
+			"country": utils.InterfaceToString(billingAddress["country_id"]),
+			"address_line1": utils.InterfaceToString(billingAddress["street"]),
+			"zip_code": utils.InterfaceToString(billingAddress["postcode"]),
+			"_id": "",
+			"last_name": utils.InterfaceToString(billingAddress["lastname"]),
+			"state": statesList[utils.InterfaceToString(billingAddress["region"])],
+			"company": utils.InterfaceToString(billingAddress["company"]),
+			"phone": utils.InterfaceToString(billingAddress["telephone"]),
+			"visitor_id": "",
+			"address_line2": "",
+			"first_name": utils.InterfaceToString(billingAddress["firstname"]),
+			"city":  utils.InterfaceToString(billingAddress["city"]),
+		}
+
+		orderModel.FromHashMap(orderRecord)
+
+		err = orderModel.Save()
+		if err != nil {
+			fmt.Println(err)
+			return  nil, env.ErrorDispatch(err)
+		}
+	}
 
 	var result []string
 
