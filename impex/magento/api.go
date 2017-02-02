@@ -12,6 +12,7 @@ import (
 	"github.com/ottemo/foundation/app/models/category"
 	"github.com/ottemo/foundation/app/models/order"
 	"github.com/ottemo/foundation/app/models"
+	"github.com/ottemo/foundation/app/models/product"
 )
 
 // setups package related API endpoint routines
@@ -22,6 +23,7 @@ func setupAPI() error {
 	service.POST("impex/magento/visitor", magentoVisitorRequest)
 	service.POST("impex/magento/order", magentoOrderRequest)
 	service.POST("impex/magento/category", magentoCategoryRequest)
+	service.POST("impex/magento/product/attribute", magentoProductAttributesRequest)
 	service.POST("impex/magento/product", magentoProductRequest)
 	service.POST("impex/magento/stock", magentoStockRequest)
 
@@ -233,6 +235,10 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			"city":  utils.InterfaceToString(billingAddress["city"]),
 		}
 
+		orderRecord["shipping_info"] = map[string]interface{}{
+			"shipping_method_name": utils.InterfaceToString(shippingAddress["shipping_description"]),
+		}
+
 		orderModel.FromHashMap(orderRecord)
 
 		err = orderModel.Save()
@@ -247,6 +253,25 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 	return result, nil
 }
 
+func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (interface{}, error) {
+	fmt.Println("magentoProductRequest")
+	fmt.Println(context)
+	fmt.Println(context.GetRequestFile("import.json"))
+
+	jsonResponse, err := getDataFromContext(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+	fmt.Println(jsonResponse)
+
+	//for _, value := range jsonResponse {
+	//	v := utils.InterfaceToMap(value)
+	//}
+
+	var result []string
+
+	return result, nil
+}
 func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}, error) {
 	fmt.Println("magentoProductRequest")
 	fmt.Println(context)
@@ -257,7 +282,34 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorDispatch(err)
 	}
 
-	fmt.Println(jsonResponse)
+	//fmt.Println(jsonResponse)
+
+	for _, value := range jsonResponse {
+		v := utils.InterfaceToMap(value)
+
+		if !utils.KeysInMapAndNotBlank(v, "sku", "name") {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "2a0cf2b0-215e-4b53-bf55-98fbfe22cd27", "product name and/or sku were not specified")
+		}
+
+		// create product operation
+		//-------------------------
+		productModel, err := product.GetProductModel()
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+
+		for attribute, value := range v {
+			err := productModel.Set(attribute, value)
+			if err != nil {
+				return nil, env.ErrorDispatch(err)
+			}
+		}
+
+		err = productModel.Save()
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
+	}
 
 	var result []string
 
