@@ -395,6 +395,25 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 	}
 
 	fmt.Println(jsonResponse)
+
+	for _, value := range jsonResponse {
+		v := utils.InterfaceToMap(value)
+
+		stockManager := product.GetRegisteredStock()
+		if stockManager == nil {
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c03d0b95-400e-415f-8c4a-26863993adbc", "no registered stock manager")
+		}
+
+		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["entity_id"]))
+		if (len(productData) == 1 && err == nil) {
+			continue
+		}
+
+		qty := utils.InterfaceToInt(v["qty"])
+
+		stockManager.UpdateProductQty(productData["id"], make(map[string]interface{}), qty)
+	}
+
 	var result []string
 
 	return result, nil
