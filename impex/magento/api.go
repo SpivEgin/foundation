@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ottemo/foundation/api"
 
+	"github.com/ottemo/foundation/app/helpers/attributes"
 	"github.com/ottemo/foundation/app/models"
 	"github.com/ottemo/foundation/app/models/category"
 	"github.com/ottemo/foundation/app/models/order"
@@ -14,7 +15,6 @@ import (
 	"github.com/ottemo/foundation/utils"
 	"io/ioutil"
 	"time"
-	"github.com/ottemo/foundation/app/helpers/attributes"
 )
 
 // setups package related API endpoint routines
@@ -90,8 +90,6 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 		return nil, env.ErrorDispatch(err)
 	}
 
-	var rowData []map[string]interface{}
-
 	//fmt.Println(jsonResponse)
 
 	for _, value := range jsonResponse {
@@ -117,21 +115,8 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 
 		if utils.InterfaceToInt(v["parent_id"]) > 0 {
 			fmt.Println(v["parent_id"])
-			dbEngine := db.GetDBEngine()
-			if dbEngine == nil {
-				return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "642ed88a-6d8b-48a1-9b3c-feac54c4d9a3", "Can't obtain DBEngine")
-			}
 
-			categoryCollectionModel, err := dbEngine.GetCollection(category.ConstModelNameCategory)
-			if err != nil {
-				return nil, env.ErrorDispatch(err)
-			}
-
-			err = categoryCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(v["parent_id"]))
-			if err != nil {
-				return nil, env.ErrorDispatch(err)
-			}
-			rowData, err = categoryCollectionModel.Load()
+			rowData, err := getCategoryByMagentoId(utils.InterfaceToInt(v["parent_id"]))
 			if err != nil {
 				return nil, env.ErrorDispatch(err)
 			}
@@ -265,18 +250,28 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 	fmt.Println(jsonResponse)
 
 	createMagentoIdAttribute()
-
-	//DataType := map[string]interface{}{
-	//	utils.ConstDataTypeBoolean,
-	//	utils.ConstDataTypeVarchar,
-	//	utils.ConstDataTypeText,
-	//	utils.ConstDataTypeInteger,
-	//	utils.ConstDataTypeDecimal,
-	//	utils.ConstDataTypeMoney,
-	//	utils.ConstDataTypeFloat,
-	//	utils.ConstDataTypeDatetime,
-	//	utils.ConstDataTypeJSON,
-	//	utils.ConstDataTypeHTML,
+	//<select id="frontend_input" name="frontend_input" title="Catalog Input Type for Store Owner" class=" select">
+	//<option value="text" selected="selected">Text Field</option>
+	//<option value="textarea">Text Area</option>
+	//<option value="date">Date</option>
+	//<option value="boolean">Yes/No</option>
+	//<option value="multiselect">Multiple Select</option>
+	//<option value="select">Dropdown</option>
+	//<option value="price">Price</option>
+	//<option value="media_image">Media Image</option>
+	//<option value="weee">Fixed Product Tax</option>
+	//</select>
+	//dataTypeMap := map[string]interface{}{
+	//	"boolean": utils.ConstDataTypeBoolean,
+	//	"": utils.ConstDataTypeVarchar,
+	//	"text": utils.ConstDataTypeText,
+	//	"": utils.ConstDataTypeInteger,
+	//	"": utils.ConstDataTypeDecimal,
+	//	"price": utils.ConstDataTypeMoney,
+	//	"": utils.ConstDataTypeFloat,
+	//	"date": utils.ConstDataTypeDatetime,
+	//	"": utils.ConstDataTypeJSON,
+	//	"": utils.ConstDataTypeHTML,
 	//}
 
 	for _, value := range jsonResponse {
@@ -358,12 +353,12 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 		}
 
 		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["entity_id"]))
-		if (len(productData) == 1 && err == nil) {
+		if len(productData) == 1 && err == nil {
 			continue
 		}
 
 		for attribute, value := range v {
-			if (attribute == "entity_id") {
+			if attribute == "entity_id" {
 				attribute = "magento_id"
 			}
 			err := productModel.Set(attribute, value)
@@ -394,7 +389,8 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 		return nil, env.ErrorDispatch(err)
 	}
 
-	fmt.Println(jsonResponse)
+	//fmt.Println(jsonResponse)
+	options := make(map[string]interface{})
 
 	for _, value := range jsonResponse {
 		v := utils.InterfaceToMap(value)
@@ -404,14 +400,18 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c03d0b95-400e-415f-8c4a-26863993adbc", "no registered stock manager")
 		}
 
-		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["entity_id"]))
-		if (len(productData) == 1 && err == nil) {
+		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["product_id"]))
+		if len(productData) == 0 || err != nil {
+			fmt.Println("continue")
 			continue
 		}
 
 		qty := utils.InterfaceToInt(v["qty"])
 
-		stockManager.UpdateProductQty(productData["id"], make(map[string]interface{}), qty)
+		err = stockManager.SetProductQty(utils.InterfaceToString(productData[0]["_id"]), options, qty)
+		if err != nil {
+			return nil, env.ErrorDispatch(err)
+		}
 	}
 
 	var result []string
@@ -493,6 +493,33 @@ func getProductByMagentoId(magentoId int) ([]map[string]interface{}, error) {
 	}
 
 	result, err = productCollectionModel.Load()
+	if err != nil {
+		return result, env.ErrorDispatch(err)
+	}
+
+	return result, nil
+}
+
+func getCategoryByMagentoId(magentoId int) ([]map[string]interface{}, error) {
+	// todo check magentoId
+	var result []map[string]interface{}
+
+	dbEngine := db.GetDBEngine()
+	if dbEngine == nil {
+		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "642ed88a-6d8b-48a1-9b3c-feac54c4d9a3", "Can't obtain DBEngine")
+	}
+
+	categoryCollectionModel, err := dbEngine.GetCollection(category.ConstModelNameCategory)
+	if err != nil {
+		return result, env.ErrorDispatch(err)
+	}
+
+	err = categoryCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoId))
+	if err != nil {
+		return result, env.ErrorDispatch(err)
+	}
+
+	result, err = categoryCollectionModel.Load()
 	if err != nil {
 		return result, env.ErrorDispatch(err)
 	}
