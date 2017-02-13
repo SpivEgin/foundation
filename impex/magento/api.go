@@ -7,9 +7,12 @@ import (
 	"github.com/ottemo/foundation/app/helpers/attributes"
 	"github.com/ottemo/foundation/app/models"
 	"github.com/ottemo/foundation/app/models/category"
+	categoryActor "github.com/ottemo/foundation/app/actors/category"
 	"github.com/ottemo/foundation/app/models/order"
+	orderActor "github.com/ottemo/foundation/app/actors/order"
 	"github.com/ottemo/foundation/app/models/product"
 	"github.com/ottemo/foundation/app/models/visitor"
+	"github.com/ottemo/foundation/app/actors/stock"
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
@@ -156,7 +159,25 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 	for code, name := range models.ConstStatesList {
 		statesList[name] = code
 	}
-
+	statusList := map[string]interface{}{
+		"pending": "pending",
+		"pending_ogone": "pending",
+		"pending_payment": "pending",
+		"pending_paypal": "pending",
+		"processing": "processed",
+		"payment_review": "processed",
+		"paypal_reversed": "processed",
+		"paypal_canceled_reversal": "processed",
+		"processed_ogone": "processed",
+		"processing_ogone": "processed",
+		"decline_ogone": "declined",
+		"closed": "completed",
+		"complete": "completed",
+		"canceled": "cancelled",
+		"cancel_ogone": "cancelled",
+		"holded": "cancelled",
+		"fraud": "cancelled",
+	}
 	fmt.Println(statesList)
 
 	for _, value := range jsonResponse {
@@ -167,17 +188,17 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			return nil, env.ErrorDispatch(err)
 		}
 		v := utils.InterfaceToMap(value)
-		fmt.Println("")
-		fmt.Println("")
-		fmt.Println(v)
-		fmt.Println("")
-		fmt.Println("")
+		//fmt.Println("")
+		//fmt.Println("")
+		//fmt.Println(v)
+		//fmt.Println("")
+		//fmt.Println("")
 
 		// get state code
 		// models.ConstStatesList
 		// order map with info
 		orderRecord := map[string]interface{}{
-			"status":          utils.InterfaceToString(v["status"]),
+			"status":          statusList[utils.InterfaceToString(v["status"])],
 			"increment_id":    utils.InterfaceToString(v["increment_id"]),
 			"magento_id":      utils.InterfaceToString(v["entity_id"]),
 			"grand_total":     utils.InterfaceToFloat64(v["grand_total"]),
@@ -230,6 +251,40 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 		if err != nil {
 			fmt.Println(err)
 			return nil, env.ErrorDispatch(err)
+		}
+
+		idx := 1
+		for _, item := range utils.InterfaceToArray(v["items"]) {
+			itemData := utils.InterfaceToMap(item)
+			// saving category products assignment
+			orderItemCollection, err := db.GetCollection(orderActor.ConstCollectionNameOrderItems)
+			if err != nil {
+				return nil, env.ErrorDispatch(err)
+			}
+
+			productData, err := getProductByMagentoId(utils.InterfaceToInt(itemData["product_id"]))
+			if len(productData) == 0 || err != nil {
+				fmt.Println("continue")
+				continue
+			}
+
+			orderItemData := map[string]interface{}{
+				"sku": utils.InterfaceToString(itemData["sku"]),
+				"name": utils.InterfaceToString(itemData["name"]),
+				"short_description": "",
+				"idx" : idx,
+				"product_id": productData[0]["_id"],
+				"weight": utils.InterfaceToFloat64(itemData["weight"]),
+				"price": utils.InterfaceToFloat64(itemData["price"]),
+				"qty": utils.InterfaceToInt(itemData["qty_ordered"]),
+				"order_id": orderModel.GetID(),
+			}
+
+			orderItemData["options"] = map[string]interface{}{
+
+			}
+			orderItemCollection.Save(orderItemData)
+			idx++
 		}
 	}
 
@@ -372,6 +427,23 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 		if err != nil {
 			return nil, env.ErrorDispatch(err)
 		}
+		for _, categoryId := range utils.InterfaceToMap(v["category_ids"]) {
+			categoryData, err := getCategoryByMagentoId(utils.InterfaceToInt(categoryId))
+			fmt.Println(utils.InterfaceToInt(categoryId))
+			fmt.Println(categoryData)
+			fmt.Println(productModel.GetID())
+			if (len(categoryData) != 1 ) {
+				continue
+			}
+
+			// saving category products assignment
+			junctionCollection, err := db.GetCollection(categoryActor.ConstCollectionNameCategoryProductJunction)
+			if err != nil {
+				return nil, env.ErrorDispatch(err)
+			}
+			junctionCollection.Save(map[string]interface{}{"category_id": categoryData[0]["_id"], "product_id": productModel.GetID()})
+		}
+
 	}
 
 	var result []string
@@ -385,6 +457,14 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 	fmt.Println(context.GetRequestFile("import.json"))
 
 	jsonResponse, err := getDataFromContext(context)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	// todo move enable stock
+	config := env.GetConfig()
+
+	err = config.SetValue(stock.ConstConfigPathEnabled, true)
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
@@ -532,7 +612,7 @@ func createMagentoIdAttribute() (bool, error) {
 	customAttributesCollection, err := db.GetCollection(attributes.ConstCollectionNameCustomAttributes)
 	if err != nil {
 		// todo
-		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3b8b1e23-c2ad-45c5-9252-215084a8cd81", "Can't get collection '"+attributes.ConstCollectionNameCustomAttributes+"': "+err.Error())
+		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3b8b1e23-c2ad-45c5-9252-215084a8cd81", "Can't get collection '" + attributes.ConstCollectionNameCustomAttributes + "': " + err.Error())
 	}
 	attributeName := "magento_id"
 
@@ -546,7 +626,7 @@ func createMagentoIdAttribute() (bool, error) {
 
 	if len(records) > 0 {
 		// todo
-		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3b8b1e23-c2ad-45c5-9252-215084a8cd81", "Can't get collection '"+attributes.ConstCollectionNameCustomAttributes+"': "+err.Error())
+		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3b8b1e23-c2ad-45c5-9252-215084a8cd81", "Can't get collection '" + attributes.ConstCollectionNameCustomAttributes + "': " + err.Error())
 	}
 
 	// make product attribute operation
