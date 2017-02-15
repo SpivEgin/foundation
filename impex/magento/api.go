@@ -11,6 +11,7 @@ import (
 	"github.com/ottemo/foundation/app/models/order"
 	orderActor "github.com/ottemo/foundation/app/actors/order"
 	"github.com/ottemo/foundation/app/models/product"
+	productActor "github.com/ottemo/foundation/app/actors/product"
 	"github.com/ottemo/foundation/app/models/visitor"
 	"github.com/ottemo/foundation/app/actors/stock"
 	"github.com/ottemo/foundation/db"
@@ -181,18 +182,13 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 	fmt.Println(statesList)
 
 	for _, value := range jsonResponse {
-		//fmt.Println(value)
+
 		orderModel, err := order.GetOrderModel()
 		if err != nil {
 			fmt.Println(err)
 			return nil, env.ErrorDispatch(err)
 		}
 		v := utils.InterfaceToMap(value)
-		//fmt.Println("")
-		//fmt.Println("")
-		//fmt.Println(v)
-		//fmt.Println("")
-		//fmt.Println("")
 
 		// get state code
 		// models.ConstStatesList
@@ -302,32 +298,28 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 	if err != nil {
 		return nil, env.ErrorDispatch(err)
 	}
-	fmt.Println(jsonResponse)
+	//fmt.Println(jsonResponse)
 
 	createMagentoIdAttribute()
-	//<select id="frontend_input" name="frontend_input" title="Catalog Input Type for Store Owner" class=" select">
-	//<option value="text" selected="selected">Text Field</option>
-	//<option value="textarea">Text Area</option>
-	//<option value="date">Date</option>
-	//<option value="boolean">Yes/No</option>
-	//<option value="multiselect">Multiple Select</option>
-	//<option value="select">Dropdown</option>
-	//<option value="price">Price</option>
-	//<option value="media_image">Media Image</option>
-	//<option value="weee">Fixed Product Tax</option>
-	//</select>
-	//dataTypeMap := map[string]interface{}{
-	//	"boolean": utils.ConstDataTypeBoolean,
-	//	"": utils.ConstDataTypeVarchar,
-	//	"text": utils.ConstDataTypeText,
-	//	"": utils.ConstDataTypeInteger,
-	//	"": utils.ConstDataTypeDecimal,
-	//	"price": utils.ConstDataTypeMoney,
-	//	"": utils.ConstDataTypeFloat,
-	//	"date": utils.ConstDataTypeDatetime,
-	//	"": utils.ConstDataTypeJSON,
-	//	"": utils.ConstDataTypeHTML,
-	//}
+
+	dataTypeMap := map[string]interface{}{
+		"boolean": utils.ConstDataTypeBoolean,
+		"textarea": utils.ConstDataTypeText,
+		"text": utils.ConstDataTypeText,
+		"media_image": utils.ConstDataTypeText,
+		"select": utils.ConstDataTypeText,
+		"price": utils.ConstDataTypeMoney,
+		"date": utils.ConstDataTypeDatetime,
+		"multiselect": utils.ConstDataTypeJSON,
+	}
+	editorMap := map[string]interface{}{
+		"text": "text",
+		"textarea": "multiline_text",
+		"date": "text",
+		"boolean": "boolean",
+		"select": "select",
+		"multiselect": "multi_select",
+	}
 
 	for _, value := range jsonResponse {
 		v := utils.InterfaceToMap(value)
@@ -344,6 +336,26 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "93457847-8e4d-4536-8985-43f340a1abc4", "attribute label was not specified")
 		}
 
+		attributeFrontendInput := utils.InterfaceToString(v["frontend_input"])
+		if attributeFrontendInput == "" {
+			continue
+			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "93457847-8e4d-4536-8985-43f340a1abc4", "attribute label was not specified")
+		}
+
+
+		if _, present := editorMap[attributeFrontendInput]; !present {
+			continue
+			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "93457847-8e4d-4536-8985-43f340a1abc4", "attribute label was not specified")
+		}
+		fmt.Println(editorMap[attributeFrontendInput])
+
+		if _, present := dataTypeMap[attributeFrontendInput]; !present {
+			continue
+			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "93457847-8e4d-4536-8985-43f340a1abc4", "attribute label was not specified")
+		}
+
+		fmt.Println(dataTypeMap[attributeFrontendInput])
+
 		// make product attribute operation
 		//---------------------------------
 		productModel, err := product.GetProductModel()
@@ -353,15 +365,15 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 
 		attribute := models.StructAttributeInfo{
 			Model:      product.ConstModelNameProduct,
-			Collection: "product",
+			Collection: productActor.ConstCollectionNameProduct,
 			Attribute:  utils.InterfaceToString(attributeName),
-			Type:       utils.ConstDataTypeText,
+			Type:       utils.InterfaceToString(dataTypeMap[attributeFrontendInput]),
 			IsRequired: utils.InterfaceToBool(v["is_required"]),
 			IsStatic:   false,
 			Label:      utils.InterfaceToString(attributeLabel),
 			Group:      "Magento",
-			Editors:    "text",
-			Options:    "",
+			Editors:    utils.InterfaceToString(editorMap[attributeFrontendInput]),
+			Options:    utils.InterfaceToString(v["options"]),
 			Default:    utils.InterfaceToString(v["default_value"]),
 			Validators: "",
 			IsLayered:  false,
@@ -427,11 +439,9 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 		if err != nil {
 			return nil, env.ErrorDispatch(err)
 		}
-		for _, categoryId := range utils.InterfaceToMap(v["category_ids"]) {
+
+		for _, categoryId := range utils.InterfaceToArray(v["category_ids"]) {
 			categoryData, err := getCategoryByMagentoId(utils.InterfaceToInt(categoryId))
-			fmt.Println(utils.InterfaceToInt(categoryId))
-			fmt.Println(categoryData)
-			fmt.Println(productModel.GetID())
 			if (len(categoryData) != 1 ) {
 				continue
 			}
