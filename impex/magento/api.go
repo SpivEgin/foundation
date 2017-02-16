@@ -3,21 +3,15 @@ package magento
 import (
 	"fmt"
 	"github.com/ottemo/foundation/api"
-
-	"github.com/ottemo/foundation/app/helpers/attributes"
 	"github.com/ottemo/foundation/app/models"
 	"github.com/ottemo/foundation/app/models/category"
-	categoryActor "github.com/ottemo/foundation/app/actors/category"
 	"github.com/ottemo/foundation/app/models/order"
-	orderActor "github.com/ottemo/foundation/app/actors/order"
 	"github.com/ottemo/foundation/app/models/product"
 	productActor "github.com/ottemo/foundation/app/actors/product"
 	"github.com/ottemo/foundation/app/models/visitor"
 	"github.com/ottemo/foundation/app/actors/stock"
-	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
-	"io/ioutil"
 	"time"
 )
 
@@ -75,9 +69,9 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 			return nil, env.ErrorDispatch(err)
 		}
 
-		//if utils.InterfaceToArray(v["address"]) {
-		addCustomerAddresses(utils.InterfaceToArray(v["address"]), visitorModel)
-		//}
+		if _, present := v["address"]; present {
+			addCustomerAddresses(utils.InterfaceToArray(v["address"]), visitorModel)
+		}
 	}
 	var result []string
 
@@ -112,8 +106,6 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 			"last_name":   utils.InterfaceToString(v["last_name"]),
 			"enabled":     utils.InterfaceToBool(v["is_active"]),
 			"magento_id":  utils.InterfaceToString(v["entity_id"]),
-			// todo image
-			//"image":  utils.InterfaceToString(v["image"]),
 			"created_at": time.Now(),
 		}
 
@@ -137,6 +129,14 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 			fmt.Println(err)
 			return nil, env.ErrorDispatch(err)
 		}
+
+		if imageName, present := v["image"]; present && imageName != nil {
+			_, err = AddImageForCategory(categoryModel, utils.InterfaceToString(imageName), utils.InterfaceToString(v["image_url"]))
+			if err != nil {
+				fmt.Println(err)
+				//return nil, env.ErrorDispatch(err)
+			}
+		}
 	}
 
 	var result []string
@@ -156,31 +156,6 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 	//fmt.Println(jsonResponse)
 
-	statesList := map[string]string{}
-	for code, name := range models.ConstStatesList {
-		statesList[name] = code
-	}
-	statusList := map[string]interface{}{
-		"pending": "pending",
-		"pending_ogone": "pending",
-		"pending_payment": "pending",
-		"pending_paypal": "pending",
-		"processing": "processed",
-		"payment_review": "processed",
-		"paypal_reversed": "processed",
-		"paypal_canceled_reversal": "processed",
-		"processed_ogone": "processed",
-		"processing_ogone": "processed",
-		"decline_ogone": "declined",
-		"closed": "completed",
-		"complete": "completed",
-		"canceled": "cancelled",
-		"cancel_ogone": "cancelled",
-		"holded": "cancelled",
-		"fraud": "cancelled",
-	}
-	fmt.Println(statesList)
-
 	for _, value := range jsonResponse {
 
 		orderModel, err := order.GetOrderModel()
@@ -194,7 +169,7 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 		// models.ConstStatesList
 		// order map with info
 		orderRecord := map[string]interface{}{
-			"status":          statusList[utils.InterfaceToString(v["status"])],
+			"status":          orderStatusMapping[utils.InterfaceToString(v["status"])],
 			"increment_id":    utils.InterfaceToString(v["increment_id"]),
 			"magento_id":      utils.InterfaceToString(v["entity_id"]),
 			"grand_total":     utils.InterfaceToFloat64(v["grand_total"]),
@@ -240,8 +215,9 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 		orderRecord["shipping_info"] = map[string]interface{}{
 			"shipping_method_name": utils.InterfaceToString(shippingAddress["shipping_description"]),
 		}
+		orderRecord["shipping_method"] = ""
 
-		orderModel.FromHashMap(orderRecord)
+			orderModel.FromHashMap(orderRecord)
 
 		err = orderModel.Save()
 		if err != nil {
@@ -249,39 +225,7 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			return nil, env.ErrorDispatch(err)
 		}
 
-		idx := 1
-		for _, item := range utils.InterfaceToArray(v["items"]) {
-			itemData := utils.InterfaceToMap(item)
-			// saving category products assignment
-			orderItemCollection, err := db.GetCollection(orderActor.ConstCollectionNameOrderItems)
-			if err != nil {
-				return nil, env.ErrorDispatch(err)
-			}
-
-			productData, err := getProductByMagentoId(utils.InterfaceToInt(itemData["product_id"]))
-			if len(productData) == 0 || err != nil {
-				fmt.Println("continue")
-				continue
-			}
-
-			orderItemData := map[string]interface{}{
-				"sku": utils.InterfaceToString(itemData["sku"]),
-				"name": utils.InterfaceToString(itemData["name"]),
-				"short_description": "",
-				"idx" : idx,
-				"product_id": productData[0]["_id"],
-				"weight": utils.InterfaceToFloat64(itemData["weight"]),
-				"price": utils.InterfaceToFloat64(itemData["price"]),
-				"qty": utils.InterfaceToInt(itemData["qty_ordered"]),
-				"order_id": orderModel.GetID(),
-			}
-
-			orderItemData["options"] = map[string]interface{}{
-
-			}
-			orderItemCollection.Save(orderItemData)
-			idx++
-		}
+		addItemsToOrder(utils.InterfaceToArray(v["items"]), orderModel)
 	}
 
 	var result []string
@@ -440,20 +384,9 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 			return nil, env.ErrorDispatch(err)
 		}
 
-		for _, categoryId := range utils.InterfaceToArray(v["category_ids"]) {
-			categoryData, err := getCategoryByMagentoId(utils.InterfaceToInt(categoryId))
-			if (len(categoryData) != 1 ) {
-				continue
-			}
+		addImagesToProduct(utils.InterfaceToArray(v["category_ids"]), productModel)
 
-			// saving category products assignment
-			junctionCollection, err := db.GetCollection(categoryActor.ConstCollectionNameCategoryProductJunction)
-			if err != nil {
-				return nil, env.ErrorDispatch(err)
-			}
-			junctionCollection.Save(map[string]interface{}{"category_id": categoryData[0]["_id"], "product_id": productModel.GetID()})
-		}
-
+		addProductToCategories(utils.InterfaceToArray(v["images"]), productModel)
 	}
 
 	var result []string
@@ -509,161 +442,4 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 	return result, nil
 }
 
-func getDataFromContext(context api.InterfaceApplicationContext) ([]interface{}, error) {
 
-	responseBody, err := ioutil.ReadAll(context.GetRequestFile("import.json"))
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	jsonResponse, err := utils.DecodeJSONToArray(responseBody)
-	if err != nil {
-		return nil, env.ErrorDispatch(err)
-	}
-
-	//fmt.Println(utils.InterfaceToString(jsonResponse))
-
-	return jsonResponse, nil
-}
-
-func addCustomerAddresses(addresses []interface{}, visitorModel visitor.InterfaceVisitor) bool {
-
-	for _, addresse := range addresses {
-		visitorAddressModel, err := visitor.GetVisitorAddressModel()
-		if err != nil {
-			return false
-		}
-
-		addresseMap := utils.InterfaceToMap(addresse)
-
-		// todo set default address
-		// visitor addresse map with info
-		addresseRecord := map[string]interface{}{
-			"visitor_id":    visitorModel.GetID(),
-			"first_name":    utils.InterfaceToString(addresseMap["firstname"]),
-			"last_name":     utils.InterfaceToString(addresseMap["lastname"]),
-			"city":          utils.InterfaceToString(addresseMap["city"]),
-			"zip_code":      utils.InterfaceToString(addresseMap["postcode"]),
-			"company":       utils.InterfaceToString(addresseMap["company"]),
-			"phone":         utils.InterfaceToString(addresseMap["telephone"]),
-			"country":       utils.InterfaceToString(addresseMap["country_id"]),
-			"address_line1": utils.InterfaceToArray(addresseMap["street"])[0],
-			"address_line2": "",
-		}
-
-		visitorAddressModel.FromHashMap(addresseRecord)
-		err = visitorAddressModel.Save()
-		if err != nil {
-			fmt.Println(err)
-			return false
-		}
-
-	}
-	return true
-
-}
-
-func getProductByMagentoId(magentoId int) ([]map[string]interface{}, error) {
-	// todo check magentoId
-	var result []map[string]interface{}
-
-	dbEngine := db.GetDBEngine()
-	if dbEngine == nil {
-		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "642ed88a-6d8b-48a1-9b3c-feac54c4d9a3", "Can't obtain DBEngine")
-	}
-
-	productCollectionModel, err := dbEngine.GetCollection(product.ConstModelNameProduct)
-	if err != nil {
-		return result, env.ErrorDispatch(err)
-	}
-
-	err = productCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoId))
-	if err != nil {
-		return result, env.ErrorDispatch(err)
-	}
-
-	result, err = productCollectionModel.Load()
-	if err != nil {
-		return result, env.ErrorDispatch(err)
-	}
-
-	return result, nil
-}
-
-func getCategoryByMagentoId(magentoId int) ([]map[string]interface{}, error) {
-	// todo check magentoId
-	var result []map[string]interface{}
-
-	dbEngine := db.GetDBEngine()
-	if dbEngine == nil {
-		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "642ed88a-6d8b-48a1-9b3c-feac54c4d9a3", "Can't obtain DBEngine")
-	}
-
-	categoryCollectionModel, err := dbEngine.GetCollection(category.ConstModelNameCategory)
-	if err != nil {
-		return result, env.ErrorDispatch(err)
-	}
-
-	err = categoryCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoId))
-	if err != nil {
-		return result, env.ErrorDispatch(err)
-	}
-
-	result, err = categoryCollectionModel.Load()
-	if err != nil {
-		return result, env.ErrorDispatch(err)
-	}
-
-	return result, nil
-}
-
-func createMagentoIdAttribute() (bool, error) {
-
-	customAttributesCollection, err := db.GetCollection(attributes.ConstCollectionNameCustomAttributes)
-	if err != nil {
-		// todo
-		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3b8b1e23-c2ad-45c5-9252-215084a8cd81", "Can't get collection '" + attributes.ConstCollectionNameCustomAttributes + "': " + err.Error())
-	}
-	attributeName := "magento_id"
-
-	customAttributesCollection.AddFilter("model", "=", product.ConstModelNameProduct)
-	customAttributesCollection.AddFilter("attribute", "=", attributeName)
-	records, err := customAttributesCollection.Load()
-
-	if err != nil {
-		return false, env.ErrorDispatch(err)
-	}
-
-	if len(records) > 0 {
-		// todo
-		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3b8b1e23-c2ad-45c5-9252-215084a8cd81", "Can't get collection '" + attributes.ConstCollectionNameCustomAttributes + "': " + err.Error())
-	}
-
-	// make product attribute operation
-	//---------------------------------
-	productModel, err := product.GetProductModel()
-	if err != nil {
-		return false, env.ErrorDispatch(err)
-	}
-
-	attribute := models.StructAttributeInfo{
-		Model:      product.ConstModelNameProduct,
-		Collection: "product",
-		Attribute:  attributeName,
-		Type:       utils.ConstDataTypeText,
-		IsRequired: false,
-		IsStatic:   false,
-		Label:      "Magento Id",
-		Group:      "Magento",
-		Editors:    "text",
-		Options:    "",
-		Default:    "",
-		Validators: "",
-		IsLayered:  false,
-		IsPublic:   false,
-	}
-
-	productModel.AddNewAttribute(attribute)
-
-	return true, nil
-}
