@@ -9,14 +9,9 @@ import (
 const (
 	ConstErrorModule = "impex_magento"
 	ConstErrorLevel  = env.ConstErrorLevelAPI
-
+	ConstGETApiKeyParamName            = "api_key"
 	ConstLogFileName                     = "impex_magento.log"
 	ConstSessionKeyMagentoRequestToken   = "magentoRequestToken"
-	ConstSessionKeyMagentoRequestSecret  = "magentoRequestSecret"
-	ConstSessionKeyMagentoSiteAdminUrl   = "magentoSiteAdminUrl"
-	ConstSessionKeyMagentoSiteUrl        = "magentoSiteUrl"
-	ConstSessionKeyMagentoConsumerKey    = "magentoConsumerKey"
-	ConstSessionKeyMagentoConsumerSecret = "magentoConsumerSecret"
 )
 
 // Package global variables

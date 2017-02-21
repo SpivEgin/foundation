@@ -20,14 +20,20 @@ func setupAPI() error {
 
 	service := api.GetRestService()
 
-	service.POST("impex/magento/visitor", magentoVisitorRequest)
-	service.POST("impex/magento/order", magentoOrderRequest)
-	service.POST("impex/magento/category", magentoCategoryRequest)
-	service.POST("impex/magento/product/attributes", magentoProductAttributesRequest)
-	service.POST("impex/magento/products", magentoProductRequest)
-	service.POST("impex/magento/stock", magentoStockRequest)
+	service.GET("impex/magento/options", api.IsAdminHandler(magentoOptionsRequest))
+
+	service.POST("impex/magento/visitor", IsMagentoHandler(magentoVisitorRequest))
+	service.POST("impex/magento/order", IsMagentoHandler(magentoOrderRequest))
+	service.POST("impex/magento/category", IsMagentoHandler(magentoCategoryRequest))
+	service.POST("impex/magento/product/attributes", IsMagentoHandler(magentoProductAttributesRequest))
+	service.POST("impex/magento/products", IsMagentoHandler(magentoProductRequest))
+	service.POST("impex/magento/stock", IsMagentoHandler(magentoStockRequest))
 
 	return nil
+}
+
+func magentoOptionsRequest(context api.InterfaceApplicationContext) (interface{}, error) {
+	return generateMagentoApiData()
 }
 
 func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}, error) {
@@ -37,6 +43,9 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
 		return nil, env.ErrorDispatch(err)
 	}
 
@@ -44,7 +53,9 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 
 		visitorModel, err := visitor.GetVisitorModel()
 		if err != nil {
-			fmt.Println(err)
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 
@@ -54,8 +65,8 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 		visitorRecord := map[string]interface{}{
 			"magento_id": utils.InterfaceToString(v["entity_id"]),
 			"email":      utils.InterfaceToString(v["email"]),
-			"first_name": utils.InterfaceToString(v["first_name"]),
-			"last_name":  utils.InterfaceToString(v["last_name"]),
+			"first_name": utils.InterfaceToString(v["firstname"]),
+			"last_name":  utils.InterfaceToString(v["lastname"]),
 			"is_admin":   false,
 			"password":   "test",
 			"created_at": time.Now(),
@@ -65,7 +76,9 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 
 		err = visitorModel.Save()
 		if err != nil {
-			fmt.Println(err)
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 
@@ -85,6 +98,9 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
 		return nil, env.ErrorDispatch(err)
 	}
 
@@ -94,7 +110,9 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 
 		categoryModel, err := category.GetCategoryModel()
 		if err != nil {
-			fmt.Println(err)
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 		v := utils.InterfaceToMap(value)
@@ -114,6 +132,9 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 
 			rowData, err := getCategoryByMagentoId(utils.InterfaceToInt(v["parent_id"]))
 			if err != nil {
+				if ConstMagentoLog || ConstDebugLog {
+					env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+				}
 				return nil, env.ErrorDispatch(err)
 			}
 
@@ -126,14 +147,18 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 
 		err = categoryModel.Save()
 		if err != nil {
-			fmt.Println(err)
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 
 		if imageName, present := v["image"]; present && imageName != nil {
 			_, err = AddImageForCategory(categoryModel, utils.InterfaceToString(imageName), utils.InterfaceToString(v["image_url"]))
 			if err != nil {
-				fmt.Println(err)
+				if ConstMagentoLog || ConstDebugLog {
+					env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+				}
 				//return nil, env.ErrorDispatch(err)
 			}
 		}
@@ -151,6 +176,9 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
 		return nil, env.ErrorDispatch(err)
 	}
 
@@ -160,7 +188,9 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 		orderModel, err := order.GetOrderModel()
 		if err != nil {
-			fmt.Println(err)
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 		v := utils.InterfaceToMap(value)
@@ -221,7 +251,9 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 		err = orderModel.Save()
 		if err != nil {
-			fmt.Println(err)
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 
@@ -240,6 +272,9 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
 		return nil, env.ErrorDispatch(err)
 	}
 	//fmt.Println(jsonResponse)
@@ -270,32 +305,35 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 
 		attributeName := utils.InterfaceToString(v["attribute_code"])
 		if attributeName == "" {
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "080df187-4c40-478a-9323-5533a1dfef96", "attribute name was not specified")
 			continue
-			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "2f7aec81-dba8-4cad-b683-23c5d0a08cf5", "attribute name was not specified")
 		}
 
 		attributeLabel := utils.InterfaceToString(v["frontend_label"])
 		if attributeLabel == "" {
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "34847e62-1dd7-41c3-b3d9-6d637c8d9de5", "attribute label was not specified")
 			continue
-			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "93457847-8e4d-4536-8985-43f340a1abc4", "attribute label was not specified")
 		}
 
 		attributeFrontendInput := utils.InterfaceToString(v["frontend_input"])
 		if attributeFrontendInput == "" {
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "904598bc-0c7e-4050-b1ba-b8d164468858", "attribute label was not specified")
 			continue
-			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "93457847-8e4d-4536-8985-43f340a1abc4", "attribute label was not specified")
 		}
 
 
 		if _, present := editorMap[attributeFrontendInput]; !present {
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5c3934ed-9e6a-48bc-85d5-d42bfd332fa6", "attribute label was not specified")
 			continue
-			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "93457847-8e4d-4536-8985-43f340a1abc4", "attribute label was not specified")
 		}
 		fmt.Println(editorMap[attributeFrontendInput])
 
 		if _, present := dataTypeMap[attributeFrontendInput]; !present {
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "592ca965-401e-4a9c-98e4-5eb5add650b0", "attribute label was not specified")
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			continue
-			//return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "93457847-8e4d-4536-8985-43f340a1abc4", "attribute label was not specified")
 		}
 
 		fmt.Println(dataTypeMap[attributeFrontendInput])
@@ -304,6 +342,9 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 		//---------------------------------
 		productModel, err := product.GetProductModel()
 		if err != nil {
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 
@@ -322,14 +363,15 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 			Validators: "",
 			IsLayered:  false,
 			IsPublic:   utils.InterfaceToBool(v["is_visible"]),
-			//magento_id:   utils.InterfaceToInt(v["attribute_id"]),
 		}
 
-		productModel.AddNewAttribute(attribute)
-		//err = productModel.AddNewAttribute(attribute)
-		//if err != nil {
-		//	return nil, env.ErrorDispatch(err)
-		//}
+		err = productModel.AddNewAttribute(attribute)
+		if err != nil {
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
+			//return nil, env.ErrorDispatch(err)
+		}
 	}
 
 	var result []string
@@ -344,6 +386,9 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
 		return nil, env.ErrorDispatch(err)
 	}
 
@@ -353,18 +398,23 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 		v := utils.InterfaceToMap(value)
 
 		if !utils.KeysInMapAndNotBlank(v, "sku", "name") {
-			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "2a0cf2b0-215e-4b53-bf55-98fbfe22cd27", "product name and/or sku were not specified")
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "6aaa7688-fb36-4a6b-a59c-bb4709c5df9b", "product name and/or sku were not specified")
+			continue
 		}
 
 		// create product operation
 		//-------------------------
 		productModel, err := product.GetProductModel()
 		if err != nil {
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 
 		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["entity_id"]))
 		if len(productData) == 1 && err == nil {
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "02f31b09-c0ae-493a-9202-65cf7ee92177", "Product exists with magento_id:" + utils.InterfaceToString(v["product_id"]))
 			continue
 		}
 
@@ -374,13 +424,18 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 			}
 			err := productModel.Set(attribute, value)
 			if err != nil {
-				fmt.Println(err)
+				if ConstMagentoLog || ConstDebugLog {
+					env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+				}
 				//return nil, env.ErrorDispatch(err)
 			}
 		}
 
 		err = productModel.Save()
 		if err != nil {
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 
@@ -401,6 +456,9 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
 		return nil, env.ErrorDispatch(err)
 	}
 
@@ -409,6 +467,9 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 	err = config.SetValue(stock.ConstConfigPathEnabled, true)
 	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
 		return nil, env.ErrorDispatch(err)
 	}
 
@@ -420,12 +481,12 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 		stockManager := product.GetRegisteredStock()
 		if stockManager == nil {
-			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "c03d0b95-400e-415f-8c4a-26863993adbc", "no registered stock manager")
+			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "90bef837-a41c-4a9b-a071-8547be5ba966", "no registered stock manager")
 		}
 
 		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["product_id"]))
 		if len(productData) == 0 || err != nil {
-			fmt.Println("continue")
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d37e7a80-4d8d-41cf-a2f5-55c0af7fa2e6", "Product does not exist with magento_id:" + utils.InterfaceToString(v["product_id"]))
 			continue
 		}
 
@@ -433,6 +494,9 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 		err = stockManager.SetProductQty(utils.InterfaceToString(productData[0]["_id"]), options, qty)
 		if err != nil {
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
 			return nil, env.ErrorDispatch(err)
 		}
 	}
