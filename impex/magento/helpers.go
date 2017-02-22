@@ -501,6 +501,6 @@ func ValidateMagentoRights(context api.InterfaceApplicationContext) error {
 			return nil
 		}
 	}
-	return nil
-	//return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "8afbaca6-e1ec-435a-8208-d427ceb05d71", "no magento rights")
+
+	return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "8afbaca6-e1ec-435a-8208-d427ceb05d71", "Forbidden")
 }

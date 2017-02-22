@@ -49,6 +49,8 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorDispatch(err)
 	}
 
+	var count int
+
 	for _, value := range jsonResponse {
 
 		visitorModel, err := visitor.GetVisitorModel()
@@ -60,11 +62,25 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 		}
 
 		v := utils.InterfaceToMap(value)
+		email := utils.InterfaceToString(v["email"])
+		err = visitorModel.LoadByEmail(email)
+		if err != nil {
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
+			return nil, env.ErrorDispatch(err)
+		}
 
-		//// visitor map with info
+		if (visitorModel.GetID() != "") {
+
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "7620b94a-8abe-4f50-a279-d9c254b86b25", "Customer exist with email " + email)
+			continue
+		}
+
+		// visitor map with info
 		visitorRecord := map[string]interface{}{
 			"magento_id": utils.InterfaceToString(v["entity_id"]),
-			"email":      utils.InterfaceToString(v["email"]),
+			"email":      email,
 			"first_name": utils.InterfaceToString(v["firstname"]),
 			"last_name":  utils.InterfaceToString(v["lastname"]),
 			"is_admin":   false,
@@ -85,8 +101,13 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 		if _, present := v["address"]; present {
 			addCustomerAddresses(utils.InterfaceToArray(v["address"]), visitorModel)
 		}
+
+		count++
 	}
-	var result []string
+
+	result := map[string]interface{}{
+		"count": count,
+	}
 
 	return result, nil
 }
@@ -103,6 +124,8 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 		}
 		return nil, env.ErrorDispatch(err)
 	}
+
+	var count int
 
 	//fmt.Println(jsonResponse)
 
@@ -162,9 +185,13 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 				//return nil, env.ErrorDispatch(err)
 			}
 		}
+
+		count++
 	}
 
-	var result []string
+	result := map[string]interface{}{
+		"count": count,
+	}
 
 	return result, nil
 }
@@ -181,6 +208,9 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 		}
 		return nil, env.ErrorDispatch(err)
 	}
+
+	var count int
+
 
 	//fmt.Println(jsonResponse)
 
@@ -257,10 +287,14 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			return nil, env.ErrorDispatch(err)
 		}
 
+		count++
+
 		addItemsToOrder(utils.InterfaceToArray(v["items"]), orderModel)
 	}
 
-	var result []string
+	result := map[string]interface{}{
+		"count": count,
+	}
 
 	return result, nil
 }
@@ -300,6 +334,8 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 		"multiselect": "multi_select",
 	}
 
+	var count int
+
 	for _, value := range jsonResponse {
 		v := utils.InterfaceToMap(value)
 
@@ -311,28 +347,24 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 
 		attributeLabel := utils.InterfaceToString(v["frontend_label"])
 		if attributeLabel == "" {
-			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "34847e62-1dd7-41c3-b3d9-6d637c8d9de5", "attribute label was not specified")
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "34847e62-1dd7-41c3-b3d9-6d637c8d9de5", "attribute frontend label was not specified")
 			continue
 		}
 
 		attributeFrontendInput := utils.InterfaceToString(v["frontend_input"])
 		if attributeFrontendInput == "" {
-			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "904598bc-0c7e-4050-b1ba-b8d164468858", "attribute label was not specified")
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "904598bc-0c7e-4050-b1ba-b8d164468858", "attribute frontend input was not specified")
 			continue
 		}
 
 
 		if _, present := editorMap[attributeFrontendInput]; !present {
-			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5c3934ed-9e6a-48bc-85d5-d42bfd332fa6", "attribute label was not specified")
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5c3934ed-9e6a-48bc-85d5-d42bfd332fa6", "attribute editor was not specified")
 			continue
 		}
-		fmt.Println(editorMap[attributeFrontendInput])
 
 		if _, present := dataTypeMap[attributeFrontendInput]; !present {
-			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "592ca965-401e-4a9c-98e4-5eb5add650b0", "attribute label was not specified")
-			if ConstMagentoLog || ConstDebugLog {
-				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
-			}
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "592ca965-401e-4a9c-98e4-5eb5add650b0", "attribute type was not specified")
 			continue
 		}
 
@@ -372,9 +404,13 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 			}
 			//return nil, env.ErrorDispatch(err)
 		}
+
+		count++
 	}
 
-	var result []string
+	result := map[string]interface{}{
+		"count": count,
+	}
 
 	return result, nil
 }
@@ -391,6 +427,8 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 		}
 		return nil, env.ErrorDispatch(err)
 	}
+
+	var count int
 
 	//fmt.Println(jsonResponse)
 
@@ -442,9 +480,13 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 		addImagesToProduct(utils.InterfaceToArray(v["category_ids"]), productModel)
 
 		addProductToCategories(utils.InterfaceToArray(v["images"]), productModel)
+
+		count++
 	}
 
-	var result []string
+	result := map[string]interface{}{
+		"count": count,
+	}
 
 	return result, nil
 }
@@ -461,6 +503,8 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 		}
 		return nil, env.ErrorDispatch(err)
 	}
+
+	var count int
 
 	// todo move enable stock
 	config := env.GetConfig()
@@ -499,9 +543,13 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 			}
 			return nil, env.ErrorDispatch(err)
 		}
+
+		count++
 	}
 
-	var result []string
+	result := map[string]interface{}{
+		"count": count,
+	}
 
 	return result, nil
 }
