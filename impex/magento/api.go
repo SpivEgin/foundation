@@ -49,6 +49,7 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorDispatch(err)
 	}
 
+	createMagentoIdAttributeToVisitor()
 	var count int
 
 	for _, value := range jsonResponse {
@@ -63,15 +64,17 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 
 		v := utils.InterfaceToMap(value)
 		email := utils.InterfaceToString(v["email"])
-		err = visitorModel.LoadByEmail(email)
+		fmt.Println(email)
+		visitorData, err := getVisitorByMail(email)
 		if err != nil {
+			fmt.Println("Error")
 			if ConstMagentoLog || ConstDebugLog {
 				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
 			}
 			return nil, env.ErrorDispatch(err)
 		}
 
-		if (visitorModel.GetID() != "") {
+		if (visitorData["_id"] != nil) {
 
 			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "7620b94a-8abe-4f50-a279-d9c254b86b25", "Customer exist with email " + email)
 			continue
@@ -151,8 +154,6 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 		}
 
 		if utils.InterfaceToInt(v["parent_id"]) > 0 {
-			fmt.Println(v["parent_id"])
-
 			rowData, err := getCategoryByMagentoId(utils.InterfaceToInt(v["parent_id"]))
 			if err != nil {
 				if ConstMagentoLog || ConstDebugLog {
@@ -224,6 +225,23 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			return nil, env.ErrorDispatch(err)
 		}
 		v := utils.InterfaceToMap(value)
+		visitorId := ""
+		// todo visitor
+		visitorData, err := getVisitorByMagentoId(utils.InterfaceToInt(v["customer_id"]))
+		if (err != nil) {
+			if ConstMagentoLog || ConstDebugLog {
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+			}
+			return nil, env.ErrorDispatch(err)
+		}
+
+		if len(visitorData) == 1 {
+			visitorDataArray := utils.InterfaceToArray(visitorData)[0]
+
+			visitorDataMap := utils.InterfaceToMap(visitorDataArray)
+			visitorId = utils.InterfaceToString(visitorDataMap["_id"])
+		}
+		fmt.Println(visitorId)
 
 		// get state code
 		// models.ConstStatesList
@@ -237,6 +255,7 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			"subtotal":        utils.InterfaceToFloat64(v["subtotal"]),
 			"tax_amount":      utils.InterfaceToFloat64(v["tax_amount"]),
 			"discount":        utils.InterfaceToFloat64(v["discount_amount"]),
+			"visitor_id":      visitorId,
 			"created_at":      time.Now(),
 		}
 
@@ -277,7 +296,7 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 		}
 		orderRecord["shipping_method"] = ""
 
-			orderModel.FromHashMap(orderRecord)
+		orderModel.FromHashMap(orderRecord)
 
 		err = orderModel.Save()
 		if err != nil {
@@ -313,7 +332,7 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 	}
 	//fmt.Println(jsonResponse)
 
-	createMagentoIdAttribute()
+	createMagentoIdAttributeToProduct()
 
 	dataTypeMap := map[string]interface{}{
 		"boolean": utils.ConstDataTypeBoolean,

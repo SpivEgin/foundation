@@ -11,7 +11,9 @@ import (
 	"github.com/ottemo/foundation/app/models/order"
 	orderActor "github.com/ottemo/foundation/app/actors/order"
 	"github.com/ottemo/foundation/app/models/product"
+	productActor "github.com/ottemo/foundation/app/actors/product"
 	"github.com/ottemo/foundation/app/models/visitor"
+	visitorActor "github.com/ottemo/foundation/app/actors/visitor"
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
@@ -25,7 +27,7 @@ import (
 	"encoding/hex"
 )
 
-func createMagentoIdAttribute() (bool, error) {
+func createMagentoIdAttributeToProduct() (bool, error) {
 
 	customAttributesCollection, err := db.GetCollection(attributes.ConstCollectionNameCustomAttributes)
 	if err != nil {
@@ -48,12 +50,12 @@ func createMagentoIdAttribute() (bool, error) {
 		return false, env.ErrorDispatch(err)
 	}
 
-	if len(records) > 0 {
+	if len(records) != 0 {
 
 		if ConstMagentoLog || ConstDebugLog {
-			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "Can't get collection '" + attributes.ConstCollectionNameCustomAttributes + "': " + err.Error())
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "Attribute magento_id is exist")
 		}
-		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "343b1eb7-07a2-435c-86a8-93da702d17f8", "Can't get collection '" + attributes.ConstCollectionNameCustomAttributes + "': " + err.Error())
+		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "343b1eb7-07a2-435c-86a8-93da702d17f8", "Attribute magento_id is exist")
 	}
 
 	// make product attribute operation
@@ -68,7 +70,7 @@ func createMagentoIdAttribute() (bool, error) {
 
 	attribute := models.StructAttributeInfo{
 		Model:      product.ConstModelNameProduct,
-		Collection: "product",
+		Collection: productActor.ConstCollectionNameProduct,
 		Attribute:  attributeName,
 		Type:       utils.ConstDataTypeText,
 		IsRequired: false,
@@ -84,6 +86,69 @@ func createMagentoIdAttribute() (bool, error) {
 	}
 
 	productModel.AddNewAttribute(attribute)
+
+	return true, nil
+}
+
+func createMagentoIdAttributeToVisitor() (bool, error) {
+
+	customAttributesCollection, err := db.GetCollection(attributes.ConstCollectionNameCustomAttributes)
+	if err != nil {
+
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "Can't get collection '" + attributes.ConstCollectionNameCustomAttributes + "': " + err.Error())
+		}
+		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3b0c94c2-440c-4fd7-9cee-da58e2f97dac", "Can't get collection '" + attributes.ConstCollectionNameCustomAttributes + "': " + err.Error())
+	}
+	attributeName := "magento_id"
+
+	customAttributesCollection.AddFilter("model", "=", visitor.ConstModelNameVisitor)
+	customAttributesCollection.AddFilter("attribute", "=", attributeName)
+	records, err := customAttributesCollection.Load()
+
+	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
+		return false, env.ErrorDispatch(err)
+	}
+
+	if len(records) != 0 {
+
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "Attribute magento_id is exist")
+		}
+		return false, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "343b1eb7-07a2-435c-86a8-93da702d17f8", "Attribute magento_id is exist")
+	}
+
+	// make visitor attribute operation
+	//---------------------------------
+	visitorModel, err := visitor.GetVisitorModel()
+	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
+		return false, env.ErrorDispatch(err)
+	}
+
+	attribute := models.StructAttributeInfo{
+		Model:      visitor.ConstModelNameVisitor,
+		Collection: visitorActor.ConstCollectionNameVisitor,
+		Attribute:  attributeName,
+		Type:       utils.ConstDataTypeText,
+		IsRequired: false,
+		IsStatic:   false,
+		Label:      "Magento Id",
+		Group:      "Magento",
+		Editors:    "text",
+		Options:    "",
+		Default:    "",
+		Validators: "",
+		IsLayered:  false,
+		IsPublic:   false,
+	}
+
+	visitorModel.AddNewAttribute(attribute)
 
 	return true, nil
 }
@@ -241,6 +306,90 @@ func getProductByMagentoId(magentoId int) ([]map[string]interface{}, error) {
 	}
 
 	return result, nil
+}
+
+func getVisitorByMagentoId(magentoId int) ([]map[string]interface{}, error) {
+	// todo check magentoId
+	var result []map[string]interface{}
+
+	dbEngine := db.GetDBEngine()
+	if dbEngine == nil {
+
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "Can't obtain DBEngine")
+		}
+		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "d115a091-7d9a-4d14-807f-7aa8f11eebb3", "Can't obtain DBEngine")
+	}
+
+	visitorCollectionModel, err := dbEngine.GetCollection(visitor.ConstModelNameVisitor)
+	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
+		return result, env.ErrorDispatch(err)
+	}
+
+	err = visitorCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoId))
+	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
+		return result, env.ErrorDispatch(err)
+	}
+
+	result, err = visitorCollectionModel.Load()
+	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
+		return result, env.ErrorDispatch(err)
+	}
+
+	return result, nil
+}
+
+func getVisitorByMail(email string) (map[string]interface{}, error) {
+	// todo check magentoId
+	var result map[string]interface{}
+
+	dbEngine := db.GetDBEngine()
+	if dbEngine == nil {
+
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "Can't obtain DBEngine")
+		}
+		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "d115a091-7d9a-4d14-807f-7aa8f11eebb3", "Can't obtain DBEngine")
+	}
+
+	visitorCollectionModel, err := dbEngine.GetCollection(visitor.ConstModelNameVisitor)
+	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
+		return result, env.ErrorDispatch(err)
+	}
+
+	err = visitorCollectionModel.AddFilter("email", "=", utils.InterfaceToString(email))
+	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
+		return result, env.ErrorDispatch(err)
+	}
+
+	data, err := visitorCollectionModel.Load()
+	if err != nil {
+		if ConstMagentoLog || ConstDebugLog {
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
+		}
+		return result, env.ErrorDispatch(err)
+	}
+
+	if (len(data) == 1 ) {
+		return data[0], nil
+	}
+
+	return make(map[string]interface{}), nil
 }
 
 func getCategoryByMagentoId(magentoId int) ([]map[string]interface{}, error) {
