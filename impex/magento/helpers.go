@@ -25,6 +25,7 @@ import (
 	"github.com/ottemo/foundation/app"
 	"crypto/md5"
 	"encoding/hex"
+	"github.com/ottemo/foundation/app/actors/seo"
 )
 
 func createMagentoIdAttributeToProduct() (bool, error) {
@@ -558,7 +559,7 @@ func addItemsToOrder(items []interface{}, orderModel order.InterfaceOrder) (erro
 	return nil
 }
 
-func addImagesToProduct(images []interface{}, productModel product.InterfaceProduct) (error) {
+func AddImagesToProduct(images []interface{}, productModel product.InterfaceProduct) (error) {
 
 	for _, image := range images {
 		imageData := utils.InterfaceToMap(image)
@@ -576,7 +577,7 @@ func addImagesToProduct(images []interface{}, productModel product.InterfaceProd
 	return nil
 }
 
-func addProductToCategories(categories []interface{}, productModel product.InterfaceProduct) (error) {
+func AddProductToCategories(categories []interface{}, productModel product.InterfaceProduct) (error) {
 
 
 	for _, categoryId := range categories {
@@ -652,4 +653,51 @@ func ValidateMagentoRights(context api.InterfaceApplicationContext) error {
 	}
 
 	return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "8afbaca6-e1ec-435a-8208-d427ceb05d71", "Forbidden")
+}
+
+func AddProductSEO(productId string, url string, title string, meta_keywords string, meta_description string) (interface{}, error) {
+
+
+	valueURL := utils.InterfaceToString(url)
+	valueRewrite := utils.InterfaceToString(productId)
+
+	// looking for duplicated 'url'
+	//-----------------------------
+	collection, err := db.GetCollection(seo.ConstCollectionNameURLRewrites)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	if err := collection.AddFilter("url", "=", valueURL); err != nil {
+		_ = env.ErrorNew(ConstErrorModule, ConstErrorLevel, "ee7abbc8-ee1f-43c2-b118-5cf6016d6c34", err.Error())
+	}
+
+	recordsNumber, err := collection.Count()
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	if recordsNumber > 0 {
+		return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "b1ed0906-6a1b-4791-829d-4573660e5621", "rewrite for url '"+valueURL+"' already exists")
+	}
+
+	// making new record and storing it
+	//---------------------------------
+	newRecord := map[string]interface{}{
+		"url":              valueURL,
+		"type":             "product",
+		"rewrite":          valueRewrite,
+		"title":            title,
+		"meta_keywords":    meta_keywords,
+		"meta_description": meta_description,
+	}
+
+	newID, err := collection.Save(newRecord)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	newRecord["_id"] = newID
+
+	return newRecord, nil
 }

@@ -496,9 +496,15 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 			return nil, env.ErrorDispatch(err)
 		}
 
-		addImagesToProduct(utils.InterfaceToArray(v["category_ids"]), productModel)
+		AddImagesToProduct(utils.InterfaceToArray(v["category_ids"]), productModel)
 
-		addProductToCategories(utils.InterfaceToArray(v["images"]), productModel)
+		AddProductToCategories(utils.InterfaceToArray(v["images"]), productModel)
+
+		AddProductSEO(productModel.GetID(),
+			utils.InterfaceToString(v["url_path"]),
+			utils.InterfaceToString(v["meta_title"]),
+			utils.InterfaceToString(v["meta_keyword"]),
+			utils.InterfaceToString(v["meta_description"]))
 
 		count++
 	}
