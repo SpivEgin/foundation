@@ -2,6 +2,8 @@ package magento
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/ottemo/foundation/api"
 	"github.com/ottemo/foundation/app/models"
 	"github.com/ottemo/foundation/app/models/category"
@@ -9,10 +11,9 @@ import (
 	"github.com/ottemo/foundation/app/models/product"
 	productActor "github.com/ottemo/foundation/app/actors/product"
 	"github.com/ottemo/foundation/app/models/visitor"
-	"github.com/ottemo/foundation/app/actors/stock"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
-	"time"
+
 )
 
 // setups package related API endpoint routines
@@ -37,9 +38,9 @@ func magentoOptionsRequest(context api.InterfaceApplicationContext) (interface{}
 }
 
 func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}, error) {
-	fmt.Println("magentoVisitorRequest")
-	fmt.Println(context)
-	fmt.Println(context.GetRequestFile("import.json"))
+	//fmt.Println("magentoVisitorRequest")
+	//fmt.Println(context)
+	//fmt.Println(context.GetRequestFile("import.json"))
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
@@ -64,19 +65,16 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 
 		v := utils.InterfaceToMap(value)
 		email := utils.InterfaceToString(v["email"])
-		fmt.Println(email)
-		visitorData, err := getVisitorByMail(email)
+		visitorData, err := getVisitorByEmail(email)
 		if err != nil {
-			fmt.Println("Error")
 			if ConstMagentoLog || ConstDebugLog {
 				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
 			}
 			return nil, env.ErrorDispatch(err)
 		}
 
-		if (visitorData["_id"] != nil) {
-
-			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "7620b94a-8abe-4f50-a279-d9c254b86b25", "Customer exist with email " + email)
+		if visitorData["_id"] != nil {
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "7620b94a-8abe-4f50-a279-d9c254b86b25", "Customer exist with email "+email)
 			continue
 		}
 
@@ -116,9 +114,9 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 }
 
 func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{}, error) {
-	fmt.Println("magentoCategoryRequest")
-	fmt.Println(context)
-	fmt.Println(context.GetRequestFile("import.json"))
+	//fmt.Println("magentoCategoryRequest")
+	//fmt.Println(context)
+	//fmt.Println(context.GetRequestFile("import.json"))
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
@@ -150,7 +148,7 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 			"last_name":   utils.InterfaceToString(v["last_name"]),
 			"enabled":     utils.InterfaceToBool(v["is_active"]),
 			"magento_id":  utils.InterfaceToString(v["entity_id"]),
-			"created_at": time.Now(),
+			"created_at":  time.Now(),
 		}
 
 		if utils.InterfaceToInt(v["parent_id"]) > 0 {
@@ -198,7 +196,7 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 }
 
 func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, error) {
-	fmt.Println("magentoOrderRequest")
+	//fmt.Println("magentoOrderRequest")
 	//fmt.Println(context)
 	//fmt.Println(context.GetRequestFile("import.json"))
 
@@ -211,7 +209,6 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 	}
 
 	var count int
-
 
 	//fmt.Println(jsonResponse)
 
@@ -228,7 +225,7 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 		visitorId := ""
 		// todo visitor
 		visitorData, err := getVisitorByMagentoId(utils.InterfaceToInt(v["customer_id"]))
-		if (err != nil) {
+		if err != nil {
 			if ConstMagentoLog || ConstDebugLog {
 				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
 			}
@@ -241,7 +238,6 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			visitorDataMap := utils.InterfaceToMap(visitorDataArray)
 			visitorId = utils.InterfaceToString(visitorDataMap["_id"])
 		}
-		fmt.Println(visitorId)
 
 		// get state code
 		// models.ConstStatesList
@@ -319,9 +315,9 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 }
 
 func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (interface{}, error) {
-	fmt.Println("magentoProductAttributesRequest")
-	fmt.Println(context)
-	fmt.Println(context.GetRequestFile("import.json"))
+	//fmt.Println("magentoProductAttributesRequest")
+	//fmt.Println(context)
+	//fmt.Println(context.GetRequestFile("import.json"))
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
@@ -335,21 +331,21 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 	createMagentoIdAttributeToProduct()
 
 	dataTypeMap := map[string]interface{}{
-		"boolean": utils.ConstDataTypeBoolean,
-		"textarea": utils.ConstDataTypeText,
-		"text": utils.ConstDataTypeText,
+		"boolean":     utils.ConstDataTypeBoolean,
+		"textarea":    utils.ConstDataTypeText,
+		"text":        utils.ConstDataTypeText,
 		"media_image": utils.ConstDataTypeText,
-		"select": utils.ConstDataTypeText,
-		"price": utils.ConstDataTypeMoney,
-		"date": utils.ConstDataTypeDatetime,
+		"select":      utils.ConstDataTypeText,
+		"price":       utils.ConstDataTypeMoney,
+		"date":        utils.ConstDataTypeDatetime,
 		"multiselect": utils.ConstDataTypeJSON,
 	}
 	editorMap := map[string]interface{}{
-		"text": "text",
-		"textarea": "multiline_text",
-		"date": "text",
-		"boolean": "boolean",
-		"select": "select",
+		"text":        "text",
+		"textarea":    "multiline_text",
+		"date":        "text",
+		"boolean":     "boolean",
+		"select":      "select",
 		"multiselect": "multi_select",
 	}
 
@@ -376,7 +372,6 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 			continue
 		}
 
-
 		if _, present := editorMap[attributeFrontendInput]; !present {
 			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "5c3934ed-9e6a-48bc-85d5-d42bfd332fa6", "attribute editor was not specified")
 			continue
@@ -386,8 +381,6 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "592ca965-401e-4a9c-98e4-5eb5add650b0", "attribute type was not specified")
 			continue
 		}
-
-		fmt.Println(dataTypeMap[attributeFrontendInput])
 
 		// make product attribute operation
 		//---------------------------------
@@ -435,9 +428,9 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 }
 
 func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}, error) {
-	fmt.Println("magentoProductRequest")
-	fmt.Println(context)
-	fmt.Println(context.GetRequestFile("import.json"))
+	//fmt.Println("magentoProductRequest")
+	//fmt.Println(context)
+	//fmt.Println(context.GetRequestFile("import.json"))
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
@@ -471,7 +464,7 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 
 		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["entity_id"]))
 		if len(productData) == 1 && err == nil {
-			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "02f31b09-c0ae-493a-9202-65cf7ee92177", "Product exists with magento_id:" + utils.InterfaceToString(v["product_id"]))
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "02f31b09-c0ae-493a-9202-65cf7ee92177", "Product exists with magento_id:"+utils.InterfaceToString(v["product_id"]))
 			continue
 		}
 
@@ -517,9 +510,9 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 }
 
 func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, error) {
-	fmt.Println("magentoStockRequest")
-	fmt.Println(context)
-	fmt.Println(context.GetRequestFile("import.json"))
+	//fmt.Println("magentoStockRequest")
+	//fmt.Println(context)
+	//fmt.Println(context.GetRequestFile("import.json"))
 
 	jsonResponse, err := getDataFromContext(context)
 	if err != nil {
@@ -531,16 +524,7 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 	var count int
 
-	// todo move enable stock
-	config := env.GetConfig()
-
-	err = config.SetValue(stock.ConstConfigPathEnabled, true)
-	if err != nil {
-		if ConstMagentoLog || ConstDebugLog {
-			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
-		}
-		return nil, env.ErrorDispatch(err)
-	}
+	EnableStock()
 
 	//fmt.Println(jsonResponse)
 	options := make(map[string]interface{})
@@ -555,7 +539,7 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["product_id"]))
 		if len(productData) == 0 || err != nil {
-			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d37e7a80-4d8d-41cf-a2f5-55c0af7fa2e6", "Product does not exist with magento_id:" + utils.InterfaceToString(v["product_id"]))
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d37e7a80-4d8d-41cf-a2f5-55c0af7fa2e6", "Product does not exist with magento_id:"+utils.InterfaceToString(v["product_id"]))
 			continue
 		}
 
@@ -578,5 +562,3 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 
 	return result, nil
 }
-
-
