@@ -30,7 +30,7 @@ import (
 )
 
 // create attribute `magento_id` to product
-func createMagentoIdAttributeToProduct() (bool, error) {
+func createMagentoIDAttributeToProduct() (bool, error) {
 
 	customAttributesCollection, err := db.GetCollection(attributes.ConstCollectionNameCustomAttributes)
 	if err != nil {
@@ -94,7 +94,7 @@ func createMagentoIdAttributeToProduct() (bool, error) {
 }
 
 // create attribute `magento_id` to visitor
-func createMagentoIdAttributeToVisitor() (bool, error) {
+func createMagentoIDAttributeToVisitor() (bool, error) {
 
 	customAttributesCollection, err := db.GetCollection(attributes.ConstCollectionNameCustomAttributes)
 	if err != nil {
@@ -157,8 +157,8 @@ func createMagentoIdAttributeToVisitor() (bool, error) {
 	return true, nil
 }
 
-// add image to category
-func AddImageForCategory(categoryModel category.InterfaceCategory, mediaName string, imageUrl string) (interface{}, error) {
+// AddImageForCategory - add image to category
+func AddImageForCategory(categoryModel category.InterfaceCategory, mediaName string, imageURL string) (interface{}, error) {
 
 	// check request context
 	//---------------------
@@ -175,7 +175,7 @@ func AddImageForCategory(categoryModel category.InterfaceCategory, mediaName str
 
 	// get file by url and processing
 	//-----------------------
-	fileContents, err := getFileContentByUrl(imageUrl)
+	fileContents, err := getFileContentByURL(imageURL)
 	if err != nil {
 		if ConstMagentoLog || ConstDebugLog {
 			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
@@ -198,8 +198,8 @@ func AddImageForCategory(categoryModel category.InterfaceCategory, mediaName str
 	return "ok", nil
 }
 
-// add image to product
-func AddImageForProduct(productModel product.InterfaceProduct, mediaName string, imageUrl string) (interface{}, error) {
+// AddImageForProduct - add image to product
+func AddImageForProduct(productModel product.InterfaceProduct, mediaName string, imageURL string) (interface{}, error) {
 
 	// check request context
 	//---------------------
@@ -216,7 +216,7 @@ func AddImageForProduct(productModel product.InterfaceProduct, mediaName string,
 
 	// get file by url and processing
 	//-----------------------
-	fileContents, err := getFileContentByUrl(imageUrl)
+	fileContents, err := getFileContentByURL(imageURL)
 	if err != nil {
 		if ConstMagentoLog || ConstDebugLog {
 			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
@@ -240,7 +240,7 @@ func AddImageForProduct(productModel product.InterfaceProduct, mediaName string,
 }
 
 // download file by url
-func getFileContentByUrl(url string) ([]byte, error) {
+func getFileContentByURL(url string) ([]byte, error) {
 
 	var fileContents []byte
 
@@ -274,14 +274,14 @@ func getFileContentByUrl(url string) ([]byte, error) {
 }
 
 // find product by magento id attribute
-func getProductByMagentoId(magentoId int) ([]map[string]interface{}, error) {
+func getProductByMagentoID(magentoID int) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 
-	if (magentoId == 0) {
+	if (magentoID == 0) {
 		if ConstMagentoLog || ConstDebugLog {
-			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "magentoId was not specified")
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "magentoID was not specified")
 		}
-		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "0edf9c6f-2a3c-4d5f-8fa2-72c4b955782a", "magentoId was not specified")
+		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "0edf9c6f-2a3c-4d5f-8fa2-72c4b955782a", "magentoID was not specified")
 	}
 
 	dbEngine := db.GetDBEngine()
@@ -301,7 +301,7 @@ func getProductByMagentoId(magentoId int) ([]map[string]interface{}, error) {
 		return result, env.ErrorDispatch(err)
 	}
 
-	err = productCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoId))
+	err = productCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoID))
 	if err != nil {
 		if ConstMagentoLog || ConstDebugLog {
 			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
@@ -321,14 +321,14 @@ func getProductByMagentoId(magentoId int) ([]map[string]interface{}, error) {
 }
 
 // find visitor by magento id attribute
-func getVisitorByMagentoId(magentoId int) ([]map[string]interface{}, error) {
+func getVisitorByMagentoID(magentoID int) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 
-	if (magentoId == 0) {
+	if (magentoID == 0) {
 		if ConstMagentoLog || ConstDebugLog {
-			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "magentoId was not specified")
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "magentoID was not specified")
 		}
-		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "ea17f941-bd04-4177-8621-1af202535e22", "magentoId was not specified")
+		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "ea17f941-bd04-4177-8621-1af202535e22", "magentoID was not specified")
 	}
 
 	dbEngine := db.GetDBEngine()
@@ -348,7 +348,7 @@ func getVisitorByMagentoId(magentoId int) ([]map[string]interface{}, error) {
 		return result, env.ErrorDispatch(err)
 	}
 
-	err = visitorCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoId))
+	err = visitorCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoID))
 	if err != nil {
 		if ConstMagentoLog || ConstDebugLog {
 			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
@@ -412,14 +412,14 @@ func getVisitorByEmail(email string) (map[string]interface{}, error) {
 }
 
 // find category by magento id attribute
-func getCategoryByMagentoId(magentoId int) ([]map[string]interface{}, error) {
+func getCategoryByMagentoID(magentoID int) ([]map[string]interface{}, error) {
 	var result []map[string]interface{}
 
-	if (magentoId == 0) {
+	if (magentoID == 0) {
 		if ConstMagentoLog || ConstDebugLog {
-			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "magentoId was not specified")
+			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "magentoID was not specified")
 		}
-		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "5448a7fc-392a-47b1-b242-89d65260c300", "magentoId was not specified")
+		return result, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "5448a7fc-392a-47b1-b242-89d65260c300", "magentoID was not specified")
 	}
 
 	dbEngine := db.GetDBEngine()
@@ -439,7 +439,7 @@ func getCategoryByMagentoId(magentoId int) ([]map[string]interface{}, error) {
 		return result, env.ErrorDispatch(err)
 	}
 
-	err = categoryCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoId))
+	err = categoryCollectionModel.AddFilter("magento_id", "=", utils.InterfaceToInt(magentoID))
 	if err != nil {
 		if ConstMagentoLog || ConstDebugLog {
 			env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
@@ -480,7 +480,7 @@ func getDataFromContext(context api.InterfaceApplicationContext) ([]interface{},
 	return jsonResponse, nil
 }
 
-// add addresses to customer
+// addCustomerAddresses - add addresses to customer
 func addCustomerAddresses(addresses []interface{}, visitorModel visitor.InterfaceVisitor) bool {
 
 	for _, addresse := range addresses {
@@ -538,7 +538,7 @@ func addCustomerAddresses(addresses []interface{}, visitorModel visitor.Interfac
 
 }
 
-// add products to order
+// addItemsToOrder - add products to order
 func addItemsToOrder(items []interface{}, orderModel order.InterfaceOrder) error {
 
 	idx := 1
@@ -553,7 +553,7 @@ func addItemsToOrder(items []interface{}, orderModel order.InterfaceOrder) error
 			return env.ErrorDispatch(err)
 		}
 
-		productData, err := getProductByMagentoId(utils.InterfaceToInt(itemData["product_id"]))
+		productData, err := getProductByMagentoID(utils.InterfaceToInt(itemData["product_id"]))
 		if len(productData) == 0 || err != nil {
 
 			if ConstMagentoLog || ConstDebugLog {
@@ -583,7 +583,7 @@ func addItemsToOrder(items []interface{}, orderModel order.InterfaceOrder) error
 	return nil
 }
 
-// add images to product
+// AddImagesToProduct - add images to product
 func AddImagesToProduct(images []interface{}, productModel product.InterfaceProduct) error {
 
 	for _, image := range images {
@@ -602,17 +602,17 @@ func AddImagesToProduct(images []interface{}, productModel product.InterfaceProd
 	return nil
 }
 
-// add product to categories
+// AddProductToCategories - add product to categories
 func AddProductToCategories(categories []interface{}, productModel product.InterfaceProduct) error {
 
-	for _, categoryId := range categories {
-		categoryData, err := getCategoryByMagentoId(utils.InterfaceToInt(categoryId))
+	for _, categoryID := range categories {
+		categoryData, err := getCategoryByMagentoID(utils.InterfaceToInt(categoryID))
 		if len(categoryData) != 1 {
 
 			if ConstMagentoLog || ConstDebugLog {
-				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "Category does not exist with magento_id:"+utils.InterfaceToString(categoryId))
+				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, "Category does not exist with magento_id:"+utils.InterfaceToString(categoryID))
 			}
-			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "8fdadaac-88ed-4204-9697-8505b0375b4b", "Category does not exist with magento_id:"+utils.InterfaceToString(categoryId))
+			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "8fdadaac-88ed-4204-9697-8505b0375b4b", "Category does not exist with magento_id:"+utils.InterfaceToString(categoryID))
 			continue
 		}
 
@@ -631,7 +631,7 @@ func AddProductToCategories(categories []interface{}, productModel product.Inter
 	return nil
 }
 
-func generateMagentoApiData() (map[string]interface{}, error) {
+func generateMagentoAPIData() (map[string]interface{}, error) {
 	var foundationURL = utils.InterfaceToString(env.ConfigGetValue(app.ConstConfigPathFoundationURL))
 	if foundationURL == "" {
 		return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "e6b45640-7ab4-4a7a-bcf9-7a873c42ec36", "Foundation URL empty")
@@ -649,6 +649,7 @@ func generateMagentoApiData() (map[string]interface{}, error) {
 	return result, nil
 }
 
+// IsMagentoHandler returns middleware API Handler that checks magento import rights
 func IsMagentoHandler(next api.FuncAPIHandler) api.FuncAPIHandler {
 	return func(context api.InterfaceApplicationContext) (interface{}, error) {
 		err := ValidateMagentoRights(context)
@@ -662,6 +663,7 @@ func IsMagentoHandler(next api.FuncAPIHandler) api.FuncAPIHandler {
 	}
 }
 
+// ValidateMagentoRights returns nil if context have correct api_key
 func ValidateMagentoRights(context api.InterfaceApplicationContext) error {
 	requestData, err := api.GetRequestContentAsMap(context)
 	if err != nil {
@@ -670,7 +672,7 @@ func ValidateMagentoRights(context api.InterfaceApplicationContext) error {
 
 	if utils.KeysInMapAndNotBlank(requestData, ConstGETApiKeyParamName) {
 		apiKey := utils.InterfaceToString(requestData[ConstGETApiKeyParamName])
-		data, err := generateMagentoApiData()
+		data, err := generateMagentoAPIData()
 		if err == nil && data["api_key"] == apiKey {
 			return nil
 		}
@@ -679,11 +681,11 @@ func ValidateMagentoRights(context api.InterfaceApplicationContext) error {
 	return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "8afbaca6-e1ec-435a-8208-d427ceb05d71", "Forbidden")
 }
 
-// add seo data to product
-func AddProductSEO(productId string, url string, title string, meta_keywords string, meta_description string) (interface{}, error) {
+// AddProductSEO - add seo data to product
+func AddProductSEO(productID string, url string, title string, metaKeywords string, metaDescription string) (interface{}, error) {
 
 	valueURL := utils.InterfaceToString(url)
-	valueRewrite := utils.InterfaceToString(productId)
+	valueRewrite := utils.InterfaceToString(productID)
 
 	// looking for duplicated 'url'
 	//-----------------------------
@@ -712,8 +714,8 @@ func AddProductSEO(productId string, url string, title string, meta_keywords str
 		"type":             "product",
 		"rewrite":          valueRewrite,
 		"title":            title,
-		"meta_keywords":    meta_keywords,
-		"meta_description": meta_description,
+		"meta_keywords":    metaKeywords,
+		"meta_description": metaDescription,
 	}
 
 	newID, err := collection.Save(newRecord)
@@ -726,7 +728,7 @@ func AddProductSEO(productId string, url string, title string, meta_keywords str
 	return newRecord, nil
 }
 
-// enable stock
+// EnableStock - enable stock
 func EnableStock() error {
 	config := env.GetConfig()
 

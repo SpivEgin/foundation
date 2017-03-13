@@ -1,4 +1,4 @@
-// Package impex is a implementation of import/export service
+// Package magento is a implementation of import magento data service
 package magento
 
 import (

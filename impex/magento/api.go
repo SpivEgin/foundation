@@ -34,7 +34,7 @@ func setupAPI() error {
 }
 
 func magentoOptionsRequest(context api.InterfaceApplicationContext) (interface{}, error) {
-	return generateMagentoApiData()
+	return generateMagentoAPIData()
 }
 
 func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}, error) {
@@ -50,7 +50,7 @@ func magentoVisitorRequest(context api.InterfaceApplicationContext) (interface{}
 		return nil, env.ErrorDispatch(err)
 	}
 
-	createMagentoIdAttributeToVisitor()
+	createMagentoIDAttributeToVisitor()
 	var count int
 
 	for _, value := range jsonResponse {
@@ -152,7 +152,7 @@ func magentoCategoryRequest(context api.InterfaceApplicationContext) (interface{
 		}
 
 		if utils.InterfaceToInt(v["parent_id"]) > 0 {
-			rowData, err := getCategoryByMagentoId(utils.InterfaceToInt(v["parent_id"]))
+			rowData, err := getCategoryByMagentoID(utils.InterfaceToInt(v["parent_id"]))
 			if err != nil {
 				if ConstMagentoLog || ConstDebugLog {
 					env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
@@ -222,9 +222,9 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			return nil, env.ErrorDispatch(err)
 		}
 		v := utils.InterfaceToMap(value)
-		visitorId := ""
+		visitorID := ""
 		// todo visitor
-		visitorData, err := getVisitorByMagentoId(utils.InterfaceToInt(v["customer_id"]))
+		visitorData, err := getVisitorByMagentoID(utils.InterfaceToInt(v["customer_id"]))
 		if err != nil {
 			if ConstMagentoLog || ConstDebugLog {
 				env.Log(ConstLogFileName, env.ConstLogPrefixDebug, fmt.Sprintf("Error: %s", err.Error()))
@@ -236,7 +236,7 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			visitorDataArray := utils.InterfaceToArray(visitorData)[0]
 
 			visitorDataMap := utils.InterfaceToMap(visitorDataArray)
-			visitorId = utils.InterfaceToString(visitorDataMap["_id"])
+			visitorID = utils.InterfaceToString(visitorDataMap["_id"])
 		}
 
 		// get state code
@@ -251,7 +251,7 @@ func magentoOrderRequest(context api.InterfaceApplicationContext) (interface{}, 
 			"subtotal":        utils.InterfaceToFloat64(v["subtotal"]),
 			"tax_amount":      utils.InterfaceToFloat64(v["tax_amount"]),
 			"discount":        utils.InterfaceToFloat64(v["discount_amount"]),
-			"visitor_id":      visitorId,
+			"visitor_id":      visitorID,
 			"created_at":      time.Now(),
 		}
 
@@ -328,7 +328,7 @@ func magentoProductAttributesRequest(context api.InterfaceApplicationContext) (i
 	}
 	//fmt.Println(jsonResponse)
 
-	createMagentoIdAttributeToProduct()
+	createMagentoIDAttributeToProduct()
 
 	dataTypeMap := map[string]interface{}{
 		"boolean":     utils.ConstDataTypeBoolean,
@@ -462,7 +462,7 @@ func magentoProductRequest(context api.InterfaceApplicationContext) (interface{}
 			return nil, env.ErrorDispatch(err)
 		}
 
-		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["entity_id"]))
+		productData, err := getProductByMagentoID(utils.InterfaceToInt(v["entity_id"]))
 		if len(productData) == 1 && err == nil {
 			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "02f31b09-c0ae-493a-9202-65cf7ee92177", "Product exists with magento_id:"+utils.InterfaceToString(v["product_id"]))
 			continue
@@ -537,7 +537,7 @@ func magentoStockRequest(context api.InterfaceApplicationContext) (interface{}, 
 			return nil, env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "90bef837-a41c-4a9b-a071-8547be5ba966", "no registered stock manager")
 		}
 
-		productData, err := getProductByMagentoId(utils.InterfaceToInt(v["product_id"]))
+		productData, err := getProductByMagentoID(utils.InterfaceToInt(v["product_id"]))
 		if len(productData) == 0 || err != nil {
 			env.ErrorNew(ConstErrorModule, env.ConstErrorLevelAPI, "d37e7a80-4d8d-41cf-a2f5-55c0af7fa2e6", "Product does not exist with magento_id:"+utils.InterfaceToString(v["product_id"]))
 			continue
