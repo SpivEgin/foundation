@@ -12,6 +12,7 @@ import (
 	"github.com/ottemo/foundation/utils"
 
 	"github.com/ottemo/foundation/app/models"
+	"github.com/ottemo/foundation/app/models/blog/post"
 	"github.com/ottemo/foundation/app/models/category"
 	"github.com/ottemo/foundation/app/models/cms"
 	"github.com/ottemo/foundation/app/models/product"
@@ -148,6 +149,30 @@ func APIGetSEOItem(context api.InterfaceApplicationContext) (interface{}, error)
 	if err != nil {
 		context.SetResponseStatusInternalServerError()
 		return nil, env.ErrorDispatch(err)
+	}
+
+	if len(records) == 0 {
+		return make([]map[string]interface{}, 0), nil
+	}
+
+	typeValue, present := records[0]["type"]
+	if !present || utils.InterfaceToString(typeValue) == "" {
+		return make([]map[string]interface{}, 0), nil
+	}
+
+	objectRow, err := GetObjectDataBySeoTypeAndId(utils.InterfaceToString(typeValue), utils.InterfaceToString(records[0]["rewrite"]))
+
+	if err != nil {
+		context.SetResponseStatusInternalServerError()
+		return nil, env.ErrorDispatch(err)
+	}
+
+	if len(objectRow) == 0 {
+		return make([]map[string]interface{}, 0), nil
+	}
+
+	if enabledValue, present := objectRow["enabled"]; present && utils.InterfaceToBool(enabledValue) == false {
+		return make([]map[string]interface{}, 0), nil
 	}
 
 	return records, nil
@@ -347,7 +372,7 @@ func APIGetSitemap(context api.InterfaceApplicationContext) (interface{}, error)
 		context.SetResponseStatusInternalServerError()
 		return nil, env.ErrorDispatch(err)
 	}
-	defer func(c io.Closer){
+	defer func(c io.Closer) {
 		if err := c.Close(); err != nil {
 			_ = env.ErrorNew(ConstErrorModule, ConstErrorLevel, "b9b14fb0-43c6-434c-b075-f73428e9285e", err.Error())
 		}
@@ -396,7 +421,7 @@ func APIGenerateSitemap(context api.InterfaceApplicationContext) (interface{}, e
 		context.SetResponseStatusInternalServerError()
 		return nil, env.ErrorDispatch(err)
 	}
-	defer func(c io.Closer){
+	defer func(c io.Closer) {
 		if err := c.Close(); err != nil {
 			_ = env.ErrorNew(ConstErrorModule, ConstErrorLevel, "5a85194f-7963-42a2-9d07-c97c463ae66b", err.Error())
 		}
@@ -519,4 +544,24 @@ func APIGenerateSitemap(context api.InterfaceApplicationContext) (interface{}, e
 	writeLine([]byte("</urlset>"))
 
 	return nil, nil
+}
+
+// GetObjectDataBySeoTypeAndId - get object data by type and id
+func GetObjectDataBySeoTypeAndId(typeValue string, id string) (map[string]interface{}, error) {
+
+	if typeValue == "category" {
+		data, err := category.LoadCategoryByID(id)
+		return data.ToHashMap(), err
+	} else if typeValue == "product" {
+		data, err := product.LoadProductByID(id)
+		return data.ToHashMap(), err
+	} else if typeValue == "post" {
+		data, err := post.LoadBlogPostByID(id)
+		return data.ToHashMap(), err
+	} else if typeValue == "page" {
+		data, err := cms.LoadCMSPageByID(id)
+		return data.ToHashMap(), err
+	}
+
+	return nil, env.ErrorNew(ConstErrorModule, ConstErrorLevel, "3902720b-ad39-4b17-a8bc-d80989147808", "Object not found")
 }

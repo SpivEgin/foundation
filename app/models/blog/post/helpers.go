@@ -20,3 +20,19 @@ func GetBlogPostModel() (InterfaceBlogPost, error) {
 
 	return blogPostModel, nil
 }
+
+// LoadBlogPostByID loads blogPost data into current InterfaceBlogPost model implementation
+func LoadBlogPostByID(postID string) (InterfaceBlogPost, error) {
+
+	blogPostModel, err := GetBlogPostModel()
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	err = blogPostModel.Load(postID)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
+	return blogPostModel, nil
+}
