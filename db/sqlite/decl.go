@@ -34,12 +34,33 @@ var (
 	ConstSQLNameValidator = regexp.MustCompile("^[A-Za-z_][A-Za-z0-9_]*$")
 )
 
+// StructDBFilterValue is a structure to hold information of filter params
+type StructDBFilterValue struct {
+	ColumnName string
+	Operator string
+	Value interface{}
+}
+
 // StructDBFilterGroup is a structure to hold information of named collection filter
 type StructDBFilterGroup struct {
 	Name         string
-	FilterValues []string
+	FilterValues []StructDBFilterValue
 	ParentGroup  string
 	OrSequence   bool
+}
+
+// StructJoinConstraintOn is a structure to hold information of join ON relations
+type StructJoinConstraintOn struct {
+	LeftColumn string
+	RightColumn string
+}
+
+// StructDBJoinClause is a structure to hold information of join params
+type StructDBJoinClause struct {
+	Name           string
+	CollectionName string
+	ResultColumns  []string
+	ConstraintsOn  []StructJoinConstraintOn
 }
 
 // DBCollection is a InterfaceDBCollection implementer
@@ -48,6 +69,7 @@ type DBCollection struct {
 
 	ResultColumns []string
 	FilterGroups  map[string]*StructDBFilterGroup
+	JoinClausePtrs   []*StructDBJoinClause
 	Order         []string
 
 	Limit string

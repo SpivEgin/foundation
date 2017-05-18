@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	sqlite3 "github.com/mxk/go-sqlite/sqlite3"
+	"github.com/mxk/go-sqlite/sqlite3"
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
 	"github.com/ottemo/foundation/utils"
@@ -16,6 +16,11 @@ import (
 // makes SQL filter string based on ColumnName, Operator and Value parameters or returns nil
 //   - internal usage function for AddFilter and AddStaticFilter routines
 func (it *DBCollection) makeSQLFilterString(ColumnName string, Operator string, Value interface{}) (string, error) {
+	tablePrefix := ""
+	if len(it.JoinClausePtrs) > 0 {
+		tablePrefix = "`" + it.Name + "`."
+	}
+
 	if !it.HasColumn(ColumnName) {
 		return "", env.ErrorNew(ConstErrorModule, ConstErrorLevel, "51a0ae66-a5fe-4db3-9c5f-6b55f196f714", "can't find column '"+ColumnName+"'")
 	}
@@ -32,7 +37,7 @@ func (it *DBCollection) makeSQLFilterString(ColumnName string, Operator string, 
 	// array column - special case
 	if strings.HasPrefix(columnType, "[]") {
 		value := strings.Trim(convertValueForSQL(Value), "'")
-		template := "(', ' || `" + ColumnName + "` || ',') LIKE '%, $value,%'"
+		template := "(', ' || `" + tablePrefix + ColumnName + "` || ',') LIKE '%, $value,%'"
 
 		var resultItems []string
 		for _, arrayItem := range strings.Split(value, ", ") {
@@ -76,12 +81,12 @@ func (it *DBCollection) makeSQLFilterString(ColumnName string, Operator string, 
 	default:
 		Value = convertValueForSQL(Value)
 	}
-	return "`" + ColumnName + "` " + Operator + " " + utils.InterfaceToString(Value), nil
+	return tablePrefix + "`" + ColumnName + "` " + Operator + " " + utils.InterfaceToString(Value), nil
 }
 
 // returns SQL select statement for current collection
 func (it *DBCollection) getSelectSQL() string {
-	SQL := "SELECT " + it.getSQLResultColumns() + " FROM " + it.Name + it.getSQLFilters() + it.getSQLOrder() + it.Limit
+	SQL := "SELECT " + it.getSQLResultColumns() + " FROM `" + it.Name + "`" + it.getSQLJoinClause() + it.getSQLFilters() + it.getSQLOrder() + it.Limit
 	return SQL
 }
 
@@ -108,9 +113,23 @@ func (it *DBCollection) modifyResultRow(row sqlite3.RowMap) sqlite3.RowMap {
 
 // joins result columns in string
 func (it *DBCollection) getSQLResultColumns() string {
-	sqlColumns := "`" + strings.Join(it.ResultColumns, "`, `") + "`"
-	if sqlColumns == "``" {
-		sqlColumns = "*"
+	tablePrefix := ""
+	if len(it.JoinClausePtrs) > 0 {
+		tablePrefix = "`" + it.Name + "`."
+	}
+
+	sqlColumns := tablePrefix + "`" + strings.Join(it.ResultColumns, "`, " + tablePrefix + "`") + "`"
+	if len(it.ResultColumns) == 0 {
+		sqlColumns = tablePrefix + "*"
+	}
+
+	if len(it.JoinClausePtrs) > 0 {
+		for _, joinClausePtr := range(it.JoinClausePtrs) {
+			for _, columnName := range(joinClausePtr.ResultColumns) {
+				sqlColumns += ", `" + joinClausePtr.CollectionName + "`.`" + columnName + "`"
+				sqlColumns += " as `" + joinClausePtr.CollectionName + "_" + columnName + "`"
+			}
+		}
 	}
 
 	return sqlColumns
@@ -128,10 +147,29 @@ func (it *DBCollection) getSQLOrder() string {
 
 // collects all filters in a single string (for internal usage)
 func (it *DBCollection) getSQLFilters() string {
+	tableName := ""
+	if len(it.JoinClausePtrs) > 0 {
+		tableName = it.Name + "."
+	}
+	_ = tableName
 
-	var collectSubfilters func(string) []string
+	var makeSQLFilterStrings = func(filters []StructDBFilterValue) ([]string, error) {
+		result := []string{}
 
-	collectSubfilters = func(parentGroupName string) []string {
+		for _, filter := range filters {
+			sqlFilter, err := it.makeSQLFilterString(filter.ColumnName, filter.Operator, filter.Value)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, sqlFilter)
+		}
+
+		return result, nil
+	}
+
+	var collectSubfilters func(string) ([]string, error)
+
+	collectSubfilters = func(parentGroupName string) ([]string, error) {
 		var result []string
 
 		for filterGroupName, filterGroup := range it.FilterGroups {
@@ -140,8 +178,15 @@ func (it *DBCollection) getSQLFilters() string {
 				if filterGroup.OrSequence {
 					joinOperator = " OR "
 				}
-				subFilters := collectSubfilters(filterGroupName)
-				subFilters = append(subFilters, filterGroup.FilterValues...)
+				subFilters, err := collectSubfilters(filterGroupName)
+				if err != nil {
+					return nil, err
+				}
+				sqlFilterStrs, err := makeSQLFilterStrings(filterGroup.FilterValues)
+				if err != nil {
+					return nil, err
+				}
+				subFilters = append(subFilters, sqlFilterStrs...)
 				filterValue := strings.Join(subFilters, joinOperator)
 				if len(subFilters) > 1 {
 					filterValue = "(" + filterValue + ")"
@@ -150,10 +195,14 @@ func (it *DBCollection) getSQLFilters() string {
 			}
 		}
 
-		return result
+		return result, nil
 	}
 
-	sqlFilters := strings.Join(collectSubfilters(""), " AND ")
+	collectedSubfilters, err := collectSubfilters("")
+	if err != nil {
+		return ""
+	}
+	sqlFilters := strings.Join(collectedSubfilters, " AND ")
 	if sqlFilters != "" {
 		sqlFilters = " WHERE " + sqlFilters
 	}
@@ -165,7 +214,7 @@ func (it *DBCollection) getSQLFilters() string {
 func (it *DBCollection) getFilterGroup(groupName string) *StructDBFilterGroup {
 	filterGroup, present := it.FilterGroups[groupName]
 	if !present {
-		filterGroup = &StructDBFilterGroup{Name: groupName, FilterValues: make([]string, 0)}
+		filterGroup = &StructDBFilterGroup{Name: groupName, FilterValues: make([]StructDBFilterValue, 0)}
 		it.FilterGroups[groupName] = filterGroup
 	}
 	return filterGroup
@@ -178,13 +227,12 @@ func (it *DBCollection) updateFilterGroup(groupName string, columnName string, o
 		return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "e9e9c8c2-39bd-48b5-9fd6-5929b9bf30f5", "not existing column " + columnName)
 	}*/
 
-	newValue, err := it.makeSQLFilterString(columnName, operator, value)
-	if err != nil {
-		return err
-	}
-
 	filterGroup := it.getFilterGroup(groupName)
-	filterGroup.FilterValues = append(filterGroup.FilterValues, newValue)
+	filterGroup.FilterValues = append(filterGroup.FilterValues, StructDBFilterValue{
+		ColumnName: columnName,
+		Operator: operator,
+		Value: value,
+	})
 
 	return nil
 }
@@ -207,4 +255,33 @@ func (it *DBCollection) makeUUID(id string) string {
 	}
 
 	return id
+}
+
+// getSQLJoinClause composes SQL JOIN clause
+func (it *DBCollection) getSQLJoinClause() string {
+	result := ""
+	for _, joinClausePtr := range it.JoinClausePtrs {
+		result += " LEFT JOIN `" + joinClausePtr.CollectionName + "` ON"
+
+		for constraintIdx, constraintOn := range joinClausePtr.ConstraintsOn {
+			if constraintIdx > 0 {
+				result += " AND"
+			}
+			result += " `" + it.Name + "`.`" + constraintOn.LeftColumn + "`"
+			result += "=`" + joinClausePtr.CollectionName + "`.`" + constraintOn.RightColumn + "`"
+		}
+	}
+
+	return result
+}
+
+// getJoinClause returns associated JOIN clause by name
+func (it *DBCollection) getJoinClause(name string) *StructDBJoinClause {
+	for _, joinClausePtr := range it.JoinClausePtrs {
+		if joinClausePtr.Name == name {
+			return joinClausePtr
+		}
+	}
+
+	return nil
 }

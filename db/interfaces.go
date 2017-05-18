@@ -72,6 +72,9 @@ type InterfaceDBCollection interface {
 
 	AddColumn(columnName string, columnType string, indexed bool) error
 	RemoveColumn(columnName string) error
+
+	AddJoinClause(groupName, collectionName string, columns []string) error
+	AddJoinConstraintOn(name, leftColumn, rightColumn string) error
 }
 
 // InterfaceDBConnector interface to connect to database and keep connection alive

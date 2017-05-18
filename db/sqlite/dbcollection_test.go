@@ -136,7 +136,7 @@ func (it *testContext) SetSession(session api.InterfaceSession) error {
 //
 //--------------------------------------------------------------------------------------------------------------
 
-func TestApplyFilters(t *testing.T) {
+func testApplyFilters(t *testing.T) {
 	var err error
 
 	// init session
@@ -230,5 +230,35 @@ func TestApplyFilters(t *testing.T) {
 
 	for _, SQL := range sqls {
 		fmt.Println(SQL)
+	}
+}
+
+func TestJoinSQL(t *testing.T) {
+	var dbCollection = &DBCollection{
+		Name: "A",
+	}
+
+	if err := dbCollection.AddJoinClause("joinB", "B", []string{"b3"}); err != nil {
+		t.Error("Can't AddJoinClause", err)
+	}
+
+	if err := dbCollection.AddJoinConstraintOn("joinB", "a1", "b1"); err != nil {
+		t.Error("Can't AddJoinConstraintOn", err)
+	}
+
+	if err := dbCollection.AddJoinConstraintOn("joinB", "a2", "b2"); err != nil {
+		t.Error("Can't AddJoinConstraintOn", err)
+	}
+
+	sqlJoin := dbCollection.getSQLJoinClause()
+	expected := " LEFT JOIN `B` ON `A`.`a1`=`B`.`b1` AND `A`.`a2`=`B`.`b2`"
+	if sqlJoin != expected {
+		t.Errorf("Expected JOIN SQL \n[%s]\n got \n[%s]", expected, sqlJoin)
+	}
+
+	sqlSelect := dbCollection.getSelectSQL()
+	expected = "SELECT `A`.*, `B`.`b3` as `B_b3` FROM `A` LEFT JOIN `B` ON `A`.`a1`=`B`.`b1` AND `A`.`a2`=`B`.`b2`"
+	if sqlSelect != expected {
+		t.Errorf("Expected SELECT SQL \n[%s]\n got \n[%s]", expected, sqlSelect)
 	}
 }

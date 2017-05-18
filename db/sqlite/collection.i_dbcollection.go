@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	sqlite3 "github.com/mxk/go-sqlite/sqlite3"
+	"github.com/mxk/go-sqlite/sqlite3"
 	"github.com/ottemo/foundation/db"
 	"github.com/ottemo/foundation/env"
 )
@@ -93,7 +93,7 @@ func (it *DBCollection) Distinct(columnName string) ([]interface{}, error) {
 		_ = env.ErrorDispatch(err)
 	}
 
-	SQL := "SELECT DISTINCT " + it.getSQLResultColumns() + " FROM " + it.Name + it.getSQLFilters() + it.getSQLOrder() + it.Limit
+	SQL := "SELECT DISTINCT " + it.getSQLResultColumns() + " FROM `" + it.Name + "`" + it.getSQLJoinClause() + it.getSQLFilters() + it.getSQLOrder() + it.Limit
 
 	it.ResultColumns = prevResultColumns
 
@@ -640,6 +640,36 @@ func (it *DBCollection) RemoveColumn(columnName string) error {
 	}
 
 	it.ListColumns()
+
+	return nil
+}
+
+// AddJoinClause adds new join clause for collection
+func (it *DBCollection) AddJoinClause(name, collectionName string, columns []string) error {
+	joinClausePtr := it.getJoinClause(name)
+	if joinClausePtr == nil {
+		joinClausePtr = &StructDBJoinClause{
+			Name: name,
+			CollectionName: collectionName,
+			ResultColumns: columns,
+		}
+		it.JoinClausePtrs = append(it.JoinClausePtrs, joinClausePtr)
+	}
+
+	return nil
+}
+
+// AddJoinConstraintOn adds ON relation to JOIN clause
+func (it *DBCollection) AddJoinConstraintOn(name, leftColumn, rightColumn string) error {
+	joinClausePtr := it.getJoinClause(name)
+	if joinClausePtr == nil {
+		return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "a3861ef9-d775-425b-8a9e-b94e400f95b8", "invalid join clause '"+name+"'")
+	}
+
+	joinClausePtr.ConstraintsOn = append(joinClausePtr.ConstraintsOn, StructJoinConstraintOn{
+		LeftColumn: leftColumn,
+		RightColumn: rightColumn,
+	})
 
 	return nil
 }
