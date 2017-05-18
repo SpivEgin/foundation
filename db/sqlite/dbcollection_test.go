@@ -136,7 +136,7 @@ func (it *testContext) SetSession(session api.InterfaceSession) error {
 //
 //--------------------------------------------------------------------------------------------------------------
 
-func testApplyFilters(t *testing.T) {
+func TestApplyFilters(t *testing.T) {
 	var err error
 
 	// init session
