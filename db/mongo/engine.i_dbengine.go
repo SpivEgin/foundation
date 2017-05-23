@@ -55,6 +55,7 @@ func (it *DBEngine) GetCollection(CollectionName string) (db.InterfaceDBCollecti
 		ResultAttributes: make([]string, 0),
 		database:         it.database,
 		collection:       mgoCollection,
+		Sort: 	  	  make([]StructDBSortItem, 0),
 	}
 
 	return result, nil

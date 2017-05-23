@@ -24,19 +24,31 @@ func (it *DBCollection) LoadByID(id string) (map[string]interface{}, error) {
 
 // Load loads records from DB for current collection and filter if it set
 func (it *DBCollection) Load() ([]map[string]interface{}, error) {
+	var resultRows []map[string]interface{}
+
+	pipeline := it.preparePipeline()
+	err := it.collection.Pipe(pipeline).All(&resultRows)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
 	var result []map[string]interface{}
 
-	err := it.prepareQuery().All(&result)
+	for _, row := range(resultRows) {
+		result = append(result, it.modifyResultRow(row))
+	}
 
-	return result, env.ErrorDispatch(err)
+	return result, nil
 }
 
 // Iterate applies [iterator] function to each record, stops on return false
 func (it *DBCollection) Iterate(iteratorFunc func(record map[string]interface{}) bool) error {
 	record := make(map[string]interface{})
 
-	iterator := it.prepareQuery().Iter()
+	iterator := it.collection.Pipe(it.preparePipeline()).Iter()
 	for iterator.Next(&record) {
+		it.modifyResultRow(record)
+
 		proceed := iteratorFunc(record)
 
 		if !proceed {
@@ -57,11 +69,25 @@ func (it *DBCollection) Count() (int, error) {
 
 // Distinct returns distinct values of specified attribute
 func (it *DBCollection) Distinct(columnName string) ([]interface{}, error) {
+	var resultRows []interface{}
+
+	pipeline := it.preparePipeline()
+	pipeline = append(pipeline, bson.M{"$unwind": "$"+columnName})
+	pipeline = append(pipeline, bson.M{"$group": bson.M{"_id": "$"+columnName}})
+	err := it.collection.Pipe(pipeline).All(&resultRows)
+	if err != nil {
+		return nil, env.ErrorDispatch(err)
+	}
+
 	var result []interface{}
 
-	err := it.prepareQuery().Distinct(columnName, &result)
+	for _, row := range(resultRows) {
+		if rowMap, ok := row.(bson.M); ok {
+			result = append(result, rowMap["_id"])
+		}
+	}
 
-	return result, env.ErrorDispatch(err)
+	return result, nil
 }
 
 // Save stores record in DB for current collection
@@ -179,17 +205,13 @@ func (it *DBCollection) ClearFilters() error {
 
 // AddSort adds sorting for current collection
 func (it *DBCollection) AddSort(ColumnName string, Desc bool) error {
-	if Desc {
-		it.Sort = append(it.Sort, "-"+ColumnName)
-	} else {
-		it.Sort = append(it.Sort, ColumnName)
-	}
+	it.Sort = append(it.Sort, StructDBSortItem{FieldName: ColumnName, Desc: Desc})
 	return nil
 }
 
 // ClearSort removes any sorting that was set for current collection
 func (it *DBCollection) ClearSort() error {
-	it.Sort = make([]string, 0)
+	it.Sort = make([]StructDBSortItem, 0)
 	return nil
 }
 
@@ -328,3 +350,34 @@ func (it *DBCollection) RemoveColumn(ColumnName string) error {
 
 	return nil
 }
+
+// AddJoinClause adds new join clause for collection
+func (it *DBCollection) AddJoinClause(groupName, collectionName string, columns []string) error {
+	joinClausePtr := it.getJoinClause(groupName)
+	if joinClausePtr == nil {
+		joinClausePtr = &StructDBJoinClause{
+			Name: groupName,
+			CollectionName: collectionName,
+			ResultColumns: columns,
+		}
+		it.JoinClausePtrs = append(it.JoinClausePtrs, joinClausePtr)
+	}
+
+	return nil
+}
+
+// AddJoinConstraintOn adds fields relation to Join clause
+func (it *DBCollection) AddJoinConstraintOn(name, leftColumn, rightColumn string) error {
+	joinClausePtr := it.getJoinClause(name)
+	if joinClausePtr == nil {
+		return env.ErrorNew(ConstErrorModule, ConstErrorLevel, "885c8980-28ec-4252-a4cd-09e58c3a6d94", "invalid join clause '"+name+"'")
+	}
+
+	joinClausePtr.ConstraintsOn = append(joinClausePtr.ConstraintsOn, StructJoinConstraintOn{
+		LeftColumn: leftColumn,
+		RightColumn: rightColumn,
+	})
+
+	return nil
+}
+

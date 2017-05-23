@@ -220,9 +220,7 @@ func (it *DBCollection) prepareQuery() *mgo.Query {
 	}
 	query := it.collection.Find(selector)
 
-	if len(it.Sort) > 0 {
-		query.Sort(it.Sort...)
-	}
+	it.querySetSort(query)
 
 	if it.Offset > 0 {
 		query = query.Skip(it.Offset)
@@ -238,4 +236,116 @@ func (it *DBCollection) prepareQuery() *mgo.Query {
 	}
 
 	return query
+}
+
+// querySetSort set sort parameters to mgo query
+func (it *DBCollection) querySetSort(queryPtr *mgo.Query) {
+	sortFields := []string{}
+	for _, sortOption := range(it.Sort) {
+		sortField := sortOption.FieldName
+		if sortOption.Desc {
+			sortField = "-" + sortField
+		}
+		sortFields = append(sortFields, sortField)
+	}
+	if len(sortFields) > 0 {
+		(*queryPtr).Sort(sortFields...)
+	}
+}
+
+// preparePipeline prepares pipeline for aggregate "query"
+func (it *DBCollection) preparePipeline() []bson.M {
+	selector := it.makeSelector()
+	if ConstMongoDebug {
+		env.Log("mongo.log", env.ConstLogPrefixDebug, it.Name+": "+BsonDToString(selector))
+	}
+
+	pipeline := []bson.M{}
+
+	if len(selector) > 0 {
+		pipeline = append(pipeline, bson.M{"$match": selector})
+	}
+
+	it.pipelineAppendJoin(&pipeline)
+
+	it.pipelineAppendSort(&pipeline)
+
+	if it.Offset > 0 {
+		pipeline = append(pipeline, bson.M{"$skip": it.Offset})
+	}
+	if it.Limit > 0 {
+		pipeline = append(pipeline, bson.M{"$limit": it.Limit})
+	}
+
+	for idx, subCollection := range it.subcollections {
+		if err := subCollection.prepareQuery().Distinct(subCollection.ResultAttributes[0], it.subresults[idx]); err != nil {
+			_ = env.ErrorDispatch(err)
+		}
+	}
+
+	return pipeline
+}
+
+// pipelineAppendSort appends sort params to pipeline
+func (it *DBCollection) pipelineAppendSort(pipelinePtr *[]bson.M) {
+	sortMap := map[string]interface{}{}
+	for _, sortOption := range(it.Sort) {
+		sortOrder := 1
+		if sortOption.Desc {
+			sortOrder = -1
+		}
+		sortMap[sortOption.FieldName] = sortOrder
+	}
+
+	if len(sortMap) > 0 {
+		(*pipelinePtr) = append((*pipelinePtr), bson.M{"$sort": sortMap})
+	}
+}
+
+// pipelineAppendJoin appends JOIN clause to pipeline
+func (it *DBCollection) pipelineAppendJoin(pipelinePtr *[]bson.M) {
+	for _, joinClausePtr := range it.JoinClausePtrs {
+		for _, constraintOn := range joinClausePtr.ConstraintsOn {
+			*pipelinePtr = append(*pipelinePtr, bson.M{"$lookup": map[string]interface{}{
+				"from": joinClausePtr.CollectionName,
+				"localField": constraintOn.LeftColumn,
+				"foreignField": constraintOn.RightColumn,
+				"as": joinClausePtr.CollectionName,
+			}})
+
+			// emulate SQL join multiple lines for each joined line
+			unwindValue := bson.M{
+				"path": "$"+joinClausePtr.CollectionName,
+				"preserveNullAndEmptyArrays": true,
+			}
+			*pipelinePtr = append(*pipelinePtr, bson.M{"$unwind": unwindValue})
+		}
+	}
+}
+
+// getJoinClause returns associated JOIN clause by name
+func (it *DBCollection) getJoinClause(name string) *StructDBJoinClause {
+	for _, joinClausePtr := range it.JoinClausePtrs {
+		if joinClausePtr.Name == name {
+			return joinClausePtr
+		}
+	}
+
+	return nil
+}
+
+// modifyResultRow modifies result row:
+//	- adds fields of joined collection, if set
+func (it *DBCollection) modifyResultRow(row map[string]interface{}) map[string]interface{} {
+	for _, joinClausePtr := range it.JoinClausePtrs {
+		if joinValue, present := row[joinClausePtr.CollectionName]; present {
+			for _, resultColumn := range joinClausePtr.ResultColumns {
+				newFieldName := joinClausePtr.CollectionName+"_"+resultColumn
+				valueMap := utils.InterfaceToMap(joinValue)
+				row[newFieldName] = valueMap[resultColumn]
+			}
+		}
+	}
+
+	return row
 }

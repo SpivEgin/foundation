@@ -39,6 +39,26 @@ type StructDBFilterGroup struct {
 	OrSequence   bool
 }
 
+// StructJoinConstraintOn is a structure to hold information of join ON relations
+type StructJoinConstraintOn struct {
+	LeftColumn  string
+	RightColumn string
+}
+
+// StructDBJoinClause is a structure to hold information of join params
+type StructDBJoinClause struct {
+	Name           string
+	CollectionName string
+	ResultColumns  []string
+	ConstraintsOn  []StructJoinConstraintOn
+}
+
+// StructDBSortItem is a structure to hold information of Sort params
+type StructDBSortItem struct {
+	FieldName string
+	Desc      bool
+}
+
 // DBCollection is a implementer of InterfaceDBCollection
 type DBCollection struct {
 	database   *mgo.Database
@@ -49,9 +69,10 @@ type DBCollection struct {
 
 	Name string
 
-	FilterGroups map[string]*StructDBFilterGroup
+	FilterGroups   map[string]*StructDBFilterGroup
+	JoinClausePtrs []*StructDBJoinClause
 
-	Sort []string
+	Sort []StructDBSortItem
 
 	ResultAttributes []string
 
