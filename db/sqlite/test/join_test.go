@@ -1,5 +1,7 @@
 // These tests moved to separate directory to divide connection to sqlite package test
 // which interferes with this functionality
+
+// go test --tags "sqlite" github.com/ottemo/foundation/db/sqlite/...
 package sqlite_test
 
 import (
