@@ -186,6 +186,10 @@ func (it *DefaultRestService) wrappedHandler(handler api.FuncAPIHandler) httprou
 			err = env.ErrorNew(ConstErrorModule, ConstErrorLevel, "c8a3bbf8-215f-4dff-b0e7-3d0d102ad02d", "Session init fail: "+err.Error())
 			_ = env.ErrorDispatch(err)
 		}
+
+		utils.SyncScalarLock(currentSession.GetID())
+		defer utils.SyncScalarUnlock(currentSession.GetID())
+
 		applicationContext.Session = currentSession
 
 		if utils.InterfaceToBool(env.ConfigGetValue(ConstConfigPathAPILogEnable)) {
@@ -382,7 +386,7 @@ func (it DefaultRestService) ServeHTTP(responseWriter http.ResponseWriter, reque
 	responseWriter.Header().Set("Access-Control-Allow-Origin", request.Header.Get("Origin"))
 	responseWriter.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
 	responseWriter.Header().Set("Access-Control-Allow-Credentials", "true")
-	responseWriter.Header().Set("Access-Control-Allow-Headers", "Content-Type, Cookie, X-Referer, Content-Length, Accept-Encoding, X-CSRF-Token")
+	responseWriter.Header().Set("Access-Control-Allow-Headers", "Content-Type, Cookie, X-Referer, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, "+api.ConstSessionCookieName)
 
 	responseWriter.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate") // HTTP 1.1.
 	responseWriter.Header().Set("Pragma", "no-cache")                                   // HTTP 1.0.
