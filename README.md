@@ -1,24 +1,18 @@
 Ottemo
 =========
 
-built for gophers
+[![Build Status](http://jenkins.ottemo.io/buildStatus/icon?job=build_foundation_docker_image)](http://jenkins.ottemo.io/job/build_foundation_docker_image/)
 
-[![Build Status](https://api.shippable.com/projects/540e7b003479c5ea8f9ebc80/badge)](https://apps.shippable.com/projects/540e7b003479c5ea8f9ebc80/builds/latest)
+a small, wicked fast ecommerce platform built for gophers
 
-[![GoDoc](https://godoc.org/github.com/ottemo/foundation?status.png)](https://godoc.ottemo.io/pkg/github.com/ottemo/foundation)
+## Install and Setup 
 
-## Install and Setup coming....
+coming....
 
-
-### How to proxy foundation with nginx for HTTP/HTTPS traffic
-It is suggested to secure Foundation API Server with SSL.  To offload the
-added work to maintain high performance on Foundation, we will use nginx to
- proxy HTTPS.  In production, only allow connections to Foundation over SSL.
-[This gist](https://gist.github.com/vastbinderj/b5e5fa2acfd199d48fa5) explains
-to create the certificate and configure nginx.
 
 ## License
-[Ottemo Foundation License](https://github.com/ottemo/foundation/blob/master/LICENSE.md)
+
+[Mozilla Publice License 2.0](https://github.com/ottemo/foundation/blob/master/LICENSE)
 
 ## Terms and Conditions
 
@@ -27,4 +21,4 @@ All Submissions you make to Ottemo, Inc. (“Ottemo”) through GitHub are subje
 1. You grant Ottemo a perpetual, worldwide, non-exclusive, no charge, royalty free, irrevocable license under your applicable copyrights and patents to reproduce, prepare derivative works of, display, publicly perform, sublicense and distribute any feedback, ideas, code, or other information (“Submission”) you submit through GitHub.
 2. Your Submission is an original work of authorship and you are the owner or are legally entitled to grant the license stated above.
 
-© 2016 Ottemo, Inc.
+© 2017 Ottemo, Inc.
